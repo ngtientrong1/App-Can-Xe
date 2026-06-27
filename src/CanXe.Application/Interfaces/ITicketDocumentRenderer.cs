@@ -13,7 +13,12 @@ public interface ITicketDocumentRenderer
 
 public sealed class TicketDocumentRenderOptions
 {
-    public string ScaleSiteName { get; set; } = "Bàn cân CanXe";
+    public string ScaleSiteName { get; set; } = "Trạm cân CanXe";
+    public string? OwnerName { get; set; }
+    public string? Address { get; set; }
+    public string? Phone { get; set; }
+    public string? Email { get; set; }
+    public string? TicketFooterText { get; set; }
     public int WidthPx { get; set; } = 794;
     public int FrontHeightPx { get; set; } = 1123;
     public int BackHeightPx { get; set; } = 1123;

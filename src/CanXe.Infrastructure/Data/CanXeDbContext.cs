@@ -14,6 +14,9 @@ public sealed class CanXeDbContext : DbContext
     public DbSet<WeighEvent> WeighEvents => Set<WeighEvent>();
     public DbSet<TicketSequence> TicketSequences => Set<TicketSequence>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<StationSettings> StationSettings => Set<StationSettings>();
+    public DbSet<ScaleDeviceSettings> ScaleDeviceSettings => Set<ScaleDeviceSettings>();
+    public DbSet<CameraDeviceSettings> CameraDeviceSettings => Set<CameraDeviceSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -78,6 +81,23 @@ public sealed class CanXeDbContext : DbContext
         modelBuilder.Entity<TicketSequence>(entity =>
         {
             entity.HasKey(e => new { e.Year, e.Month });
+        });
+
+        modelBuilder.Entity<StationSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.StationName).IsRequired();
+        });
+
+        modelBuilder.Entity<ScaleDeviceSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PortName).IsRequired();
+        });
+
+        modelBuilder.Entity<CameraDeviceSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
         });
     }
 }

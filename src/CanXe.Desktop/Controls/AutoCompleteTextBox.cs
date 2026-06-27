@@ -58,6 +58,20 @@ public class AutoCompleteTextBox : Control
         DependencyProperty.Register(nameof(SelectedItem), typeof(object), typeof(AutoCompleteTextBox),
             new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
 
+    public static readonly DependencyProperty SuppressDropDownProperty =
+        DependencyProperty.Register(nameof(SuppressDropDown), typeof(bool), typeof(AutoCompleteTextBox),
+            new PropertyMetadata(false, static (d, e) =>
+            {
+                if (d is AutoCompleteTextBox box && e.NewValue is true)
+                    box.ClosePopup();
+            }));
+
+    public bool SuppressDropDown
+    {
+        get => (bool)GetValue(SuppressDropDownProperty);
+        set => SetValue(SuppressDropDownProperty, value);
+    }
+
     public static readonly DependencyProperty IsDropDownOpenProperty =
         DependencyProperty.Register(nameof(IsDropDownOpen), typeof(bool), typeof(AutoCompleteTextBox),
             new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
@@ -134,7 +148,7 @@ public class AutoCompleteTextBox : Control
                 HighlightedIndex = -1;
                 UpdatePopupState();
             };
-            _textBox.GotFocus += (_, _) => UpdatePopupState(true);
+            _textBox.GotFocus += (_, _) => ClosePopup();
             _textBox.PreviewKeyDown += OnTextBoxPreviewKeyDown;
             _textBox.LostFocus += (_, e) =>
             {
@@ -287,8 +301,12 @@ public class AutoCompleteTextBox : Control
         _listBox.ScrollIntoView(_listBox.SelectedItem);
     }
 
-    private List<object> GetItems() =>
-        ItemsSource?.Cast<object>().ToList() ?? [];
+    private List<object> GetItems()
+    {
+        var items = ItemsSource?.Cast<object>().ToList() ?? [];
+        var limit = AutocompleteDropDownPolicy.LimitItemCount(items.Count);
+        return items.Take(limit).ToList();
+    }
 
     private bool IsOwnerWindowActive()
     {
@@ -306,12 +324,21 @@ public class AutoCompleteTextBox : Control
 
         var items = GetItems();
         var isFocused = _textBox?.IsFocused == true;
-        var shouldOpen = isFocused && items.Count > 0 &&
-                         (selectFirst || !string.IsNullOrWhiteSpace(Text));
+        var shouldOpen = AutocompleteDropDownPolicy.ShouldOpen(
+            isFocused,
+            Text,
+            items.Count,
+            SuppressDropDown,
+            IsOwnerWindowActive());
 
         IsDropDownOpen = shouldOpen;
-        if (shouldOpen && items.Count > 0)
-            HighlightedIndex = 0;
+        if (shouldOpen)
+        {
+            foreach (var other in ActiveInstances.Where(x => x != this))
+                other.ClosePopup();
+            if (HighlightedIndex < 0 && items.Count > 0)
+                HighlightedIndex = 0;
+        }
         else if (!shouldOpen)
             HighlightedIndex = -1;
     }

@@ -6,6 +6,7 @@ using CanXe.Application.Configuration;
 using CanXe.Application.Interfaces;
 using CanXe.Application.Models;
 using CanXe.Application.Services;
+using CanXe.Domain.Models;
 using CanXe.Domain.Services;
 using CanXe.Desktop.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,6 +22,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly IUiFocusService _focusService;
     private readonly ITicketDocumentRenderer _ticketDocumentRenderer;
     private readonly AppSettings _settings;
+    private readonly AppPaths _appPaths;
 
     private WeighTicketDraft _draft = new();
     private CancellationTokenSource? _customerSearchCts;
@@ -41,7 +43,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         IScaleService scaleService,
         IUiFocusService focusService,
         ITicketDocumentRenderer ticketDocumentRenderer,
-        AppSettings settings)
+        AppSettings settings,
+        SettingsViewModel settingsViewModel,
+        AppPaths appPaths)
     {
         _weighTicketService = weighTicketService;
         _fastEntrySearch = fastEntrySearch;
@@ -49,6 +53,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _focusService = focusService;
         _ticketDocumentRenderer = ticketDocumentRenderer;
         _settings = settings;
+        _appPaths = appPaths;
+        Settings = settingsViewModel;
+        Settings.StationSettingsSaved += (_, dto) => OnStationSettingsSaved(dto);
         _scaleService.WeightChanged += OnScaleWeightChanged;
         IsDeveloperPanelAvailable = string.Equals(settings.DeviceMode, "Simulation", StringComparison.OrdinalIgnoreCase)
                                    && settings.ShowDeveloperPanel;
@@ -84,9 +91,48 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private bool _isWeigh1Enabled = true;
     [ObservableProperty] private bool _isWeigh2Enabled = true;
     [ObservableProperty] private bool _isContinuationMode;
-    [ObservableProperty] private bool _isManualScaleMode;
-    [ObservableProperty] private bool _isCameraPanelVisible;
-    [ObservableProperty] private bool _isDevPanelExpanded;
+    [ObservableProperty] private ScaleInputMode _scaleInputMode = ScaleInputMode.SimulationAutomatic;
+    [ObservableProperty] private bool _isCameraDrawerOpen;
+    [ObservableProperty] private bool _isDevDrawerOpen;
+    [ObservableProperty] private bool _suppressAutocomplete;
+    [ObservableProperty] private bool _isCompactMode;
+    [ObservableProperty] private AppNavigationSection _activeSection = AppNavigationSection.WeighTicket;
+    [ObservableProperty] private string _simulatedWeightText = "18500";
+    [ObservableProperty] private bool _simulateScaleStable = true;
+    [ObservableProperty] private bool _simulateScaleDisconnected;
+    [ObservableProperty] private bool _simulateCameraError;
+    [ObservableProperty] private bool _simulateScaleError;
+
+    public SettingsViewModel Settings { get; }
+
+    public bool IsWeighTicketSectionVisible => ActiveSection == AppNavigationSection.WeighTicket;
+    public bool IsCatalogSectionVisible => ActiveSection == AppNavigationSection.Catalog;
+    public bool IsDeviceSectionVisible => ActiveSection == AppNavigationSection.Device;
+    public bool IsReportSectionVisible => ActiveSection == AppNavigationSection.Report;
+    public bool IsSettingsSectionVisible => ActiveSection == AppNavigationSection.Settings;
+    public bool IsSystemSectionVisible => ActiveSection == AppNavigationSection.System;
+    public bool IsUtilityRailVisible => IsWeighTicketSectionVisible;
+    public bool IsDevDrawerAvailable => IsDeveloperPanelAvailable && IsWeighTicketSectionVisible;
+
+    partial void OnActiveSectionChanged(AppNavigationSection value)
+    {
+        OnPropertyChanged(nameof(IsWeighTicketSectionVisible));
+        OnPropertyChanged(nameof(IsCatalogSectionVisible));
+        OnPropertyChanged(nameof(IsDeviceSectionVisible));
+        OnPropertyChanged(nameof(IsReportSectionVisible));
+        OnPropertyChanged(nameof(IsSettingsSectionVisible));
+        OnPropertyChanged(nameof(IsSystemSectionVisible));
+        OnPropertyChanged(nameof(IsUtilityRailVisible));
+        OnPropertyChanged(nameof(IsDevDrawerAvailable));
+        OnPropertyChanged(nameof(IsNavSystemActive));
+        OnPropertyChanged(nameof(IsNavWeighTicketActive));
+        OnPropertyChanged(nameof(IsNavCatalogActive));
+        OnPropertyChanged(nameof(IsNavDeviceActive));
+        OnPropertyChanged(nameof(IsNavReportActive));
+        OnPropertyChanged(nameof(IsNavSettingsActive));
+    }
+
+    partial void OnIsDevDrawerOpenChanged(bool value) => OnPropertyChanged(nameof(IsDevDrawerAvailable));
     [ObservableProperty] private bool _isDeveloperPanelAvailable;
     [ObservableProperty] private bool _developerWeight1OverrideEnabled;
     [ObservableProperty] private bool _isWeight1DevOverrideWarningVisible;
@@ -137,15 +183,37 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string _filterTotalsSummary = string.Empty;
 
     public GridLength WeighColumnWidth =>
-        new(WorkAreaLayoutCalculator.GetColumnStars(IsCameraPanelVisible).WeighStars, GridUnitType.Star);
+        new(WorkAreaLayoutCalculator.GetMainColumnStars(IsCameraDrawerOpen).WeighStars, GridUnitType.Star);
 
     public GridLength InfoColumnWidth =>
-        new(WorkAreaLayoutCalculator.GetColumnStars(IsCameraPanelVisible).InfoStars, GridUnitType.Star);
+        new(WorkAreaLayoutCalculator.GetMainColumnStars(IsCameraDrawerOpen).InfoStars, GridUnitType.Star);
 
-    public GridLength CameraColumnWidth =>
-        new(WorkAreaLayoutCalculator.GetColumnStars(IsCameraPanelVisible).CameraStars, GridUnitType.Star);
+    public GridLength CameraDrawerColumnWidth =>
+        IsCameraDrawerOpen
+            ? new GridLength(WorkAreaLayoutCalculator.CameraDrawerWidthPixels)
+            : new GridLength(0);
 
-    public int CameraColumnMinWidth => IsCameraPanelVisible ? 220 : WorkAreaLayoutCalculator.CollapsedCameraColumnPixels;
+    public GridLength UtilityRailColumnWidth =>
+        new GridLength(WorkAreaLayoutCalculator.GetUtilityRailWidth(IsCompactMode));
+
+    public double LiveWeightFontSize => IsCompactMode ? 72 : 96;
+
+    public bool IsSimulationAutomaticMode => ScaleInputMode == ScaleInputMode.SimulationAutomatic;
+    public bool IsSimulationManualMode => ScaleInputMode == ScaleInputMode.SimulationManual;
+    public bool IsReturnToAutomaticVisible => ScaleInputMode == ScaleInputMode.SimulationManual;
+    public bool IsManualWeightInputVisible => ScaleInputMode == ScaleInputMode.SimulationManual;
+    public bool IsHardwareModeEnabled => false;
+
+    public string WeightSourceText => ScaleInputModeDisplay.GetWeightSourceText(ScaleInputMode);
+
+    public bool IsNavSystemActive => ActiveSection == AppNavigationSection.System;
+    public bool IsNavWeighTicketActive => ActiveSection == AppNavigationSection.WeighTicket;
+    public bool IsNavCatalogActive => ActiveSection == AppNavigationSection.Catalog;
+    public bool IsNavDeviceActive => ActiveSection == AppNavigationSection.Device;
+    public bool IsNavReportActive => ActiveSection == AppNavigationSection.Report;
+    public bool IsNavSettingsActive => ActiveSection == AppNavigationSection.Settings;
+
+    public string? ActiveQuickFilterKey => _activeQuickRangeLabel;
 
     partial void OnIsAdvancedFilterVisibleChanged(bool value) =>
         OnPropertyChanged(nameof(AdvancedFilterToggleText));
@@ -186,14 +254,99 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         await _scaleService.StartAsync();
         LiveWeightKg = await _scaleService.GetCurrentWeightAsync();
-        if (SystemParameters.PrimaryScreenWidth <= 1366)
-            IsCameraPanelVisible = false;
+        IsCompactMode = CompactLayoutPolicy.ShouldUseCompactMode(SystemParameters.PrimaryScreenWidth);
+        if (IsCompactMode)
+        {
+            IsCameraDrawerOpen = false;
+            IsAdvancedFilterVisible = false;
+        }
+
+        ApplyScaleInputMode(ScaleInputModeDisplay.GetDefaultMode(_settings.DeviceMode), userInitiated: false);
+        await Settings.LoadAsync(_appPaths.DatabasePath);
         HeaderClockText = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.CurrentCulture);
         _ = RunClockAsync();
         await RefreshPreviewDisplayNumberAsync();
         LoadBindingsFromDraft();
         await FilterTodayAsync();
     }
+
+    [RelayCommand]
+    private void Navigate(AppNavigationSection section) => ActiveSection = section;
+
+    [RelayCommand]
+    private void ToggleDevDrawer() => IsDevDrawerOpen = !IsDevDrawerOpen;
+
+    [RelayCommand]
+    private void SelectSimulationAutomaticMode() =>
+        ApplyScaleInputMode(ScaleInputMode.SimulationAutomatic, userInitiated: true);
+
+    [RelayCommand]
+    private void SelectSimulationManualMode() =>
+        ApplyScaleInputMode(ScaleInputMode.SimulationManual, userInitiated: true);
+
+    [RelayCommand]
+    private void ReturnToAutomaticMode() =>
+        ApplyScaleInputMode(ScaleInputMode.SimulationAutomatic, userInitiated: true);
+
+    private void ApplyScaleInputMode(ScaleInputMode mode, bool userInitiated)
+    {
+        ScaleInputMode = mode;
+        switch (mode)
+        {
+            case ScaleInputMode.SimulationAutomatic:
+                _scaleService.ResumeAutomaticSimulation();
+                _scaleService.SetManualMode(false);
+                if (userInitiated)
+                    StatusMessage = "Đã chuyển về chế độ tự động mô phỏng.";
+                break;
+            case ScaleInputMode.SimulationManual:
+                _scaleService.SetManualMode(true);
+                if (userInitiated)
+                    StatusMessage = "Đang dùng nguồn DEV thủ công.";
+                break;
+            case ScaleInputMode.Hardware:
+                break;
+        }
+
+        UpdateScaleStatusDisplay();
+        OnPropertyChanged(nameof(IsSimulationAutomaticMode));
+        OnPropertyChanged(nameof(IsSimulationManualMode));
+        OnPropertyChanged(nameof(IsReturnToAutomaticVisible));
+        OnPropertyChanged(nameof(IsManualWeightInputVisible));
+        OnPropertyChanged(nameof(WeightSourceText));
+    }
+
+    private void UpdateScaleStatusDisplay()
+    {
+        HeaderScaleStatus = ScaleInputModeDisplay.GetHeaderScaleBadge(ScaleInputMode, SimulateScaleDisconnected);
+        ScaleStabilityText = SimulateScaleDisconnected
+            ? "● MẤT KẾT NỐI"
+            : SimulateScaleStable ? "● ỔN ĐỊNH" : "● ĐANG THAY ĐỔI";
+    }
+
+    partial void OnSimulateScaleStableChanged(bool value) => UpdateScaleStatusDisplay();
+    partial void OnSimulateScaleDisconnectedChanged(bool value) => UpdateScaleStatusDisplay();
+    partial void OnScaleInputModeChanged(ScaleInputMode value) => UpdateScaleStatusDisplay();
+
+    [RelayCommand]
+    private void ApplySimulatedWeight()
+    {
+        if (decimal.TryParse(SimulatedWeightText, NumberStyles.Number, CultureInfo.CurrentCulture, out var kg))
+            SetManualWeight(kg);
+    }
+
+    [RelayCommand]
+    private void ApplyPresetWeight8500() => SetManualWeight(8500);
+
+    [RelayCommand]
+    private void ApplyPresetWeight18500() => SetManualWeight(18500);
+
+    private void OnStationSettingsSaved(StationSettingsDto dto)
+    {
+        StatusMessage = "Thông tin trạm cân đã cập nhật — preview phiếu dùng dữ liệu mới.";
+    }
+
+    private TicketDocumentRenderOptions BuildPreviewRenderOptions() => Settings.BuildPreviewOptions();
 
     private async Task RunClockAsync()
     {
@@ -283,20 +436,20 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     }
 
     [RelayCommand]
-    private void ToggleCameraPanel()
-    {
-        IsCameraPanelVisible = !IsCameraPanelVisible;
-        NotifyWorkAreaLayoutChanged();
-    }
+    private void ToggleCameraPanel() => ToggleCameraDrawer();
 
-    partial void OnIsCameraPanelVisibleChanged(bool value) => NotifyWorkAreaLayoutChanged();
+    [RelayCommand]
+    private void ToggleCameraDrawer() => IsCameraDrawerOpen = !IsCameraDrawerOpen;
+
+    partial void OnIsCameraDrawerOpenChanged(bool value) => NotifyWorkAreaLayoutChanged();
 
     private void NotifyWorkAreaLayoutChanged()
     {
         OnPropertyChanged(nameof(WeighColumnWidth));
         OnPropertyChanged(nameof(InfoColumnWidth));
-        OnPropertyChanged(nameof(CameraColumnWidth));
-        OnPropertyChanged(nameof(CameraColumnMinWidth));
+        OnPropertyChanged(nameof(CameraDrawerColumnWidth));
+        OnPropertyChanged(nameof(UtilityRailColumnWidth));
+        OnPropertyChanged(nameof(LiveWeightFontSize));
     }
 
     [RelayCommand]
@@ -304,9 +457,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     [RelayCommand]
     private void PrintTicket() => StatusMessage = "In phiếu Brother sẽ có ở giai đoạn sau.";
-
-    [RelayCommand]
-    private void ToggleDevPanel() => IsDevPanelExpanded = !IsDevPanelExpanded;
 
     [RelayCommand]
     private async Task ViewTicketAsync()
@@ -354,7 +504,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         try
         {
-            var rendered = _ticketDocumentRenderer.RenderCombinedVertical(detail);
+            var rendered = _ticketDocumentRenderer.RenderCombinedVertical(detail, BuildPreviewRenderOptions());
             ClipboardImageService.CopyPngToClipboard(rendered.PngBytes);
             await ShowToastAsync("Đã sao chép ảnh phiếu");
         }
@@ -372,7 +522,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         try
         {
-            var rendered = _ticketDocumentRenderer.RenderCombinedVertical(detail);
+            var rendered = _ticketDocumentRenderer.RenderCombinedVertical(detail, BuildPreviewRenderOptions());
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
                 FileName = rendered.SuggestedFileName,
@@ -397,6 +547,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private async Task ApplyFilterAsync()
     {
         _activeQuickRangeLabel = null;
+        OnPropertyChanged(nameof(ActiveQuickFilterKey));
         await RefreshListAsync();
     }
 
@@ -433,6 +584,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         FilterUnitPriceText = null;
         FilterUnitPriceToText = null;
         _activeQuickRangeLabel = null;
+        OnPropertyChanged(nameof(ActiveQuickFilterKey));
         await RefreshListAsync();
     }
 
@@ -587,13 +739,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [RelayCommand]
     private void SetManualScale18500() => SetManualWeight(18500m);
 
-    partial void OnIsManualScaleModeChanged(bool value)
-    {
-        _scaleService.SetManualMode(value);
-        ScaleStabilityText = value ? "● THỦ CÔNG" : "● ỔN ĐỊNH";
-        StatusMessage = value ? "Chế độ cân thủ công." : "Chế độ cân random.";
-    }
-
     partial void OnDeveloperWeight1OverrideEnabledChanged(bool value)
     {
         IsWeight1DevOverrideWarningVisible = value && IsDeveloperPanelAvailable;
@@ -678,7 +823,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     partial void OnManualWeightTextChanged(string? value)
     {
-        if (!IsManualScaleMode || string.IsNullOrWhiteSpace(value))
+        if (ScaleInputMode != ScaleInputMode.SimulationManual || string.IsNullOrWhiteSpace(value))
             return;
 
         if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.CurrentCulture, out var kg))
@@ -748,6 +893,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         var filledAny = false;
         _suppressAutoFillEditTracking = true;
+        SuppressAutocomplete = true;
         try
         {
             if (applied.CustomerName is not null &&
@@ -771,6 +917,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         finally
         {
             _suppressAutoFillEditTracking = false;
+            SuppressAutocomplete = false;
         }
 
         _lastAutoFilledPlate = normalizedPlate;
@@ -802,6 +949,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _activeQuickRangeLabel = label;
         FilterFromDate = from;
         FilterToDate = to;
+        OnPropertyChanged(nameof(ActiveQuickFilterKey));
         await RefreshListAsync();
     }
 
@@ -842,44 +990,48 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
+    private static void FillSuggestions(ObservableCollection<AutocompleteSuggestionItem> target, IEnumerable<AutocompleteSuggestionItem> items)
+    {
+        target.Clear();
+        foreach (var item in items.Take(AutocompleteDropDownPolicy.DefaultMaxVisibleItems))
+            target.Add(item);
+    }
+
     private async Task SearchCustomersAsync()
     {
-        CustomerSuggestions.Clear();
         var items = await _fastEntrySearch.SearchCustomersAsync(CustomerName ?? string.Empty);
-        foreach (var item in items)
-            CustomerSuggestions.Add(item);
+        FillSuggestions(CustomerSuggestions, items);
     }
 
     private async Task SearchCargoTypesAsync()
     {
-        CargoTypeSuggestions.Clear();
         var items = await _fastEntrySearch.SearchCargoTypesAsync(CargoTypeName ?? string.Empty);
-        foreach (var item in items)
-            CargoTypeSuggestions.Add(item);
+        FillSuggestions(CargoTypeSuggestions, items);
     }
 
     private async Task SearchVehiclesAsync()
     {
-        VehicleSuggestions.Clear();
         var items = await _fastEntrySearch.SearchVehiclesAsync(LicensePlate ?? string.Empty, CustomerName);
-        foreach (var item in items)
-            VehicleSuggestions.Add(item);
+        FillSuggestions(VehicleSuggestions, items);
     }
 
     private async Task SearchNotesAsync()
     {
-        NotesSuggestions.Clear();
         if (string.IsNullOrWhiteSpace(Notes))
+        {
+            NotesSuggestions.Clear();
             return;
+        }
 
         var items = await _fastEntrySearch.SearchNotesAsync(Notes);
-        foreach (var item in items)
-            NotesSuggestions.Add(item);
+        FillSuggestions(NotesSuggestions, items);
     }
 
     private void SetManualWeight(decimal kg)
     {
-        IsManualScaleMode = true;
+        if (ScaleInputMode != ScaleInputMode.SimulationManual)
+            ApplyScaleInputMode(ScaleInputMode.SimulationManual, userInitiated: true);
+
         ManualWeightText = kg.ToString("N0", CultureInfo.CurrentCulture);
         _scaleService.SetManualWeightKg(kg);
     }
@@ -912,6 +1064,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         FooterTotalAmount = $"{result.TotalAmountVnd:N0} VNĐ";
         FooterMissingPriceCount = result.MissingPriceCount.ToString(CultureInfo.CurrentCulture);
     }
+
+    partial void OnIsCompactModeChanged(bool value) => NotifyWorkAreaLayoutChanged();
 
     private WeighTicketFilter BuildCurrentFilter()
     {
@@ -1024,21 +1178,29 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void LoadBindingsFromDraft()
     {
-        if (_draft.ExistingTicketId.HasValue)
+        SuppressAutocomplete = true;
+        try
         {
-            DisplayNumber = _draft.DisplayNumber ?? "—";
-            IsPreviewDisplayNumber = false;
-        }
+            if (_draft.ExistingTicketId.HasValue)
+            {
+                DisplayNumber = _draft.DisplayNumber ?? "—";
+                IsPreviewDisplayNumber = false;
+            }
 
-        TicketDateTimeDisplay = _draft.TicketDateTime?.ToString("dd/MM/yyyy HH:mm:ss")
-            ?? DateTimeOffset.Now.ToString("dd/MM/yyyy HH:mm:ss");
-        CustomerName = _draft.DraftCustomer;
-        LicensePlate = _draft.DraftVehicle;
-        CargoTypeName = _draft.DraftCargoType;
-        UnitPriceText = _draft.DraftUnitPrice?.ToString("N0", CultureInfo.CurrentCulture);
-        Notes = _draft.DraftNotes;
-        DeveloperWeight1OverrideEnabled = _draft.DeveloperWeight1OverrideEnabled;
-        UpdateDisplaysFromDraft();
+            TicketDateTimeDisplay = _draft.TicketDateTime?.ToString("dd/MM/yyyy HH:mm:ss")
+                ?? DateTimeOffset.Now.ToString("dd/MM/yyyy HH:mm:ss");
+            CustomerName = _draft.DraftCustomer;
+            LicensePlate = _draft.DraftVehicle;
+            CargoTypeName = _draft.DraftCargoType;
+            UnitPriceText = _draft.DraftUnitPrice?.ToString("N0", CultureInfo.CurrentCulture);
+            Notes = _draft.DraftNotes;
+            DeveloperWeight1OverrideEnabled = _draft.DeveloperWeight1OverrideEnabled;
+            UpdateDisplaysFromDraft();
+        }
+        finally
+        {
+            SuppressAutocomplete = false;
+        }
     }
 
     private void UpdateDisplaysFromDraft()

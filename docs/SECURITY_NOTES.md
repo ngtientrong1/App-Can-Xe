@@ -29,3 +29,10 @@
 
 - Chỉ mở file `.db` và ảnh từ thư mục `%LocalAppData%\CanXe\`.
 - Không mở database từ nguồn không tin cậy.
+
+## RTSP password (Phase 1.7)
+
+- Mật khẩu camera lưu trong `CameraDeviceSettings.ProtectedPassword` — mã hóa **Windows DPAPI** (`DpApiSecretProtector`, scope `CurrentUser`).
+- Không ghi password plain text vào SQLite, log, hoặc Git.
+- Không hiển thị password trong thông báo lỗi kết nối.
+- UI có toggle hiện/ẩn khi nhập; giá trị rỗng khi lưu giữ password cũ.

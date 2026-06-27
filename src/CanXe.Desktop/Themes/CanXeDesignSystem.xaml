@@ -1,0 +1,309 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Brushes -->
+    <SolidColorBrush x:Key="PageBackgroundBrush" Color="#F4F6F8"/>
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#E3E8EE"/>
+    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#1A1D21"/>
+    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#5F6B7A"/>
+    <SolidColorBrush x:Key="AccentBlueBrush" Color="#1565C0"/>
+    <SolidColorBrush x:Key="AccentBlueLightBrush" Color="#E8F1FB"/>
+    <SolidColorBrush x:Key="SuccessGreenBrush" Color="#2E7D32"/>
+    <SolidColorBrush x:Key="WeightOrangeBrush" Color="#EF6C00"/>
+    <SolidColorBrush x:Key="DangerBrush" Color="#C62828"/>
+    <SolidColorBrush x:Key="SelectedRowBrush" Color="#E3F2FD"/>
+    <SolidColorBrush x:Key="NavActiveBackgroundBrush" Color="#E8F1FB"/>
+    <SolidColorBrush x:Key="FilterActiveBackgroundBrush" Color="#1565C0"/>
+    <SolidColorBrush x:Key="WeightStableBrush" Color="#2E7D32"/>
+    <SolidColorBrush x:Key="SummaryAccentBrush" Color="#4527A0"/>
+
+    <!-- Legacy aliases -->
+    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F4F6F8"/>
+    <SolidColorBrush x:Key="BorderLightBrush" Color="#E3E8EE"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1D21"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5F6B7A"/>
+    <SolidColorBrush x:Key="PrimaryBrush" Color="#2E7D32"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#EF6C00"/>
+    <SolidColorBrush x:Key="PanelBrush" Color="#F8FAFC"/>
+    <SolidColorBrush x:Key="BorderBrush" Color="#E3E8EE"/>
+    <SolidColorBrush x:Key="NetHighlightBrush" Color="#1565C0"/>
+    <SolidColorBrush x:Key="ActionOrangeBrush" Color="#EF6C00"/>
+    <SolidColorBrush x:Key="CancelGrayBrush" Color="#546E7A"/>
+    <SolidColorBrush x:Key="ErrorRedBrush" Color="#C62828"/>
+
+    <Style TargetType="Window">
+        <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+        <Setter Property="Background" Value="{StaticResource PageBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
+    </Style>
+
+    <!-- Card -->
+    <Style x:Key="CanXeCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="Padding" Value="16"/>
+    </Style>
+    <Style x:Key="CardBorder" TargetType="Border" BasedOn="{StaticResource CanXeCardStyle}"/>
+
+    <!-- TextBox -->
+    <Style x:Key="CanXeTextBoxStyle" TargetType="TextBox">
+        <Setter Property="FontSize" Value="19"/>
+        <Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="MinHeight" Value="48"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <ScrollViewer x:Name="PART_ContentHost"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="TextBox" BasedOn="{StaticResource CanXeTextBoxStyle}"/>
+
+    <!-- ComboBox -->
+    <Style x:Key="CanXeComboBoxStyle" TargetType="ComboBox">
+        <Setter Property="FontSize" Value="17"/>
+        <Setter Property="MinHeight" Value="48"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+    </Style>
+    <Style TargetType="ComboBox" BasedOn="{StaticResource CanXeComboBoxStyle}"/>
+
+    <!-- Button base -->
+    <Style x:Key="CanXeButtonBase" TargetType="Button">
+        <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}" MinHeight="{TemplateBinding MinHeight}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CanXeToggleButtonBase" TargetType="ToggleButton">
+        <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}" MinHeight="{TemplateBinding MinHeight}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CanXePrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
+        <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="FontSize" Value="18"/>
+        <Setter Property="MinHeight" Value="56"/>
+        <Setter Property="Padding" Value="18,12"/>
+    </Style>
+
+    <Style x:Key="CanXeSuccessButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
+        <Setter Property="Background" Value="{StaticResource SuccessGreenBrush}"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="FontSize" Value="18"/>
+        <Setter Property="MinHeight" Value="56"/>
+        <Setter Property="Padding" Value="18,12"/>
+    </Style>
+
+    <Style x:Key="CanXeWeightButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
+        <Setter Property="Background" Value="{StaticResource WeightOrangeBrush}"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="FontSize" Value="18"/>
+        <Setter Property="MinHeight" Value="56"/>
+        <Setter Property="Padding" Value="20,12"/>
+        <Setter Property="MinWidth" Value="180"/>
+    </Style>
+
+    <Style x:Key="CanXeSecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
+        <Setter Property="Background" Value="#ECEFF1"/>
+        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="17"/>
+        <Setter Property="MinHeight" Value="48"/>
+        <Setter Property="Padding" Value="14,10"/>
+    </Style>
+
+    <Style x:Key="CanXeSecondaryToggleButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource CanXeToggleButtonBase}">
+        <Setter Property="Background" Value="#ECEFF1"/>
+        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="17"/>
+        <Setter Property="MinHeight" Value="48"/>
+        <Setter Property="Padding" Value="14,10"/>
+    </Style>
+
+    <!-- Legacy action buttons -->
+    <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource CanXeSecondaryButtonStyle}">
+        <Setter Property="Background" Value="#546E7A"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="MinHeight" Value="56"/>
+        <Setter Property="FontSize" Value="18"/>
+        <Setter Property="Margin" Value="4,0"/>
+    </Style>
+    <Style x:Key="SaveButton" TargetType="Button" BasedOn="{StaticResource CanXeSuccessButtonStyle}">
+        <Setter Property="Margin" Value="4,0"/>
+        <Setter Property="MinWidth" Value="120"/>
+    </Style>
+    <Style x:Key="CancelButton" TargetType="Button" BasedOn="{StaticResource CanXeSecondaryButtonStyle}">
+        <Setter Property="Background" Value="{StaticResource CancelGrayBrush}"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="MinHeight" Value="56"/>
+        <Setter Property="Margin" Value="4,0"/>
+    </Style>
+    <Style x:Key="RecordWeightButton" TargetType="Button" BasedOn="{StaticResource CanXeWeightButtonStyle}">
+        <Setter Property="Margin" Value="4,0"/>
+    </Style>
+
+    <!-- Navigation -->
+    <Style x:Key="CanXeNavigationButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="MinHeight" Value="50"/>
+        <Setter Property="Padding" Value="18,12"/>
+        <Setter Property="Margin" Value="0,0,4,0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,3"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+
+    <!-- Filter / segmented -->
+    <Style x:Key="CanXeFilterTabStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
+        <Setter Property="FontSize" Value="15"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="MinHeight" Value="44"/>
+        <Setter Property="Padding" Value="14,10"/>
+        <Setter Property="Margin" Value="0,0,6,0"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style x:Key="FilterButton" TargetType="Button" BasedOn="{StaticResource CanXeFilterTabStyle}"/>
+
+    <!-- Utility rail -->
+    <Style x:Key="CanXeUtilityRailButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
+        <Setter Property="Width" Value="52"/>
+        <Setter Property="MinHeight" Value="72"/>
+        <Setter Property="Padding" Value="4,8"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}"/>
+    </Style>
+
+    <!-- Segmented mode -->
+    <Style x:Key="CanXeSegmentButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource CanXeToggleButtonBase}">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="MinHeight" Value="44"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="Margin" Value="0,0,6,6"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Style.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Background" Value="{StaticResource AccentBlueLightBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+                <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="TextBlock" x:Key="SectionHeader">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}"/>
+        <Setter Property="Margin" Value="0,0,0,6"/>
+    </Style>
+
+    <Style x:Key="CanXeStatusBadgeStyle" TargetType="Border">
+        <Setter Property="Background" Value="#E8F5E9"/>
+        <Setter Property="BorderBrush" Value="#C8E6C9"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="16"/>
+        <Setter Property="Padding" Value="12,6"/>
+    </Style>
+
+    <!-- DataGrid -->
+    <Style x:Key="CanXeDataGridStyle" TargetType="DataGrid">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="RowHeight" Value="46"/>
+        <Setter Property="ColumnHeaderHeight" Value="46"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+        <Setter Property="HorizontalGridLinesBrush" Value="#EEF2F6"/>
+        <Setter Property="AlternatingRowBackground" Value="#FAFBFC"/>
+        <Setter Property="HeadersVisibility" Value="Column"/>
+    </Style>
+    <Style TargetType="DataGrid" BasedOn="{StaticResource CanXeDataGridStyle}"/>
+
+    <Style x:Key="CanXeDataGridHeaderStyle" TargetType="DataGridColumnHeader">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="10,10"/>
+        <Setter Property="Background" Value="#F5F7FA"/>
+        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+    </Style>
+    <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource CanXeDataGridHeaderStyle}"/>
+
+    <!-- Footer summary card -->
+    <Style x:Key="CanXeSummaryCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="14,12"/>
+        <Setter Property="MinWidth" Value="140"/>
+    </Style>
+</ResourceDictionary>

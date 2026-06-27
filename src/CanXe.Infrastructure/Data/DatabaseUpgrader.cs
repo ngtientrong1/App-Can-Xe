@@ -6,6 +6,7 @@ namespace CanXe.Infrastructure.Data;
 public static class DatabaseUpgrader
 {
     public const string Phase16MigrationId = "202606270001_Phase16_AuditAndWeightOverride";
+    public const string Phase17MigrationId = "202606270002_Phase17_StationAndDeviceSettings";
 
     public static async Task UpgradeAsync(CanXeDbContext db, string databasePath, CancellationToken cancellationToken = default)
     {
@@ -16,12 +17,16 @@ public static class DatabaseUpgrader
         {
             await db.Database.EnsureCreatedAsync(cancellationToken);
             await RecordMigrationAsync(db, Phase16MigrationId, cancellationToken);
+            await RecordMigrationAsync(db, Phase17MigrationId, cancellationToken);
             return;
         }
 
         await ApplyPhase16WeighEventColumnsAsync(db, cancellationToken);
         await ApplyPhase16AuditLogsAsync(db, cancellationToken);
         await RecordMigrationAsync(db, Phase16MigrationId, cancellationToken);
+
+        await ApplyPhase17SettingsTablesAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase17MigrationId, cancellationToken);
     }
 
     public static void BackupDatabase(string databasePath)
@@ -31,6 +36,75 @@ public static class DatabaseUpgrader
         var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         var backupPath = Path.Combine(backupDir, $"{Path.GetFileNameWithoutExtension(databasePath)}_{stamp}.db");
         File.Copy(databasePath, backupPath, overwrite: true);
+    }
+
+    private static async Task ApplyPhase17SettingsTablesAsync(CanXeDbContext db, CancellationToken cancellationToken)
+    {
+        if (!await TableExistsAsync(db, "StationSettings", cancellationToken))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE StationSettings (
+                    Id INTEGER NOT NULL PRIMARY KEY,
+                    StationName TEXT NOT NULL,
+                    OwnerName TEXT NULL,
+                    Address TEXT NULL,
+                    Phone TEXT NULL,
+                    Email TEXT NULL,
+                    TaxCode TEXT NULL,
+                    LogoPath TEXT NULL,
+                    TicketFooterText TEXT NULL,
+                    UpdatedAt TEXT NOT NULL
+                );
+                INSERT INTO StationSettings (Id, StationName, UpdatedAt)
+                VALUES (1, 'Trạm cân CanXe', datetime('now'));
+                """,
+                cancellationToken);
+        }
+
+        if (!await TableExistsAsync(db, "ScaleDeviceSettings", cancellationToken))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE ScaleDeviceSettings (
+                    Id INTEGER NOT NULL PRIMARY KEY,
+                    DeviceMode TEXT NOT NULL DEFAULT 'Simulation',
+                    PortName TEXT NOT NULL DEFAULT 'COM1',
+                    BaudRate INTEGER NOT NULL DEFAULT 9600,
+                    DataBits INTEGER NOT NULL DEFAULT 8,
+                    Parity TEXT NOT NULL DEFAULT 'None',
+                    StopBits TEXT NOT NULL DEFAULT 'One',
+                    Handshake TEXT NOT NULL DEFAULT 'None',
+                    UpdatedAt TEXT NOT NULL
+                );
+                INSERT INTO ScaleDeviceSettings (Id, DeviceMode, PortName, BaudRate, DataBits, Parity, StopBits, Handshake, UpdatedAt)
+                VALUES (1, 'Simulation', 'COM1', 9600, 8, 'None', 'One', 'None', datetime('now'));
+                """,
+                cancellationToken);
+        }
+
+        if (!await TableExistsAsync(db, "CameraDeviceSettings", cancellationToken))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE CameraDeviceSettings (
+                    Id INTEGER NOT NULL PRIMARY KEY,
+                    CameraName TEXT NULL,
+                    IsEnabled INTEGER NOT NULL DEFAULT 1,
+                    RtspUrl TEXT NULL,
+                    Username TEXT NULL,
+                    ProtectedPassword TEXT NULL,
+                    PreviewEnabled INTEGER NOT NULL DEFAULT 1,
+                    AutoConnectionCheck INTEGER NOT NULL DEFAULT 1,
+                    SnapshotTimeoutSeconds INTEGER NOT NULL DEFAULT 5,
+                    PhotoRetentionDays INTEGER NOT NULL DEFAULT 3,
+                    UpdatedAt TEXT NOT NULL
+                );
+                INSERT INTO CameraDeviceSettings (Id, IsEnabled, PreviewEnabled, AutoConnectionCheck, SnapshotTimeoutSeconds, PhotoRetentionDays, UpdatedAt)
+                VALUES (1, 1, 1, 1, 5, 3, datetime('now'));
+                """,
+                cancellationToken);
+        }
     }
 
     private static async Task ApplyPhase16WeighEventColumnsAsync(

@@ -19,13 +19,20 @@
 ## Checklist chức năng (Simulation)
 
 - [ ] Khởi động < 10 giây trên HDD
+- [ ] Mặc định `Nguồn: Tự động mô phỏng` (không manual sau restart)
 - [ ] Trọng lượng trực tiếp cập nhật mượt
+- [ ] DEV: chuyển manual → Áp dụng 8.500 → `DEV thủ công`
+- [ ] DEV: `TRỞ VỀ TỰ ĐỘNG` resume simulation, draft không mất
+- [ ] Đóng DEV drawer không đổi mode
 - [ ] Lấy cân lần 1 / lần 2 / cập nhật trước khi lưu
 - [ ] Lưu phiếu 1 và 2 trọng lượng
 - [ ] Tiếp tục phiếu 1 trọng lượng
 - [ ] Hủy bỏ xóa draft
 - [ ] Danh sách scroll + lọc hôm nay / 7 ngày
-- [ ] Camera preview tắt được (Thu gọn panel)
+- [ ] Camera drawer thu gọn — form mở rộng, không cột trắng
+- [ ] Utility rail CAMERA/DEV đủ lớn (≥52px)
+- [ ] Footer 5 card summary hiển thị đúng
+- [ ] Compact 1366×768: action bar đủ nút, font cân ≥68px
 - [ ] Không cần Internet
 
 ## Checklist hiệu năng

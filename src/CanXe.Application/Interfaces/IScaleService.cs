@@ -11,4 +11,5 @@ public interface IScaleService : IAsyncDisposable
     bool IsManualMode { get; }
     void SetManualMode(bool enabled);
     void SetManualWeightKg(decimal weightKg);
+    void ResumeAutomaticSimulation();
 }

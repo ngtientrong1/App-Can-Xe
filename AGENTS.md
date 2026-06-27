@@ -2,9 +2,11 @@
 
 ## Tổng quan
 
-**Giai đoạn hiện tại:** 1.6 MVP — chỉnh sửa phiếu inline, danh sách/summary, autocomplete, preview phiếu.
+**Giai đoạn hiện tại:** 1.7.1 — hoàn thiện UI theo mockup + chế độ nguồn cân rõ ràng.
 
-**Branch:** `phase1-6-mvp-finalization`
+**Branch:** `phase1-7-apple-ui-and-settings` (Phase 1.7 + 1.7.1 **chưa commit** — chờ nghiệm thu thủ công)
+
+**Commit nền Phase 1.6:** `e68b9e2` — `feat: complete phase 1.6 MVP finalization and UI hotfixes`
 
 ## Lệnh
 
@@ -15,23 +17,26 @@ dotnet test CanXe.sln
 build\publish-win10-x64.cmd
 ```
 
-## MVP 1.6 (chưa triển khai phần cứng)
+Publish: `C:\CanXeApp\publish\win10-x64\`
 
-- Double-click DataGrid → sửa phiếu trên form chính (`IsEditingExistingTicket`, `TicketUpdateService`, `AuditLogs`).
-- Tự điền khách/loại hàng khi commit biển số (không còn thẻ XE ĐÃ TỪNG CÂN).
-- Autocomplete dropdown nội bộ (không Popup top-level); đóng khi Alt+Tab.
-- Summary: Số phiếu, Tổng hàng, KL tính tiền, Tổng thành tiền, Chưa có đơn giá.
-- Sort danh sách: `TicketDateTime ↓` → `Sequence ↓` → `Id ↓`.
-- Preview phiếu overlay: `ITicketDocumentRenderer`, sao chép/lưu PNG.
-- Migration `202606270001_Phase16_AuditAndWeightOverride` — xem [docs/DATABASE_MIGRATION.md](docs/DATABASE_MIGRATION.md).
+## MVP 1.7 / 1.7.1
 
-## Bố cục UI
+- Design system: `src/CanXe.Desktop/Themes/CanXeDesignSystem.xaml` — card, nav, rail, segment, summary, DataGrid.
+- Navigation active state; mặc định PHIẾU CÂN.
+- Layout: cân 31* / form 51* (camera mở) hoặc 69* (camera đóng); rail 56px; camera drawer 300px.
+- `ScaleInputMode` + `ScaleInputModeDisplay` — automatic/manual/hardware; không persist manual.
+- DEV drawer: segment mode, TRỞ VỀ TỰ ĐỘNG, đóng drawer không đổi mode.
+- Cấu hình DB: `StationSettings`, `ScaleDeviceSettings`, `CameraDeviceSettings`.
+- RTSP password: DPAPI; mock connection testers.
+- Autocomplete policy + styled dropdown.
+- Migration `202606270002_Phase17_StationAndDeviceSettings`.
 
-- Header thiết bị gọn · Khu làm việc ~280–340px · DataGrid `*` · Footer cố định.
-- Camera: 32/50/18 mở; 34/66/0 + cột CAM thu gọn khi đóng.
+## Chưa triển khai
 
-## Cấu hình
+COM scale thật, RTSP stream thật, Brother print, Excel export thật.
 
-`appsettings.json`: `DeviceMode`, `ShowDeveloperPanel`, `DeveloperTicketEditEnabled`.
+## Tests
 
-Chưa triển khai COM/RTSP/Brother print/Excel thật.
+**163 tests** (gồm `Phase171ScaleInputModeTests` — 28 case cho mode, layout, nav, footer, compact).
+
+Chạy nghiệm thu thủ công theo checklist Phase 1.7.1 (mockup screenshots + scale source flow).

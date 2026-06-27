@@ -1,12 +1,24 @@
-# CanXe — Database Migration (Phase 1.6)
+# CanXe — Database Migration
 
-## Migration mới
+## Phase 1.6
 
 | Phiên bản | Tên |
 |-----------|-----|
 | `202606270001_Phase16_AuditAndWeightOverride` | AuditLogs + override cân |
 
-## Thay đổi schema
+## Phase 1.7
+
+| Phiên bản | Tên |
+|-----------|-----|
+| `202606270002_Phase17_StationAndDeviceSettings` | StationSettings, ScaleDeviceSettings, CameraDeviceSettings |
+
+### Bảng mới (Phase 1.7)
+
+- **StationSettings** — thông tin trạm cân (singleton)
+- **ScaleDeviceSettings** — cấu hình COM đầu cân (mock trong Simulation)
+- **CameraDeviceSettings** — RTSP, password mã hóa DPAPI (`ProtectedPassword`)
+
+## Thay đổi schema (Phase 1.6)
 
 ### WeighEvents (bổ sung cột)
 
@@ -27,7 +39,7 @@ Cột `WeightGrams` hiện có map tới `OriginalWeightGrams` trong domain — 
 1. **Đóng ứng dụng CanXe** trước khi migration.
 2. Ứng dụng tự **sao lưu** file SQLite vào thư mục `backups/` cạnh database (tên có timestamp) qua `DatabaseUpgrader`.
 3. Khởi động lại app — `InitializeDatabaseAsync` chạy `DatabaseUpgrader` (idempotent, không xóa database).
-4. Kiểm tra bảng `__EFMigrationsHistory` có dòng `202606270001_Phase16_AuditAndWeightOverride`.
+4. Kiểm tra bảng `__EFMigrationsHistory` có các dòng Phase 1.6 và Phase 1.7.
 
 ## Khôi phục nếu lỗi
 

@@ -137,4 +137,53 @@ gram → kg:  grams / 1000m
 **Nháp:** `%LocalAppData%\CanXe\Photos\Draft\{sessionId}_W{1|2}.png`  
 **Chính thức:** `%LocalAppData%\CanXe\Photos\{yyyy-MM-dd}\{InternalCode}_W{1|2}.png`
 
-Giữ **PhotoRetentionDays** (mặc định 3). SQLite chỉ lưu đường dẫn + trạng thái.
+Giữ **PhotoRetentionDays** (mặc định 3, lưu trong `CameraDeviceSettings`). SQLite chỉ lưu đường dẫn + trạng thái.
+
+## StationSettings (Phase 1.7)
+
+Singleton row `Id = 1`.
+
+| Cột | Kiểu | Nullable |
+|-----|------|----------|
+| Id | INTEGER PK | No |
+| StationName | TEXT | No |
+| OwnerName | TEXT | Yes |
+| Address | TEXT | Yes |
+| Phone | TEXT | Yes |
+| Email | TEXT | Yes |
+| TaxCode | TEXT | Yes |
+| LogoPath | TEXT | Yes |
+| TicketFooterText | TEXT | Yes |
+| UpdatedAt | TEXT (DateTimeOffset) | No |
+
+## ScaleDeviceSettings (Phase 1.7)
+
+| Cột | Kiểu | Mặc định |
+|-----|------|----------|
+| Id | INTEGER PK | 1 |
+| DeviceMode | TEXT | Simulation |
+| PortName | TEXT | COM1 |
+| BaudRate | INTEGER | 9600 |
+| DataBits | INTEGER | 8 |
+| Parity | TEXT | None |
+| StopBits | TEXT | One |
+| Handshake | TEXT | None |
+| UpdatedAt | TEXT | |
+
+## CameraDeviceSettings (Phase 1.7)
+
+| Cột | Kiểu | Ghi chú |
+|-----|------|---------|
+| Id | INTEGER PK | 1 |
+| CameraName | TEXT | Yes |
+| IsEnabled | INTEGER (bool) | |
+| RtspUrl | TEXT | Yes |
+| Username | TEXT | Yes |
+| ProtectedPassword | TEXT | Yes — DPAPI, không plain text |
+| PreviewEnabled | INTEGER (bool) | |
+| AutoConnectionCheck | INTEGER (bool) | |
+| SnapshotTimeoutSeconds | INTEGER | |
+| PhotoRetentionDays | INTEGER | 1–30 |
+| UpdatedAt | TEXT | |
+
+Migration: `202606270002_Phase17_StationAndDeviceSettings`.

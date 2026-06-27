@@ -62,7 +62,31 @@ public sealed class WpfTicketDocumentRenderer : ITicketDocumentRenderer
     {
         var title = new Typeface("Segoe UI");
         dc.DrawText(MakeText(options.ScaleSiteName, 22, FontWeights.Bold, title), new Point(24, y));
-        y += 36;
+        y += 28;
+        if (!string.IsNullOrWhiteSpace(options.OwnerName))
+        {
+            dc.DrawText(MakeText(options.OwnerName, 15, FontWeights.Normal, title), new Point(24, y));
+            y += 20;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.Address))
+        {
+            dc.DrawText(MakeText(options.Address, 14, FontWeights.Normal, title), new Point(24, y));
+            y += 18;
+        }
+
+        var contactParts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(options.Phone))
+            contactParts.Add($"ĐT: {options.Phone}");
+        if (!string.IsNullOrWhiteSpace(options.Email))
+            contactParts.Add(options.Email);
+        if (contactParts.Count > 0)
+        {
+            dc.DrawText(MakeText(string.Join("  ·  ", contactParts), 14, FontWeights.Normal, title), new Point(24, y));
+            y += 20;
+        }
+
+        y += 8;
         dc.DrawText(MakeText($"PHIẾU CÂN XE {detail.DisplayNumber}", 20, FontWeights.Bold, title), new Point(24, y));
         y += 32;
         dc.DrawText(MakeText(detail.TicketDateTime.ToString("dd/MM/yyyy HH:mm", CultureInfo.CurrentCulture), 16, FontWeights.Normal, title),
@@ -91,6 +115,13 @@ public sealed class WpfTicketDocumentRenderer : ITicketDocumentRenderer
         }
 
         y = DrawLine(dc, title, "Ghi chú", detail.Notes ?? "—", y);
+        if (!string.IsNullOrWhiteSpace(options.TicketFooterText))
+        {
+            y += 8;
+            dc.DrawText(MakeText(options.TicketFooterText, 13, FontWeights.Normal, title), new Point(24, y));
+            y += 18;
+        }
+
         y += 12;
         dc.DrawText(MakeText("Người cân .................    Khách hàng .................", 14, FontWeights.Normal, title),
             new Point(24, y));

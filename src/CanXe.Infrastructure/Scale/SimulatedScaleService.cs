@@ -52,6 +52,11 @@ public sealed class SimulatedScaleService : IScaleService
         PublishWeight(_currentWeightKg);
     }
 
+    public void ResumeAutomaticSimulation()
+    {
+        _manualMode = false;
+    }
+
     public ValueTask DisposeAsync() => new(StopAsync());
 
     private async Task RunRandomLoopAsync(CancellationToken cancellationToken)
