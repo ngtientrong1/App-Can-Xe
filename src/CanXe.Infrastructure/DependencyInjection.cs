@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<ICargoTypeRepository, CargoTypeRepository>();
         services.AddScoped<IVehicleRepository, VehicleRepository>();
         services.AddScoped<WeighTicketService>();
+        services.AddScoped<FastEntrySearchService>();
 
         return services;
     }

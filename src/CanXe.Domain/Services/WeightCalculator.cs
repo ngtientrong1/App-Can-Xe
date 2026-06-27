@@ -12,12 +12,26 @@ public static class WeightCalculator
 {
     public static WeightCalculationResult Calculate(decimal? weight1Kg, decimal? weight2Kg, decimal? unitPriceVndPerKg)
     {
-        if (weight1Kg is null || weight2Kg is null)
+        if (weight1Kg is null && weight2Kg is null)
             return new(null, null, null, null, null, null);
 
-        var gross = Math.Max(weight1Kg.Value, weight2Kg.Value);
-        var tare = Math.Min(weight1Kg.Value, weight2Kg.Value);
-        var net = Math.Abs(weight1Kg.Value - weight2Kg.Value);
+        decimal gross;
+        decimal tare;
+        decimal net;
+
+        if (weight1Kg is null ^ weight2Kg is null)
+        {
+            var single = weight1Kg ?? weight2Kg!.Value;
+            gross = single;
+            tare = 0m;
+            net = single;
+        }
+        else
+        {
+            gross = Math.Max(weight1Kg!.Value, weight2Kg!.Value);
+            tare = Math.Min(weight1Kg.Value, weight2Kg.Value);
+            net = Math.Abs(weight1Kg.Value - weight2Kg.Value);
+        }
 
         if (unitPriceVndPerKg is not > 0)
             return new(gross, tare, net, null, null, null);
@@ -32,4 +46,7 @@ public static class WeightCalculator
 
     public static bool HasBillableUnitPrice(decimal? unitPriceVndPerKg) =>
         unitPriceVndPerKg is > 0;
+
+    public static bool IsSingleWeigh(decimal? weight1Kg, decimal? weight2Kg) =>
+        weight1Kg is null ^ weight2Kg is null;
 }

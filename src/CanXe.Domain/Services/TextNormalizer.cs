@@ -19,7 +19,11 @@ public static class TextNormalizer
                 builder.Append(ch);
         }
 
-        return builder.ToString().Normalize(NormalizationForm.FormC).ToUpperInvariant();
+        var result = builder.ToString().Normalize(NormalizationForm.FormC);
+        return result
+            .Replace('Đ', 'D')
+            .Replace('đ', 'd')
+            .ToUpperInvariant();
     }
 
     public static bool ContainsNormalized(string source, string search)

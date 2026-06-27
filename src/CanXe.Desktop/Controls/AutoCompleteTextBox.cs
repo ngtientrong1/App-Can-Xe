@@ -3,10 +3,23 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
+using CanXe.Application.Models;
 using CanXe.Domain.Services;
 
 namespace CanXe.Desktop.Controls;
+
+public sealed class NullToVisibilityConverter : IValueConverter
+{
+    public static readonly NullToVisibilityConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+        string.IsNullOrWhiteSpace(value as string) ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+        throw new NotSupportedException();
+}
 
 public class AutoCompleteTextBox : Control
 {
@@ -14,6 +27,7 @@ public class AutoCompleteTextBox : Control
     private Popup? _popup;
     private ListBox? _listBox;
     private bool _isCommitting;
+    private bool _moveFocusAfterCommit;
 
     static AutoCompleteTextBox()
     {
@@ -26,7 +40,7 @@ public class AutoCompleteTextBox : Control
             new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnTextChanged));
 
     public static readonly DependencyProperty ItemsSourceProperty =
-        DependencyProperty.Register(nameof(ItemsSource), typeof(IEnumerable), typeof(AutoCompleteTextBox),
+        DependencyProperty.Register(nameof(ItemsSource), typeof(System.Collections.IEnumerable), typeof(AutoCompleteTextBox),
             new PropertyMetadata(null, OnItemsSourceChanged));
 
     public static readonly DependencyProperty SelectedItemProperty =
@@ -41,19 +55,15 @@ public class AutoCompleteTextBox : Control
         DependencyProperty.Register(nameof(HighlightedIndex), typeof(int), typeof(AutoCompleteTextBox),
             new PropertyMetadata(-1, OnHighlightedIndexChanged));
 
-    public static readonly DependencyProperty WatermarkProperty =
-        DependencyProperty.Register(nameof(Watermark), typeof(string), typeof(AutoCompleteTextBox),
-            new PropertyMetadata(string.Empty));
-
     public string Text
     {
         get => (string)GetValue(TextProperty);
         set => SetValue(TextProperty, value);
     }
 
-    public IEnumerable? ItemsSource
+    public System.Collections.IEnumerable? ItemsSource
     {
-        get => (IEnumerable?)GetValue(ItemsSourceProperty);
+        get => (System.Collections.IEnumerable?)GetValue(ItemsSourceProperty);
         set => SetValue(ItemsSourceProperty, value);
     }
 
@@ -73,12 +83,6 @@ public class AutoCompleteTextBox : Control
     {
         get => (int)GetValue(HighlightedIndexProperty);
         set => SetValue(HighlightedIndexProperty, value);
-    }
-
-    public string Watermark
-    {
-        get => (string)GetValue(WatermarkProperty);
-        set => SetValue(WatermarkProperty, value);
     }
 
     public event EventHandler? TextChangedByUser;
@@ -110,8 +114,7 @@ public class AutoCompleteTextBox : Control
                 HighlightedIndex = -1;
                 UpdatePopupState();
             };
-
-            _textBox.GotFocus += (_, _) => UpdatePopupState();
+            _textBox.GotFocus += (_, _) => UpdatePopupState(true);
             _textBox.PreviewKeyDown += OnTextBoxPreviewKeyDown;
             _textBox.LostFocus += (_, e) =>
             {
@@ -121,11 +124,7 @@ public class AutoCompleteTextBox : Control
                     return;
                 }
 
-                Dispatcher.BeginInvoke(() =>
-                {
-                    if (!IsKeyboardFocusWithin)
-                        ClosePopup();
-                });
+                Dispatcher.BeginInvoke(ClosePopup);
             };
         }
 
@@ -136,7 +135,7 @@ public class AutoCompleteTextBox : Control
                 if (e.OriginalSource is DependencyObject source &&
                     ItemsControl.ContainerFromElement(_listBox, source) is ListBoxItem { Content: var item })
                 {
-                    CommitSelection(item, moveFocus: false);
+                    CommitItem(item, moveFocus: true);
                     e.Handled = true;
                 }
             };
@@ -162,12 +161,14 @@ public class AutoCompleteTextBox : Control
                 e.Handled = true;
                 break;
 
-            case Key.Enter when hasPopup && HighlightedIndex >= 0:
+            case Key.Enter when hasPopup:
+                _moveFocusAfterCommit = true;
                 CommitHighlighted();
                 e.Handled = true;
                 break;
 
-            case Key.Tab when hasPopup && AutoCompleteSelectionLogic.HasHighlightedSelection(HighlightedIndex, items.Count):
+            case Key.Tab when hasPopup && HighlightedIndex >= 0:
+                _moveFocusAfterCommit = true;
                 CommitHighlighted();
                 break;
 
@@ -181,34 +182,48 @@ public class AutoCompleteTextBox : Control
     private void CommitHighlighted()
     {
         var items = GetItems();
-        var text = AutoCompleteSelectionLogic.ResolveCommitText(Text, SelectedItem, HighlightedIndex, items);
-        if (text is not null)
-            CommitText(text);
+        if (HighlightedIndex >= 0 && HighlightedIndex < items.Count)
+        {
+            CommitItem(items[HighlightedIndex], _moveFocusAfterCommit);
+            return;
+        }
+
+        ClosePopup();
     }
 
-    private void CommitSelection(object item, bool moveFocus)
+    private void CommitItem(object item, bool moveFocus)
     {
+        if (item is AutocompleteSuggestionItem suggestion)
+        {
+            if (suggestion.IsNewEntryOption)
+                CommitText(Text.Trim(), suggestion, moveFocus);
+            else
+                CommitText(suggestion.PrimaryText, suggestion, moveFocus);
+            return;
+        }
+
         var text = item.ToString() ?? string.Empty;
-        CommitText(text, item);
-        if (moveFocus)
-            MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+        CommitText(text, item, moveFocus);
     }
 
-    private void CommitText(string text, object? selectedItem = null)
+    private void CommitText(string text, object? selectedItem, bool moveFocus)
     {
         _isCommitting = true;
         try
         {
             Text = text;
-            SelectedItem = selectedItem ?? text;
+            SelectedItem = selectedItem;
             if (_textBox is not null)
                 _textBox.Text = text;
             ClosePopup();
             ItemCommitted?.Invoke(this, EventArgs.Empty);
+            if (moveFocus)
+                MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
         }
         finally
         {
             _isCommitting = false;
+            _moveFocusAfterCommit = false;
         }
     }
 
@@ -227,18 +242,20 @@ public class AutoCompleteTextBox : Control
         _listBox.ScrollIntoView(_listBox.SelectedItem);
     }
 
-    private List<string> GetItems() =>
-        ItemsSource?.Cast<object>().Select(x => x.ToString() ?? string.Empty).ToList() ?? [];
+    private List<object> GetItems() =>
+        ItemsSource?.Cast<object>().ToList() ?? [];
 
-    private void UpdatePopupState()
+    private void UpdatePopupState(bool selectFirst = false)
     {
         var items = GetItems();
         var isFocused = _textBox?.IsFocused == true;
         var shouldOpen = isFocused && items.Count > 0 &&
-                         !string.IsNullOrWhiteSpace(Text);
+                         (selectFirst || !string.IsNullOrWhiteSpace(Text));
 
         IsDropDownOpen = shouldOpen;
-        if (!shouldOpen)
+        if (shouldOpen && items.Count > 0)
+            HighlightedIndex = 0;
+        else if (!shouldOpen)
             HighlightedIndex = -1;
     }
 

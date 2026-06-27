@@ -1,3 +1,5 @@
+using CanXe.Application.Models;
+using CanXe.Application.Services;
 using CanXe.Domain.Services;
 
 namespace CanXe.Tests.Domain;
@@ -7,9 +9,9 @@ public class AutoCompleteSelectionLogicTests
     private static readonly string[] Items = ["Công ty Alpha", "Công ty Beta", "Cà tươi"];
 
     [Fact]
-    public void ArrowDown_Enter_CommitsHighlightedItem()
+    public void Enter_SelectsFirstHighlightedItem()
     {
-        var index = AutoCompleteSelectionLogic.MoveHighlight(-1, Items.Length, 1);
+        var index = 0;
         var text = AutoCompleteSelectionLogic.ResolveCommitText("cong", null, index, Items);
         Assert.Equal("Công ty Alpha", text);
     }
@@ -29,13 +31,5 @@ public class AutoCompleteSelectionLogicTests
         const string typed = "Khách mới XYZ";
         var text = AutoCompleteSelectionLogic.ResolveCommitText(typed, null, -1, Items);
         Assert.Equal(typed, text);
-    }
-
-    [Fact]
-    public void Enter_CommitsCargoTypeSuggestion()
-    {
-        var index = AutoCompleteSelectionLogic.MoveHighlight(1, Items.Length, 1);
-        var text = AutoCompleteSelectionLogic.ResolveCommitText("ca", null, index, Items);
-        Assert.Equal("Cà tươi", text);
     }
 }

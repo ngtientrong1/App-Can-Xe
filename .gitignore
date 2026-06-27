@@ -15,6 +15,12 @@ publish/
 *.db-wal
 Photos/
 
+## Logs & runtime data
+*.log
+logs/
+Logs/
+TestResults/
+
 ## OS
 Thumbs.db
 .DS_Store

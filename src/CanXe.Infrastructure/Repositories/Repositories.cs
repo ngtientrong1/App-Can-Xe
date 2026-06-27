@@ -72,6 +72,18 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
         if (hasDateTo)
             results = results.Where(t => t.TicketDateTime <= toDate!.Value).ToList();
 
+        if (filter.UnitPriceFromVndPerKg is { } fromUnitPrice)
+        {
+            var vndFrom = (int)Math.Round(fromUnitPrice, 0, MidpointRounding.AwayFromZero);
+            results = results.Where(t => t.UnitPriceVndPerKg >= vndFrom).ToList();
+        }
+
+        if (filter.UnitPriceToVndPerKg is { } toUnitPrice)
+        {
+            var vndTo = (int)Math.Round(toUnitPrice, 0, MidpointRounding.AwayFromZero);
+            results = results.Where(t => t.UnitPriceVndPerKg <= vndTo).ToList();
+        }
+
         return results
             .OrderByDescending(t => t.TicketDateTime)
             .ThenByDescending(t => t.Id)
@@ -125,6 +137,49 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
             .FirstOrDefaultAsync(s => s.Year == year && s.Month == month, cancellationToken);
 
         return row is null ? 1 : row.LastSequence + 1;
+    }
+
+    public async Task<string?> GetLatestPlateForCustomerAsync(
+        string customerName,
+        CancellationToken cancellationToken = default)
+    {
+        var term = customerName.Trim();
+        var tickets = await _db.WeighTickets
+            .Where(t => t.CustomerNameSnapshot != null && t.CustomerNameSnapshot == term && t.LicensePlateSnapshot != null)
+            .ToListAsync(cancellationToken);
+
+        return tickets
+            .OrderByDescending(t => t.TicketDateTime)
+            .Select(t => t.LicensePlateSnapshot)
+            .FirstOrDefault();
+    }
+
+    public async Task<int> GetCargoUsageCountAsync(
+        string cargoTypeName,
+        CancellationToken cancellationToken = default)
+    {
+        var term = cargoTypeName.Trim();
+        return await _db.WeighTickets
+            .CountAsync(t => t.CargoTypeNameSnapshot == term, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<string>> SearchRecentNotesAsync(
+        string searchTerm,
+        int maxResults = 5,
+        CancellationToken cancellationToken = default)
+    {
+        var notes = await _db.WeighTickets
+            .Where(t => t.Notes != null && t.Notes != string.Empty)
+            .Select(t => t.Notes!)
+            .ToListAsync(cancellationToken);
+
+        var distinct = notes
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(n => TextNormalizer.ContainsNormalized(n, searchTerm))
+            .Take(maxResults)
+            .ToList();
+
+        return distinct;
     }
 
     public async Task<T> ExecuteInTransactionAsync<T>(
@@ -298,12 +353,13 @@ public sealed class VehicleRepository : IVehicleRepository
     {
         var normalized = PlateNormalizer.Normalize(searchTerm);
         if (normalized.Length == 0)
-            return (await _db.Vehicles.ToListAsync(cancellationToken))
+            return (await _db.Vehicles.Include(v => v.LastCustomer).ToListAsync(cancellationToken))
                 .OrderByDescending(v => v.LastUsedAt)
                 .Take(maxResults)
                 .ToList();
 
         return (await _db.Vehicles
+            .Include(v => v.LastCustomer)
             .Where(v => v.NormalizedPlateNumber.Contains(normalized))
             .ToListAsync(cancellationToken))
             .OrderByDescending(v => v.LastUsedAt)

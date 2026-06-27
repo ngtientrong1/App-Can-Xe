@@ -102,6 +102,12 @@ public sealed class WeighTicketService
         if (sequence is not (1 or 2))
             return new CaptureWeightResult { Success = false, ErrorMessage = "Lần cân không hợp lệ." };
 
+        if (sequence == 1 && !DraftWorkflowRules.CanUpdateWeight1(
+                draft.IsWeight1LockedFromSavedTicket,
+                draft.DraftWeight2.HasValue,
+                draft.DeveloperWeight1OverrideEnabled))
+            return new CaptureWeightResult { Success = false, ErrorMessage = "Cân lần 1 đã khóa sau khi có cân lần 2." };
+
         if (sequence == 1 && draft.IsWeight1LockedFromSavedTicket)
             return new CaptureWeightResult { Success = false, ErrorMessage = "Không thể sửa cân lần 1 đã lưu." };
 
@@ -190,9 +196,15 @@ public sealed class WeighTicketService
 
     public Task<IReadOnlyList<WeighTicketListItem>> GetFilteredAsync(
         WeighTicketFilter filter,
+        CancellationToken cancellationToken = default) =>
+        GetFilteredListItemsAsync(filter, cancellationToken);
+
+    public async Task<WeighTicketFilterResult> GetFilteredWithSummaryAsync(
+        WeighTicketFilter filter,
         CancellationToken cancellationToken = default)
     {
-        return GetFilteredListItemsAsync(filter, cancellationToken);
+        var items = await GetFilteredListItemsAsync(filter, cancellationToken);
+        return FilterSummaryCalculator.Build(items);
     }
 
     public Task<IReadOnlyList<Customer>> SearchCustomersAsync(
@@ -237,6 +249,8 @@ public sealed class WeighTicketService
         var w1 = ticket.Events.FirstOrDefault(e => e.Sequence == 1);
         var w2 = ticket.Events.FirstOrDefault(e => e.Sequence == 2);
         var unitPrice = WeightStorageMapper.FromVndPerKg(ticket.UnitPriceVndPerKg);
+        var weight1 = WeightStorageMapper.FromGrams(w1?.WeightGrams);
+        var weight2 = WeightStorageMapper.FromGrams(w2?.WeightGrams);
 
         return new WeighTicketDetailDto
         {
@@ -264,7 +278,8 @@ public sealed class WeighTicketService
             NetWeightKg = WeightStorageMapper.FromGrams(ticket.NetWeightGrams),
             DeductionWeightKg = WeightStorageMapper.FromGrams(ticket.DeductionWeightGrams),
             BillableWeightKg = WeightStorageMapper.FromGrams(ticket.BillableWeightGrams),
-            TotalAmountVnd = WeightStorageMapper.FromVnd(ticket.TotalAmountVnd)
+            TotalAmountVnd = WeightStorageMapper.FromVnd(ticket.TotalAmountVnd),
+            IsSingleWeigh = WeightCalculator.IsSingleWeigh(weight1, weight2)
         };
     }
 
@@ -558,12 +573,8 @@ public sealed class WeighTicketService
         return tickets.Select(MapToListItem).ToList();
     }
 
-    private static WeighTicketListItem MapToListItem(WeighTicket ticket)
-    {
-        var eventCount = ticket.Events.Count;
-        int? singleGrams = eventCount == 1 ? ticket.Events.First().WeightGrams : null;
-
-        return new()
+    private static WeighTicketListItem MapToListItem(WeighTicket ticket) =>
+        new()
         {
             Id = ticket.Id,
             TicketDateTime = ticket.TicketDateTime,
@@ -574,14 +585,12 @@ public sealed class WeighTicketService
             GrossWeightKg = WeightStorageMapper.FromGrams(ticket.GrossWeightGrams),
             TareWeightKg = WeightStorageMapper.FromGrams(ticket.TareWeightGrams),
             NetWeightKg = WeightStorageMapper.FromGrams(ticket.NetWeightGrams),
-            SingleRecordedWeightKg = SingleRecordedWeightResolver.Resolve(eventCount, singleGrams),
             BillableWeightKg = WeightStorageMapper.FromGrams(ticket.BillableWeightGrams),
             UnitPriceVndPerKg = WeightStorageMapper.FromVndPerKg(ticket.UnitPriceVndPerKg),
             TotalAmountVnd = WeightStorageMapper.FromVnd(ticket.TotalAmountVnd),
             Notes = ticket.Notes,
-            EventCount = eventCount
+            EventCount = ticket.Events.Count
         };
-    }
 
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

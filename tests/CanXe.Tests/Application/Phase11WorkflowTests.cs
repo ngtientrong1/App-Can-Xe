@@ -459,6 +459,15 @@ public class Phase11WorkflowTests : IAsyncLifetime
         public Task<int> PeekNextSequenceAsync(int year, int month, CancellationToken cancellationToken = default) =>
             _inner.PeekNextSequenceAsync(year, month, cancellationToken);
 
+        public Task<string?> GetLatestPlateForCustomerAsync(string customerName, CancellationToken cancellationToken = default) =>
+            _inner.GetLatestPlateForCustomerAsync(customerName, cancellationToken);
+
+        public Task<int> GetCargoUsageCountAsync(string cargoTypeName, CancellationToken cancellationToken = default) =>
+            _inner.GetCargoUsageCountAsync(cargoTypeName, cancellationToken);
+
+        public Task<IReadOnlyList<string>> SearchRecentNotesAsync(string searchTerm, int maxResults = 5, CancellationToken cancellationToken = default) =>
+            _inner.SearchRecentNotesAsync(searchTerm, maxResults, cancellationToken);
+
         public Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken = default) =>
             _inner.ExecuteInTransactionAsync(action, cancellationToken);
     }

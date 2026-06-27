@@ -137,6 +137,9 @@
                                                       Text="{Binding LicensePlate, UpdateSourceTrigger=PropertyChanged}"
                                                       ItemsSource="{Binding VehicleSuggestions}" FontSize="20"/>
                             <TextBlock Text="{Binding VehicleSuggestionText}" Foreground="#757575" FontSize="14" TextWrapping="Wrap"/>
+                            <Button Content="DÙNG KHÁCH NÀY" Command="{Binding ApplySuggestedVehicleCustomerCommand}"
+                                    Style="{StaticResource FilterButton}" Margin="0,4,0,0" TabIndex="-1"
+                                    Visibility="{Binding ShowApplyVehicleCustomerButton, Converter={StaticResource BoolToVis}}"/>
                         </StackPanel>
                     </Grid>
 
@@ -153,15 +156,16 @@
                         </StackPanel>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Đơn giá (VNĐ/kg)" Style="{StaticResource SectionHeader}"/>
-                            <TextBox TabIndex="4" Text="{Binding UnitPriceText, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBox x:Name="UnitPriceField" TabIndex="4" Text="{Binding UnitPriceText, UpdateSourceTrigger=PropertyChanged}"/>
                         </StackPanel>
                     </Grid>
 
-                    <StackPanel>
-                        <TextBlock Text="Ghi chú" Style="{StaticResource SectionHeader}"/>
-                        <TextBox TabIndex="5" Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
-                                 AcceptsReturn="True" MinHeight="56" MaxHeight="120"/>
-                    </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Ghi chú" Style="{StaticResource SectionHeader}"/>
+                            <ctrl:AutoCompleteTextBox x:Name="NotesField" TabIndex="5"
+                                                      Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
+                                                      ItemsSource="{Binding NotesSuggestions}" FontSize="20"/>
+                        </StackPanel>
                 </StackPanel>
             </Border>
 
@@ -193,6 +197,10 @@
                             </DockPanel>
                             <CheckBox Content="Chế độ thủ công" IsChecked="{Binding IsManualScaleMode}" FontSize="15"
                                       Margin="0,0,0,4" Focusable="False" TabIndex="-1"/>
+                            <CheckBox Content="Cho phép sửa lại Cân lần 1" IsChecked="{Binding DeveloperWeight1OverrideEnabled}"
+                                      FontSize="14" Margin="0,0,0,4" Focusable="False" TabIndex="-1"/>
+                            <TextBlock Text="DEV: đang mở khóa Cân lần 1" Foreground="#E65100" FontSize="13" Margin="0,0,0,4"
+                                       Visibility="{Binding IsWeight1DevOverrideWarningVisible, Converter={StaticResource BoolToVis}}"/>
                             <TextBox Text="{Binding ManualWeightText, UpdateSourceTrigger=PropertyChanged}"
                                      Focusable="False" TabIndex="-1"/>
                             <StackPanel Orientation="Horizontal" Margin="0,4,0,0" Focusable="False">
@@ -227,27 +235,38 @@
         <Grid Grid.Row="3" Margin="0,6,0,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <WrapPanel Grid.Row="0" Margin="0,0,0,6">
-                <StackPanel Orientation="Horizontal" Margin="0,0,10,6">
+            <!-- Row 1: time -->
+            <WrapPanel Grid.Row="0" Margin="0,0,0,4">
+                <Button Content="HÔM NAY" Style="{StaticResource FilterButton}" Command="{Binding FilterTodayCommand}" TabIndex="-1"/>
+                <Button Content="HÔM QUA" Style="{StaticResource FilterButton}" Command="{Binding FilterYesterdayCommand}" TabIndex="-1"/>
+                <Button Content="7 NGÀY" Style="{StaticResource FilterButton}" Command="{Binding FilterLast7DaysCommand}" TabIndex="-1"/>
+                <Button Content="THÁNG NÀY" Style="{StaticResource FilterButton}" Command="{Binding FilterThisMonthCommand}" TabIndex="-1"/>
+                <StackPanel Orientation="Horizontal" Margin="8,0,0,0">
                     <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="16" FontWeight="SemiBold"/>
                     <DatePicker SelectedDate="{Binding FilterFromDate}" Width="130" FontSize="16" TabIndex="-1"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,10,6">
+                <StackPanel Orientation="Horizontal" Margin="8,0,0,0">
                     <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="16" FontWeight="SemiBold"/>
                     <DatePicker SelectedDate="{Binding FilterToDate}" Width="130" FontSize="16" TabIndex="-1"/>
                 </StackPanel>
-                <StackPanel Width="130" Margin="0,0,8,6">
+            </WrapPanel>
+
+            <!-- Row 2: conditions -->
+            <WrapPanel Grid.Row="1" Margin="0,0,0,4">
+                <StackPanel Width="150" Margin="0,0,8,6">
                     <TextBlock Text="Khách hàng" FontSize="16" FontWeight="SemiBold"/>
                     <TextBox Text="{Binding FilterCustomerName, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                 </StackPanel>
-                <StackPanel Width="120" Margin="0,0,8,6">
+                <StackPanel Width="130" Margin="0,0,8,6">
                     <TextBlock Text="Loại hàng" FontSize="16" FontWeight="SemiBold"/>
                     <TextBox Text="{Binding FilterCargoTypeName, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                 </StackPanel>
-                <StackPanel Width="110" Margin="0,0,8,6">
+                <StackPanel Width="120" Margin="0,0,8,6">
                     <TextBlock Text="Biển số" FontSize="16" FontWeight="SemiBold"/>
                     <TextBox Text="{Binding FilterLicensePlate, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                 </StackPanel>
@@ -255,21 +274,42 @@
                     <TextBlock Text="Số phiếu" FontSize="16" FontWeight="SemiBold"/>
                     <TextBox Text="{Binding FilterDisplayNumber, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                 </StackPanel>
-                <StackPanel Width="100" Margin="0,0,8,6">
-                    <TextBlock Text="Đơn giá" FontSize="16" FontWeight="SemiBold"/>
+                <StackPanel Width="90" Margin="0,0,8,6">
+                    <TextBlock Text="Từ giá" FontSize="16" FontWeight="SemiBold"/>
                     <TextBox Text="{Binding FilterUnitPriceText, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                 </StackPanel>
+                <StackPanel Width="90" Margin="0,0,8,6">
+                    <TextBlock Text="Đến giá" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBox Text="{Binding FilterUnitPriceToText, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
+                </StackPanel>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,0,0,6">
-                    <Button Content="LỌC" Style="{StaticResource FilterButton}" Command="{Binding ApplyFilterCommand}" TabIndex="-1"/>
-                    <Button Content="HÔM NAY" Style="{StaticResource FilterButton}" Command="{Binding FilterTodayCommand}" TabIndex="-1"/>
-                    <Button Content="HÔM QUA" Style="{StaticResource FilterButton}" Command="{Binding FilterYesterdayCommand}" TabIndex="-1"/>
-                    <Button Content="7 NGÀY" Style="{StaticResource FilterButton}" Command="{Binding FilterLast7DaysCommand}" TabIndex="-1"/>
-                    <Button Content="THÁNG NÀY" Style="{StaticResource FilterButton}" Command="{Binding FilterThisMonthCommand}" TabIndex="-1"/>
+                    <Button Content="ÁP DỤNG LỌC" Style="{StaticResource FilterButton}" Command="{Binding ApplyFilterCommand}" TabIndex="-1"/>
                     <Button Content="XÓA LỌC" Style="{StaticResource FilterButton}" Command="{Binding ClearFilterCommand}" TabIndex="-1"/>
+                    <Button Content="XUẤT EXCEL" Style="{StaticResource FilterButton}" Command="{Binding ExportExcelStubCommand}" TabIndex="-1" IsEnabled="False"/>
                 </StackPanel>
             </WrapPanel>
 
-            <DataGrid x:Name="TicketsGrid" Grid.Row="1"
+            <!-- Active chips + summary -->
+            <StackPanel Grid.Row="2" Margin="0,0,0,4">
+                <ItemsControl ItemsSource="{Binding ActiveFilterChips}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding Label}" Margin="0,0,6,4" Padding="8,4" TabIndex="-1"
+                                    Command="{Binding DataContext.RemoveFilterChipCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{Binding FilterResultSummary}" FontSize="16" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding FilterTotalsSummary}" FontSize="15" Foreground="#424242"/>
+            </StackPanel>
+
+            <DataGrid x:Name="TicketsGrid" Grid.Row="3"
                       ItemsSource="{Binding Tickets}"
                       AutoGenerateColumns="False"
                       IsReadOnly="True"
@@ -293,7 +333,6 @@
                     <DataGridTextColumn Header="Biển số" Binding="{Binding LicensePlate, TargetNullValue=—}" Width="95"/>
                     <DataGridTextColumn Header="Khách hàng" Binding="{Binding CustomerName, TargetNullValue=—}" Width="130"/>
                     <DataGridTextColumn Header="Loại hàng" Binding="{Binding CargoTypeName, TargetNullValue=—}" Width="100"/>
-                    <DataGridTextColumn Header="Cân một lần" Binding="{Binding SingleRecordedWeightKg, StringFormat=N0, TargetNullValue=—}" Width="95"/>
                     <DataGridTextColumn Header="Tổng" Binding="{Binding GrossWeightKg, StringFormat=N0, TargetNullValue=—}" Width="70"/>
                     <DataGridTextColumn Header="Bì" Binding="{Binding TareWeightKg, StringFormat=N0, TargetNullValue=—}" Width="65"/>
                     <DataGridTextColumn Header="Hàng" Binding="{Binding NetWeightKg, StringFormat=N0, TargetNullValue=—}" Width="70"/>

@@ -1,44 +1,70 @@
-# CanXe — Product Spec (Giai đoạn 1.3)
+# CanXe — Product Spec (Giai đoạn 1.4)
 
-## Bố cục cân
+## Phiếu cân một lần
 
-Cột trái (~34%): trọng lượng trực tiếp, ổn định, Cân lần 1/2, Tổng/Bì/Hàng, trừ bì/KL TT/thành tiền.
+Khi phiếu chỉ có **một** WeighEvent:
 
-Cột giữa (~46%): chỉ thông tin phiếu (số phiếu dự kiến, ngày giờ, khách, biển số, loại hàng, đơn giá, ghi chú).
+```text
+GrossWeight = trọng lượng duy nhất
+TareWeight = 0
+NetWeight = trọng lượng duy nhất
+```
 
-Cột phải (~20%): camera nhỏ + panel DEV thu gọn (Simulation + `ShowDeveloperPanel`).
+Ví dụ: trọng lượng 11.576 kg → Tổng 11.576 · Bì 0 · Hàng 11.576.
 
-## Số phiếu dự kiến
+Khi bổ sung cân lần 2 trên cùng phiếu:
 
-- Hiển thị số dự kiến (ví dụ `0009/06`) trước khi lưu — **không** tăng sequence.
-- Số chính thức cấp trong transaction khi **LƯU**.
-- **HỦY BỎ** không tăng sequence.
-- Sau lưu: hiển thị số dự kiến tiếp theo.
+```text
+Gross = Max(W1, W2)
+Tare = Min(W1, W2)
+Net = Abs(W1 - W2)
+```
 
-## Autocomplete
+Không cấp số phiếu mới. Phiếu một lần cân vẫn cộng vào báo cáo (Loại hàng → Khách → Đơn giá).
 
-Khách hàng, biển số, loại hàng — một control duy nhất mỗi trường:
+## Billing
 
-- ArrowUp/Down, Enter, Tab, Escape, click chọn.
-- Tab không có selection → giữ text người dùng gõ.
-- Biển số: tìm không phân biệt dấu chấm/gạch, tự chữ hoa.
+- `UnitPrice > 0`: deduction, billable, total như Giai đoạn 1.2.
+- Không đơn giá: Gross/Tare/Net có giá trị; billing null; UI hiển thị `—`.
 
-## Danh sách — cột Cân một lần
+## Khóa Cân lần 1
 
-- 1 WeighEvent → hiển thị trọng lượng.
-- 2 events → `—`.
-- Không ảnh hưởng công thức Tổng/Bì/Hàng.
+- Trước Cân lần 2: có thể lấy/cập nhật Cân lần 1 nhiều lần.
+- Sau Cân lần 2: khóa Cân lần 1; Cân lần 2 vẫn cập nhật được trước LƯU.
+- DEV (`Simulation` + `ShowDeveloperPanel`): checkbox **Cho phép sửa lại Cân lần 1** (mặc định tắt).
 
-## Công thức & cân dịch vụ
+## Autocomplete nhập nhanh
 
-Giữ nguyên quy tắc Giai đoạn 1.2.
+Áp dụng: Khách hàng, Biển số, Loại hàng, Ghi chú gần đây (không cho Đơn giá).
+
+- Tối đa 8 gợi ý; debounce 150–250 ms.
+- Không phân biệt hoa/thường; bỏ dấu (Đ→D); biển số bỏ dấu chấm/gạch khi so khớp.
+- Xếp hạng: khớp chính xác → starts-with → token prefix → contains → dùng gần đây.
+- Enter/Tab chọn + chuyển trường kế tiếp; Escape đóng popup.
+- Dòng **+ Dùng tên mới** giữ text nhập; tạo danh mục khi LƯU.
+
+Biển số: tự chữ hoa; gợi ý khách thường gắn xe (xác nhận **DÙNG KHÁCH NÀY**).
+
+## Bộ lọc
+
+**Hàng 1 — Thời gian:** Hôm nay, Hôm qua, 7 ngày, Tháng này, Từ ngày, Đến ngày.
+
+**Hàng 2 — Điều kiện:** Khách, Loại hàng, Biển số, Số phiếu, Đơn giá (exact hoặc Từ/Đến).
+
+- Nút: ÁP DỤNG LỌC, XÓA LỌC, XUẤT EXCEL (stub/disabled).
+- Chip điều kiện đang hoạt động (× xóa từng chip).
+- Tổng: số phiếu, tổng NetWeight, tổng TotalAmount (cộng từng phiếu).
+- Khoảng ngày: `FromDate 00:00:00` đến trước `ToDate + 1 ngày`.
+- Query SQLite chỉ khi ÁP DỤNG hoặc Enter; danh sách tối đa 200 dòng.
+
+## Bố cục & số phiếu
+
+Giữ bố cục 34/46/20 và số phiếu dự kiến (Peek, không increment) từ Giai đoạn 1.3.
 
 ## Tab order
 
-Khách → Biển số → Loại hàng → Đơn giá → Ghi chú → Cân 1 → Cân 2 → Lưu → Hủy → In.
+Khách → Biển số → Loại hàng → Đơn giá → Ghi chú → Cân 1 → Cân 2 → Lưu.
 
-Panel DEV: `IsTabStop = false`.
+## Ngoài phạm vi 1.4
 
-## Ngoài phạm vi 1.3
-
-COM, RTSP, in, Excel, phân quyền admin.
+COM, RTSP, in, Excel thật, phân quyền admin.

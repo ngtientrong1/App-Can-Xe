@@ -14,6 +14,7 @@ public sealed class WeighTicketDraft
     public string? DraftCargoType { get; set; }
     public decimal? DraftUnitPrice { get; set; }
     public string? DraftNotes { get; set; }
+    public bool DeveloperWeight1OverrideEnabled { get; set; }
 
     public decimal? DraftWeight1 { get; set; }
     public DateTimeOffset? DraftWeight1RecordedAt { get; set; }
@@ -81,6 +82,8 @@ public sealed class WeighTicketFilter
     public string? LicensePlate { get; set; }
     public string? DisplayNumber { get; set; }
     public decimal? UnitPriceVndPerKg { get; set; }
+    public decimal? UnitPriceFromVndPerKg { get; set; }
+    public decimal? UnitPriceToVndPerKg { get; set; }
     public int MaxResults { get; set; } = 200;
 }
 
@@ -95,7 +98,6 @@ public sealed class WeighTicketListItem
     public decimal? GrossWeightKg { get; init; }
     public decimal? TareWeightKg { get; init; }
     public decimal? NetWeightKg { get; init; }
-    public decimal? SingleRecordedWeightKg { get; init; }
     public decimal? BillableWeightKg { get; init; }
     public decimal? UnitPriceVndPerKg { get; init; }
     public decimal? TotalAmountVnd { get; init; }
@@ -133,6 +135,8 @@ public sealed class WeighTicketDetailDto
     public decimal? DeductionWeightKg { get; init; }
     public decimal? BillableWeightKg { get; init; }
     public decimal? TotalAmountVnd { get; init; }
+
+    public bool IsSingleWeigh { get; init; }
 
     public int EventCount =>
         (Weight1Kg.HasValue ? 1 : 0) + (Weight2Kg.HasValue ? 1 : 0);

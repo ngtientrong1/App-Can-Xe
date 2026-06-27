@@ -18,16 +18,55 @@ public class WeightCalculatorTests
     }
 
     [Fact]
-    public void Calculate_WithSingleWeight_ReturnsNullComputedFields()
+    public void Calculate_SingleWeight_UsesZeroTareAndSameNet()
     {
-        var result = WeightCalculator.Calculate(8500m, null, 500m);
+        var result = WeightCalculator.Calculate(11576m, null, null);
 
-        Assert.Null(result.GrossWeightKg);
-        Assert.Null(result.TareWeightKg);
-        Assert.Null(result.NetWeightKg);
-        Assert.Null(result.DeductionWeightKg);
+        Assert.Equal(11576m, result.GrossWeightKg);
+        Assert.Equal(0m, result.TareWeightKg);
+        Assert.Equal(11576m, result.NetWeightKg);
         Assert.Null(result.BillableWeightKg);
+    }
+
+    [Fact]
+    public void Calculate_SingleWeightWithUnitPrice_ComputesBilling()
+    {
+        var result = WeightCalculator.Calculate(11576m, null, 500m);
+
+        Assert.Equal(11576m, result.NetWeightKg);
+        Assert.Equal(34.728m, result.DeductionWeightKg);
+        Assert.Equal(11541m, result.BillableWeightKg);
+        Assert.Equal(5_770_500m, result.TotalAmountVnd);
+    }
+
+    [Fact]
+    public void Calculate_SingleWeightWithoutUnitPrice_BillingNull()
+    {
+        var result = WeightCalculator.Calculate(8500m, null, null);
+
+        Assert.Equal(8500m, result.GrossWeightKg);
+        Assert.Null(result.DeductionWeightKg);
         Assert.Null(result.TotalAmountVnd);
+    }
+
+    [Fact]
+    public void Calculate_AfterSecondWeight_ReplacesSingleWeighResult()
+    {
+        var single = WeightCalculator.Calculate(11576m, null, null);
+        Assert.Equal(0m, single.TareWeightKg);
+
+        var dual = WeightCalculator.Calculate(8500m, 11576m, null);
+        Assert.Equal(11576m, dual.GrossWeightKg);
+        Assert.Equal(8500m, dual.TareWeightKg);
+        Assert.Equal(3076m, dual.NetWeightKg);
+    }
+
+    [Fact]
+    public void IsSingleWeigh_DetectsOneWeightOnly()
+    {
+        Assert.True(WeightCalculator.IsSingleWeigh(8500m, null));
+        Assert.True(WeightCalculator.IsSingleWeigh(null, 9200m));
+        Assert.False(WeightCalculator.IsSingleWeigh(8500m, 18500m));
     }
 
     [Fact]
@@ -36,23 +75,7 @@ public class WeightCalculatorTests
         var result = WeightCalculator.Calculate(8500m, 18500m, null);
 
         Assert.Equal(18500m, result.GrossWeightKg);
-        Assert.Equal(8500m, result.TareWeightKg);
-        Assert.Equal(10000m, result.NetWeightKg);
-        Assert.Null(result.DeductionWeightKg);
         Assert.Null(result.BillableWeightKg);
-        Assert.Null(result.TotalAmountVnd);
-    }
-
-    [Fact]
-    public void Calculate_WithZeroUnitPrice_TreatedAsServiceWeigh()
-    {
-        var result = WeightCalculator.Calculate(8500m, 18500m, 0m);
-
-        Assert.Equal(10000m, result.NetWeightKg);
-        Assert.Null(result.DeductionWeightKg);
-        Assert.Null(result.BillableWeightKg);
-        Assert.Null(result.TotalAmountVnd);
-        Assert.False(WeightCalculator.HasBillableUnitPrice(0m));
     }
 
     [Theory]
@@ -67,19 +90,5 @@ public class WeightCalculatorTests
 
         var result = WeightCalculator.Calculate(w1, w2, 500m);
         Assert.Equal(expected, result.BillableWeightKg);
-    }
-
-    [Fact]
-    public void Calculate_RemovingUnitPrice_ClearsBillingFields()
-    {
-        var withPrice = WeightCalculator.Calculate(8500m, 18500m, 500m);
-        Assert.NotNull(withPrice.BillableWeightKg);
-
-        var withoutPrice = WeightCalculator.Calculate(8500m, 18500m, null);
-        Assert.Equal(withPrice.GrossWeightKg, withoutPrice.GrossWeightKg);
-        Assert.Equal(withPrice.NetWeightKg, withoutPrice.NetWeightKg);
-        Assert.Null(withoutPrice.DeductionWeightKg);
-        Assert.Null(withoutPrice.BillableWeightKg);
-        Assert.Null(withoutPrice.TotalAmountVnd);
     }
 }

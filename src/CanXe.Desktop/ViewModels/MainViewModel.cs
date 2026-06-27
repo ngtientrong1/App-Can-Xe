@@ -15,19 +15,27 @@ namespace CanXe.Desktop.ViewModels;
 public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 {
     private readonly WeighTicketService _weighTicketService;
+    private readonly FastEntrySearchService _fastEntrySearch;
     private readonly IScaleService _scaleService;
     private readonly IUiFocusService _focusService;
     private readonly AppSettings _settings;
 
     private WeighTicketDraft _draft = new();
+    private CancellationTokenSource? _customerSearchCts;
+    private CancellationTokenSource? _vehicleSearchCts;
+    private CancellationTokenSource? _cargoSearchCts;
+    private CancellationTokenSource? _notesSearchCts;
+    private string? _activeQuickRangeLabel;
 
     public MainViewModel(
         WeighTicketService weighTicketService,
+        FastEntrySearchService fastEntrySearch,
         IScaleService scaleService,
         IUiFocusService focusService,
         AppSettings settings)
     {
         _weighTicketService = weighTicketService;
+        _fastEntrySearch = fastEntrySearch;
         _scaleService = scaleService;
         _focusService = focusService;
         _settings = settings;
@@ -67,8 +75,11 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private bool _isCameraPanelVisible;
     [ObservableProperty] private bool _isDevPanelExpanded;
     [ObservableProperty] private bool _isDeveloperPanelAvailable;
+    [ObservableProperty] private bool _developerWeight1OverrideEnabled;
+    [ObservableProperty] private bool _isWeight1DevOverrideWarningVisible;
     [ObservableProperty] private string? _manualWeightText;
     [ObservableProperty] private string? _vehicleSuggestionText;
+    [ObservableProperty] private bool _showApplyVehicleCustomerButton;
 
     [ObservableProperty] private string _weigh1ButtonText = "LẤY CÂN LẦN 1";
     [ObservableProperty] private string _weigh2ButtonText = "LẤY CÂN LẦN 2";
@@ -80,15 +91,23 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string? _filterLicensePlate;
     [ObservableProperty] private string? _filterDisplayNumber;
     [ObservableProperty] private string? _filterUnitPriceText;
+    [ObservableProperty] private string? _filterUnitPriceToText;
+    [ObservableProperty] private string _filterResultSummary = string.Empty;
+    [ObservableProperty] private string _filterTotalsSummary = string.Empty;
 
     public GridLength WeighColumnWidth => new(34, GridUnitType.Star);
     public GridLength InfoColumnWidth => new(IsCameraPanelVisible ? 46 : 66, GridUnitType.Star);
     public GridLength CameraColumnWidth => new(IsCameraPanelVisible ? 20 : 0, GridUnitType.Star);
 
     public ObservableCollection<WeighTicketListItem> Tickets { get; } = [];
-    public ObservableCollection<string> CustomerSuggestions { get; } = [];
-    public ObservableCollection<string> CargoTypeSuggestions { get; } = [];
-    public ObservableCollection<string> VehicleSuggestions { get; } = [];
+    public ObservableCollection<AutocompleteSuggestionItem> CustomerSuggestions { get; } = [];
+    public ObservableCollection<AutocompleteSuggestionItem> CargoTypeSuggestions { get; } = [];
+    public ObservableCollection<AutocompleteSuggestionItem> VehicleSuggestions { get; } = [];
+    public ObservableCollection<AutocompleteSuggestionItem> NotesSuggestions { get; } = [];
+    public ObservableCollection<AutocompleteSuggestionItem> FilterCustomerSuggestions { get; } = [];
+    public ObservableCollection<AutocompleteSuggestionItem> FilterCargoSuggestions { get; } = [];
+    public ObservableCollection<AutocompleteSuggestionItem> FilterVehicleSuggestions { get; } = [];
+    public ObservableCollection<ActiveFilterChip> ActiveFilterChips { get; } = [];
 
     public async Task InitializeAsync()
     {
@@ -107,6 +126,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private async Task CaptureWeightAsync(int sequence)
     {
+        _draft.DeveloperWeight1OverrideEnabled = DeveloperWeight1OverrideEnabled;
         var result = await _weighTicketService.CaptureWeightAsync(_draft, sequence);
         if (!result.Success)
         {
@@ -115,6 +135,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
 
         UpdateDisplaysFromDraft();
+        UpdateButtonStates();
         UpdateButtonLabels();
         StatusMessage = result.IsUpdate
             ? $"Đã cập nhật cân lần {sequence}: {result.WeightKg:N0} kg"
@@ -163,45 +184,37 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private void ToggleDevPanel() => IsDevPanelExpanded = !IsDevPanelExpanded;
 
     [RelayCommand]
-    private void PrintTicket() =>
-        StatusMessage = "In phiếu sẽ có ở giai đoạn sau.";
+    private void PrintTicket() => StatusMessage = "In phiếu sẽ có ở giai đoạn sau.";
 
     [RelayCommand]
-    private async Task ApplyFilterAsync() => await RefreshListAsync();
+    private void ExportExcelStub() => StatusMessage = "Xuất Excel sẽ có ở giai đoạn sau.";
 
     [RelayCommand]
-    private async Task FilterTodayAsync()
+    private async Task ApplyFilterAsync()
     {
-        var today = DateTime.Today;
-        FilterFromDate = today;
-        FilterToDate = today;
+        _activeQuickRangeLabel = null;
         await RefreshListAsync();
     }
+
+    [RelayCommand]
+    private async Task FilterTodayAsync() => await ApplyQuickRangeAsync("Hôm nay", DateTime.Today, DateTime.Today);
 
     [RelayCommand]
     private async Task FilterYesterdayAsync()
     {
         var day = DateTime.Today.AddDays(-1);
-        FilterFromDate = day;
-        FilterToDate = day;
-        await RefreshListAsync();
+        await ApplyQuickRangeAsync("Hôm qua", day, day);
     }
 
     [RelayCommand]
-    private async Task FilterLast7DaysAsync()
-    {
-        FilterFromDate = DateTime.Today.AddDays(-6);
-        FilterToDate = DateTime.Today;
-        await RefreshListAsync();
-    }
+    private async Task FilterLast7DaysAsync() =>
+        await ApplyQuickRangeAsync("7 ngày", DateTime.Today.AddDays(-6), DateTime.Today);
 
     [RelayCommand]
     private async Task FilterThisMonthAsync()
     {
         var today = DateTime.Today;
-        FilterFromDate = new DateTime(today.Year, today.Month, 1);
-        FilterToDate = today;
-        await RefreshListAsync();
+        await ApplyQuickRangeAsync("Tháng này", new DateTime(today.Year, today.Month, 1), today);
     }
 
     [RelayCommand]
@@ -214,6 +227,47 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         FilterLicensePlate = null;
         FilterDisplayNumber = null;
         FilterUnitPriceText = null;
+        FilterUnitPriceToText = null;
+        _activeQuickRangeLabel = null;
+        await RefreshListAsync();
+    }
+
+    [RelayCommand]
+    private async Task RemoveFilterChipAsync(ActiveFilterChip? chip)
+    {
+        if (chip is null)
+            return;
+
+        switch (chip.Key)
+        {
+            case "quickRange":
+                _activeQuickRangeLabel = null;
+                FilterFromDate = null;
+                FilterToDate = null;
+                break;
+            case "dateRange":
+                FilterFromDate = null;
+                FilterToDate = null;
+                break;
+            case "customer":
+                FilterCustomerName = null;
+                break;
+            case "cargo":
+                FilterCargoTypeName = null;
+                break;
+            case "plate":
+                FilterLicensePlate = null;
+                break;
+            case "ticketNo":
+                FilterDisplayNumber = null;
+                break;
+            case "unitPrice":
+            case "unitPriceRange":
+                FilterUnitPriceText = null;
+                FilterUnitPriceToText = null;
+                break;
+        }
+
         await RefreshListAsync();
     }
 
@@ -259,31 +313,17 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     }
 
     [RelayCommand]
-    private async Task SearchCustomersAsync()
+    private void ApplySuggestedVehicleCustomer()
     {
-        CustomerSuggestions.Clear();
-        var results = await _weighTicketService.SearchCustomersAsync(CustomerName ?? string.Empty);
-        foreach (var c in results)
-            CustomerSuggestions.Add(c.Name);
+        if (string.IsNullOrWhiteSpace(_pendingVehicleCustomerName))
+            return;
+
+        CustomerName = _pendingVehicleCustomerName;
+        ShowApplyVehicleCustomerButton = false;
+        _focusService.FocusCargoTypeField();
     }
 
-    [RelayCommand]
-    private async Task SearchCargoTypesAsync()
-    {
-        CargoTypeSuggestions.Clear();
-        var results = await _weighTicketService.SearchCargoTypesAsync(CargoTypeName ?? string.Empty);
-        foreach (var c in results)
-            CargoTypeSuggestions.Add(c.Name);
-    }
-
-    [RelayCommand]
-    private async Task SearchVehiclesAsync()
-    {
-        VehicleSuggestions.Clear();
-        var results = await _weighTicketService.SearchVehiclesAsync(LicensePlate ?? string.Empty);
-        foreach (var v in results)
-            VehicleSuggestions.Add(v.PlateNumber);
-    }
+    private string? _pendingVehicleCustomerName;
 
     [RelayCommand]
     private void SetManualScale8500() => SetManualWeight(8500m);
@@ -298,9 +338,22 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         StatusMessage = value ? "Chế độ cân thủ công." : "Chế độ cân random.";
     }
 
-    partial void OnCustomerNameChanged(string? value) => _ = SearchCustomersAsync();
+    partial void OnDeveloperWeight1OverrideEnabledChanged(bool value)
+    {
+        IsWeight1DevOverrideWarningVisible = value && IsDeveloperPanelAvailable;
+        _draft.DeveloperWeight1OverrideEnabled = value;
+        UpdateButtonStates();
+        UpdateButtonLabels();
+    }
 
-    partial void OnCargoTypeNameChanged(string? value) => _ = SearchCargoTypesAsync();
+    partial void OnCustomerNameChanged(string? value) => _ = DebouncedSearchAsync(
+        () => _customerSearchCts, cts => _customerSearchCts = cts, SearchCustomersAsync);
+
+    partial void OnCargoTypeNameChanged(string? value) => _ = DebouncedSearchAsync(
+        () => _cargoSearchCts, cts => _cargoSearchCts = cts, SearchCargoTypesAsync);
+
+    partial void OnNotesChanged(string? value) => _ = DebouncedSearchAsync(
+        () => _notesSearchCts, cts => _notesSearchCts = cts, SearchNotesAsync);
 
     partial void OnLicensePlateChanged(string? value)
     {
@@ -310,8 +363,26 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        _ = SearchVehiclesAsync();
+        _ = DebouncedSearchAsync(() => _vehicleSearchCts, cts => _vehicleSearchCts = cts, SearchVehiclesAsync);
         _ = UpdateVehicleSuggestionAsync();
+    }
+
+    partial void OnFilterCustomerNameChanged(string? value) =>
+        _ = DebouncedFilterSearchAsync(FilterCustomerSuggestions, value, term => _fastEntrySearch.SearchCustomersAsync(term));
+
+    partial void OnFilterCargoTypeNameChanged(string? value) =>
+        _ = DebouncedFilterSearchAsync(FilterCargoSuggestions, value, term => _fastEntrySearch.SearchCargoTypesAsync(term));
+
+    partial void OnFilterLicensePlateChanged(string? value)
+    {
+        if (!string.IsNullOrEmpty(value) && value != value.ToUpperInvariant())
+        {
+            FilterLicensePlate = value.ToUpperInvariant();
+            return;
+        }
+
+        _ = DebouncedFilterSearchAsync(FilterVehicleSuggestions, value,
+            term => _fastEntrySearch.SearchVehiclesAsync(term, FilterCustomerName));
     }
 
     partial void OnUnitPriceTextChanged(string? value)
@@ -329,6 +400,34 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             _scaleService.SetManualWeightKg(kg);
     }
 
+    public void OnSuggestionCommitted(AutocompleteField field, AutocompleteSuggestionItem? suggestion, string currentText)
+    {
+        var text = suggestion is { IsNewEntryOption: true } or null
+            ? currentText.Trim()
+            : suggestion!.PrimaryText;
+
+        switch (field)
+        {
+            case AutocompleteField.Customer:
+                CustomerName = text;
+                _focusService.FocusVehicleField();
+                break;
+            case AutocompleteField.Vehicle:
+                LicensePlate = text.ToUpperInvariant();
+                _ = UpdateVehicleSuggestionAsync();
+                _focusService.FocusCargoTypeField();
+                break;
+            case AutocompleteField.CargoType:
+                CargoTypeName = text;
+                _focusService.FocusUnitPriceField();
+                break;
+            case AutocompleteField.Notes:
+                if (suggestion is not null && !suggestion.IsNewEntryOption)
+                    Notes = text;
+                break;
+        }
+    }
+
     public async Task OnVehicleCommittedAsync(string? plate)
     {
         if (string.IsNullOrWhiteSpace(plate))
@@ -341,12 +440,102 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private async Task UpdateVehicleSuggestionAsync()
     {
         VehicleSuggestionText = null;
+        ShowApplyVehicleCustomerButton = false;
+        _pendingVehicleCustomerName = null;
+
         if (string.IsNullOrWhiteSpace(LicensePlate))
             return;
 
         var suggestion = await _weighTicketService.GetVehicleSuggestionAsync(LicensePlate);
-        if (suggestion?.LastCustomerName is { } name)
-            VehicleSuggestionText = $"Gợi ý khách trước: {name} (không tự đổi)";
+        if (suggestion?.LastCustomerName is not { } name)
+            return;
+
+        if (string.Equals(CustomerName, name, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        VehicleSuggestionText = $"Xe này thường thuộc {name}";
+        _pendingVehicleCustomerName = name;
+        ShowApplyVehicleCustomerButton = true;
+    }
+
+    private async Task ApplyQuickRangeAsync(string label, DateTime from, DateTime to)
+    {
+        _activeQuickRangeLabel = label;
+        FilterFromDate = from;
+        FilterToDate = to;
+        await RefreshListAsync();
+    }
+
+    private async Task DebouncedSearchAsync(
+        Func<CancellationTokenSource?> getCts,
+        Action<CancellationTokenSource?> setCts,
+        Func<Task> searchAction)
+    {
+        getCts()?.Cancel();
+        var cts = new CancellationTokenSource();
+        setCts(cts);
+        var token = cts.Token;
+        try
+        {
+            await Task.Delay(200, token);
+            await searchAction();
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private async Task DebouncedFilterSearchAsync(
+        ObservableCollection<AutocompleteSuggestionItem> target,
+        string? value,
+        Func<string, Task<IReadOnlyList<AutocompleteSuggestionItem>>> search)
+    {
+        try
+        {
+            await Task.Delay(200);
+            var items = await search(value ?? string.Empty);
+            target.Clear();
+            foreach (var item in items.Where(i => !i.IsNewEntryOption))
+                target.Add(item);
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private async Task SearchCustomersAsync()
+    {
+        CustomerSuggestions.Clear();
+        var items = await _fastEntrySearch.SearchCustomersAsync(CustomerName ?? string.Empty);
+        foreach (var item in items)
+            CustomerSuggestions.Add(item);
+    }
+
+    private async Task SearchCargoTypesAsync()
+    {
+        CargoTypeSuggestions.Clear();
+        var items = await _fastEntrySearch.SearchCargoTypesAsync(CargoTypeName ?? string.Empty);
+        foreach (var item in items)
+            CargoTypeSuggestions.Add(item);
+    }
+
+    private async Task SearchVehiclesAsync()
+    {
+        VehicleSuggestions.Clear();
+        var items = await _fastEntrySearch.SearchVehiclesAsync(LicensePlate ?? string.Empty, CustomerName);
+        foreach (var item in items)
+            VehicleSuggestions.Add(item);
+    }
+
+    private async Task SearchNotesAsync()
+    {
+        NotesSuggestions.Clear();
+        if (string.IsNullOrWhiteSpace(Notes))
+            return;
+
+        var items = await _fastEntrySearch.SearchNotesAsync(Notes);
+        foreach (var item in items)
+            NotesSuggestions.Add(item);
     }
 
     private void SetManualWeight(decimal kg)
@@ -363,17 +552,51 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private async Task RefreshListAsync()
     {
-        decimal? unitPrice = null;
-        if (!string.IsNullOrWhiteSpace(FilterUnitPriceText) &&
-            decimal.TryParse(FilterUnitPriceText, NumberStyles.Number, CultureInfo.CurrentCulture, out var parsed) &&
-            parsed > 0)
-            unitPrice = parsed;
+        var filter = BuildCurrentFilter();
+        var result = await _weighTicketService.GetFilteredWithSummaryAsync(filter);
 
-        var filter = new WeighTicketFilter
+        Tickets.Clear();
+        foreach (var item in result.Items)
+            Tickets.Add(item);
+
+        ActiveFilterChips.Clear();
+        foreach (var chip in ActiveFilterChipBuilder.Build(filter, _activeQuickRangeLabel))
+            ActiveFilterChips.Add(chip);
+
+        FilterResultSummary = $"Đang hiển thị: {result.Count} phiếu";
+        FilterTotalsSummary =
+            $"Tổng trọng lượng hàng: {result.TotalNetWeightKg:N0} kg · Tổng thành tiền: {result.TotalAmountVnd:N0} VNĐ";
+    }
+
+    private WeighTicketFilter BuildCurrentFilter()
+    {
+        decimal? exactPrice = null;
+        decimal? fromPrice = null;
+        decimal? toPrice = null;
+
+        decimal? parsedFrom = null;
+        if (!string.IsNullOrWhiteSpace(FilterUnitPriceText) &&
+            decimal.TryParse(FilterUnitPriceText, NumberStyles.Number, CultureInfo.CurrentCulture, out var fp) &&
+            fp > 0)
+            parsedFrom = fp;
+
+        decimal? parsedTo = null;
+        if (!string.IsNullOrWhiteSpace(FilterUnitPriceToText) &&
+            decimal.TryParse(FilterUnitPriceToText, NumberStyles.Number, CultureInfo.CurrentCulture, out var tp) &&
+            tp > 0)
+            parsedTo = tp;
+
+        if (parsedFrom.HasValue && parsedTo.HasValue)
         {
-            FromDate = FilterFromDate.HasValue
-                ? new DateTimeOffset(FilterFromDate.Value.Date)
-                : null,
+            fromPrice = parsedFrom;
+            toPrice = parsedTo;
+        }
+        else if (parsedFrom.HasValue)
+            exactPrice = parsedFrom;
+
+        return new WeighTicketFilter
+        {
+            FromDate = FilterFromDate.HasValue ? new DateTimeOffset(FilterFromDate.Value.Date) : null,
             ToDate = FilterToDate.HasValue
                 ? new DateTimeOffset(FilterToDate.Value.Date.AddDays(1).AddTicks(-1))
                 : null,
@@ -381,19 +604,17 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             CargoTypeName = FilterCargoTypeName,
             LicensePlate = FilterLicensePlate,
             DisplayNumber = FilterDisplayNumber,
-            UnitPriceVndPerKg = unitPrice,
+            UnitPriceVndPerKg = exactPrice,
+            UnitPriceFromVndPerKg = fromPrice,
+            UnitPriceToVndPerKg = toPrice,
             MaxResults = 200
         };
-
-        var items = await _weighTicketService.GetFilteredAsync(filter);
-        Tickets.Clear();
-        foreach (var item in items)
-            Tickets.Add(item);
     }
 
     private async Task ResetDraftAsync()
     {
         _draft = new WeighTicketDraft();
+        DeveloperWeight1OverrideEnabled = false;
         IsContinuationMode = false;
         LoadBindingsFromDraft();
         await RefreshPreviewDisplayNumberAsync();
@@ -421,6 +642,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _draft.DraftCargoType = CargoTypeName;
         _draft.DraftNotes = Notes;
         _draft.DraftUnitPrice = ParseUnitPrice(UnitPriceText);
+        _draft.DeveloperWeight1OverrideEnabled = DeveloperWeight1OverrideEnabled;
     }
 
     private static decimal? ParseUnitPrice(string? text)
@@ -450,6 +672,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         CargoTypeName = _draft.DraftCargoType;
         UnitPriceText = _draft.DraftUnitPrice?.ToString("N0", CultureInfo.CurrentCulture);
         Notes = _draft.DraftNotes;
+        DeveloperWeight1OverrideEnabled = _draft.DeveloperWeight1OverrideEnabled;
         UpdateDisplaysFromDraft();
     }
 
@@ -489,21 +712,27 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         DeductionDisplay = calc.DeductionWeightKg?.ToString("N3", CultureInfo.CurrentCulture) ?? "—";
         BillableDisplay = FormatKg(calc.BillableWeightKg);
         TotalAmountDisplay = calc.TotalAmountVnd?.ToString("N0", CultureInfo.CurrentCulture) ?? "—";
-        IsServiceWeighVisible = _draft.DraftWeight1.HasValue && _draft.DraftWeight2.HasValue &&
-                              !WeightCalculator.HasBillableUnitPrice(unitPrice);
+        IsServiceWeighVisible = calc.NetWeightKg.HasValue && !WeightCalculator.HasBillableUnitPrice(unitPrice);
     }
 
     private void UpdateButtonStates()
     {
-        IsWeigh1Enabled = !_draft.IsWeight1LockedFromSavedTicket;
-        IsWeigh2Enabled = !_draft.IsWeight2LockedFromSavedTicket;
+        _draft.DeveloperWeight1OverrideEnabled = DeveloperWeight1OverrideEnabled;
+        IsWeigh1Enabled = DraftWorkflowRules.CanUpdateWeight1(
+            _draft.IsWeight1LockedFromSavedTicket,
+            _draft.DraftWeight2.HasValue,
+            DeveloperWeight1OverrideEnabled);
+        IsWeigh2Enabled = DraftWorkflowRules.CanUpdateWeight2(_draft.IsWeight2LockedFromSavedTicket);
     }
 
     private void UpdateButtonLabels()
     {
-        Weigh1ButtonText = _draft.DraftWeight1.HasValue && !_draft.IsWeight1LockedFromSavedTicket
-            ? "CẬP NHẬT CÂN LẦN 1"
-            : _draft.IsWeight1LockedFromSavedTicket ? "CÂN LẦN 1 (ĐÃ LƯU)" : "LẤY CÂN LẦN 1";
+        if (_draft.IsWeight1LockedFromSavedTicket)
+            Weigh1ButtonText = "CÂN LẦN 1 (ĐÃ LƯU)";
+        else if (!IsWeigh1Enabled && _draft.DraftWeight2.HasValue)
+            Weigh1ButtonText = "CÂN LẦN 1 ĐÃ KHÓA";
+        else
+            Weigh1ButtonText = _draft.DraftWeight1.HasValue ? "CẬP NHẬT CÂN LẦN 1" : "LẤY CÂN LẦN 1";
 
         Weigh2ButtonText = _draft.DraftWeight2.HasValue && !_draft.IsWeight2LockedFromSavedTicket
             ? "CẬP NHẬT CÂN LẦN 2"
@@ -520,4 +749,12 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         if (_scaleService is IAsyncDisposable disposable)
             await disposable.DisposeAsync();
     }
+}
+
+public enum AutocompleteField
+{
+    Customer,
+    Vehicle,
+    CargoType,
+    Notes
 }

@@ -12,6 +12,9 @@ public interface IWeighTicketRepository
     Task<WeighEvent> AddEventAsync(WeighEvent weighEvent, CancellationToken cancellationToken = default);
     Task<int> GetNextSequenceAsync(int year, int month, CancellationToken cancellationToken = default);
     Task<int> PeekNextSequenceAsync(int year, int month, CancellationToken cancellationToken = default);
+    Task<string?> GetLatestPlateForCustomerAsync(string customerName, CancellationToken cancellationToken = default);
+    Task<int> GetCargoUsageCountAsync(string cargoTypeName, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> SearchRecentNotesAsync(string searchTerm, int maxResults = 5, CancellationToken cancellationToken = default);
     Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken = default);
 }
 

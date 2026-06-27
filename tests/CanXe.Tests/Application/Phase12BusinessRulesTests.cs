@@ -150,21 +150,21 @@ public class Phase12BusinessRulesTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Save_SingleWeight_GrossTareNetNull()
+    public async Task Save_SingleWeight_GrossTareNetComputed()
     {
         var service = CreateService();
         var scale = CreateScale();
         scale.SetManualMode(true);
+        scale.SetManualWeightKg(8500m);
 
         var draft = new WeighTicketDraft();
-        scale.SetManualWeightKg(8500m);
         await service.CaptureWeightAsync(draft, 1);
-
         var save = await service.SaveAsync(draft);
+
         Assert.True(save.Success);
-        Assert.Null(save.SavedTicket!.GrossWeightKg);
-        Assert.Null(save.SavedTicket.TareWeightKg);
-        Assert.Null(save.SavedTicket.NetWeightKg);
+        Assert.Equal(8500m, save.SavedTicket!.GrossWeightKg);
+        Assert.Equal(0m, save.SavedTicket.TareWeightKg);
+        Assert.Equal(8500m, save.SavedTicket.NetWeightKg);
     }
 
     [Fact]
