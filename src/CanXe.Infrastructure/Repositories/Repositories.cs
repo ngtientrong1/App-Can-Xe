@@ -26,11 +26,10 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
             .Include(t => t.Events)
             .AsQueryable();
 
-        if (filter.FromDate is { } from)
-            query = query.Where(t => t.TicketDateTime >= from);
-
-        if (filter.ToDate is { } to)
-            query = query.Where(t => t.TicketDateTime <= to);
+        var hasDateFrom = filter.FromDate is not null;
+        var hasDateTo = filter.ToDate is not null;
+        var fromDate = filter.FromDate;
+        var toDate = filter.ToDate;
 
         if (!string.IsNullOrWhiteSpace(filter.CustomerName))
         {
@@ -65,9 +64,18 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
             query = query.Where(t => t.UnitPriceVndPerKg == vnd);
         }
 
-        return (await query.ToListAsync(cancellationToken))
+        var results = await query.ToListAsync(cancellationToken);
+
+        if (hasDateFrom)
+            results = results.Where(t => t.TicketDateTime >= fromDate!.Value).ToList();
+
+        if (hasDateTo)
+            results = results.Where(t => t.TicketDateTime <= toDate!.Value).ToList();
+
+        return results
             .OrderByDescending(t => t.TicketDateTime)
             .ThenByDescending(t => t.Id)
+            .Take(filter.MaxResults > 0 ? filter.MaxResults : 200)
             .ToList();
     }
 
@@ -91,16 +99,8 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
         return weighEvent;
     }
 
-    public async Task UpdateEventAsync(WeighEvent weighEvent, CancellationToken cancellationToken = default)
-    {
-        _db.WeighEvents.Update(weighEvent);
-        await _db.SaveChangesAsync(cancellationToken);
-    }
-
     public async Task<int> GetNextSequenceAsync(int year, int month, CancellationToken cancellationToken = default)
     {
-        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
-
         var row = await _db.TicketSequences
             .FirstOrDefaultAsync(s => s.Year == year && s.Month == month, cancellationToken);
 
@@ -115,8 +115,25 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
         return row.LastSequence;
+    }
+
+    public async Task<T> ExecuteInTransactionAsync<T>(
+        Func<Task<T>> action,
+        CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var result = await action();
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
+        }
     }
 }
 
@@ -256,12 +273,31 @@ public sealed class VehicleRepository : IVehicleRepository
 
     public VehicleRepository(CanXeDbContext db) => _db = db;
 
-    public Task<Vehicle?> FindByPlateAsync(
+    public async Task<Vehicle?> FindByPlateAsync(
         string plateNumber,
         CancellationToken cancellationToken = default)
     {
-        var normalized = TextNormalizer.Normalize(plateNumber);
-        return _db.Vehicles.FirstOrDefaultAsync(v => v.NormalizedPlateNumber == normalized, cancellationToken);
+        var normalized = PlateNormalizer.Normalize(plateNumber);
+        return await _db.Vehicles
+            .FirstOrDefaultAsync(v => v.NormalizedPlateNumber == normalized, cancellationToken);
+    }
+
+    public async Task<VehicleSuggestion?> GetSuggestionForPlateAsync(
+        string plateNumber,
+        CancellationToken cancellationToken = default)
+    {
+        var vehicle = await _db.Vehicles
+            .Include(v => v.LastCustomer)
+            .FirstOrDefaultAsync(v => v.NormalizedPlateNumber == PlateNormalizer.Normalize(plateNumber), cancellationToken);
+
+        if (vehicle is null)
+            return null;
+
+        return new VehicleSuggestion
+        {
+            PlateNumber = vehicle.PlateNumber,
+            LastCustomerName = vehicle.LastCustomer?.Name
+        };
     }
 
     public async Task<Vehicle> UpsertAsync(
@@ -269,8 +305,8 @@ public sealed class VehicleRepository : IVehicleRepository
         int? customerId,
         CancellationToken cancellationToken = default)
     {
-        var trimmed = plateNumber.Trim();
-        var normalized = TextNormalizer.Normalize(trimmed);
+        var trimmed = plateNumber.Trim().ToUpperInvariant();
+        var normalized = PlateNormalizer.Normalize(trimmed);
         var existing = await FindByPlateAsync(trimmed, cancellationToken);
 
         if (existing is not null)

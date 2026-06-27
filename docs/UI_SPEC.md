@@ -1,60 +1,37 @@
-# CanXe — UI Spec (Giai đoạn 1)
+# CanXe — UI Spec (Giai đoạn 1.1)
 
-## Khung màn hình
+## Thanh nút (MinHeight 56px)
 
-- Tỷ lệ **16:9**, responsive trên 1366×768, 1600×900, 1920×1080.
-- **Nửa trên**: trọng lượng trực tiếp (trái) · form phiếu (giữa) · camera mô phỏng (phải, ≤20% rộng).
-- **Giữa**: nút `GHI TRỌNG LƯỢNG` lớn; `LƯU` · `HỦY BỎ`.
-- **Nửa dưới**: bộ lọc + DataGrid 14 cột.
+```
+[LẤY CÂN LẦN 1] [LẤY CÂN LẦN 2] [LƯU] [HỦY BỎ] [IN PHIẾU]
+```
 
-## Trường nhập (Giai đoạn 1)
+- Nút cân đổi nhãn **CẬP NHẬT CÂN LẦN n** sau lần đầu.
+- Tiếp tục phiếu: khóa nút cân đã lưu, nhãn `(ĐÃ LƯU)`.
+- **IN PHIẾU**: stub giai đoạn sau.
 
-| Trường | Ghi chú |
-|--------|---------|
-| Số phiếu | Chỉ đọc, tự sinh khi lưu |
-| Ngày giờ | Chỉ đọc, tự động |
-| Tên khách hàng | Autocomplete gợi ý |
-| Biển số xe | Text |
-| Loại hàng | Autocomplete gợi ý |
-| Đơn giá | VNĐ/kg, nguyên |
-| Ghi chú | Text |
+## Số phiếu
 
-## Nút thao tác
+Trước lưu: `Tự động khi lưu`. Sau lưu / tiếp tục: hiển thị `0059/06`.
 
-### GHI TRỌNG LƯỢNG
+## Khu kết quả
 
-- Lần 1 → Weight1 + thời gian + WeighEvent + camera async.
-- Lần 2 → Weight2 tương tự.
-- Đủ 2 lần → **Disabled** (không ghi đè W2).
-
-### LƯU
-
-Lưu linh hoạt (1 hoặc 2 trọng lượng, thiếu đơn giá OK).
-
-### HỦY BỎ
-
-Clear form, không confirm.
-
-## DataGrid (14 cột)
-
-Ngày giờ · Số phiếu · Biển số · Khách hàng · Loại hàng · Lần ghi đầu · Lần ghi sau · Tổng · Bì · Hàng · KL tính tiền · Đơn giá · Thành tiền · Ghi chú
-
-Double-click dòng phiếu **chưa đủ 2 cân** → load tiếp tục.
-
-## Bộ lọc
-
-Từ ngày · Đến ngày · Khách hàng · Loại hàng · Biển số · Số phiếu · Đơn giá · **Hôm nay** · **Xóa lọc**
-
-## Dev — mô phỏng cân
-
-Panel dev (có thể thu gọn): chế độ Random / Manual, preset 8.500 kg và 18.500 kg.
+Cân lần 1+giờ · Cân lần 2+giờ · Tổng/Bì/Hàng · Trừ bì · KL TT · Thành tiền. Thiếu → `—`.
 
 ## Camera
 
-- Preview nhỏ góc phải.
-- Lỗi: toast/status bar, không popup.
+Góc phải ≤20% rộng, có **Thu gọn**. Dev: manual 8.500 / 18.500 kg.
 
-## Format hiển thị
+## Danh sách (nửa dưới)
 
-- Trọng lượng: `N0` kg (Deduction có thể `N3`).
-- Tiền: `N0` VNĐ.
+14 cột, virtualization, double-click tiếp tục phiếu 1 cân.
+
+## Bộ lọc
+
+Từ/Đến ngày · Khách · Loại hàng · Biển số · Số phiếu · Đơn giá · **Hôm nay** · **Hôm qua** · **7 ngày** · **Tháng này** · Xóa lọc.
+
+Mặc định mở app: **Hôm nay**. Tối đa **200** bản ghi.
+
+## Sau LƯU / HỦY
+
+Focus về ô **Khách hàng**. Trọng lượng trực tiếp vẫn chạy.

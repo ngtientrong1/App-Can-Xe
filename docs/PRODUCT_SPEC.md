@@ -1,86 +1,47 @@
-# CanXe — Product Spec (Giai đoạn 1)
+# CanXe — Product Spec (Giai đoạn 1.1)
 
-## Mục tiêu
+## Luồng lấy cân
 
-Phần mềm cân xe Windows thay thế phần mềm cũ, giữ bố cục quen thuộc, lưu SQLite, mô phỏng đầu cân và camera.
+Hai nút độc lập:
 
-## Công nghệ
+- **LẤY CÂN LẦN 1** → `DraftWeight1` (+ thời gian, ảnh nháp). Lần sau: **CẬP NHẬT CÂN LẦN 1**.
+- **LẤY CÂN LẦN 2** → tương tự. Không khóa sau khi đủ 2 lần — có thể cập nhật trước khi LƯU.
 
-- C# / .NET 10 (SDK 10.0.301+)
-- WPF + MVVM (CommunityToolkit.Mvvm)
-- SQLite + Entity Framework Core
-- xUnit
+Tổng/Bì/Hàng chỉ tính khi có đủ 2 giá trị draft.
 
-## Luồng nghiệp vụ chính
+## Draft vs dữ liệu chính thức
 
-### Ghi trọng lượng
+Trước **LƯU**: không phiếu DB, không danh sách, không số phiếu, không báo cáo.
 
-1. Bấm `GHI TRỌNG LƯỢNG` → chốt kg tại thời điểm bấm.
-2. Tạo `WeighEvent` (sequence 1 rồi 2).
-3. Gọi camera mô phỏng **bất đồng bộ**; lỗi camera → toast/status bar, **không** rollback.
-4. Sau 2 lần ghi → **khóa** nút `GHI TRỌNG LƯỢNG`.
+## Ảnh
 
-### Lưu phiếu
+- Mỗi lần cân → chụp mới. Cập nhật thành công → xóa ảnh nháp cũ.
+- Camera lỗi → giữ kg mới, ảnh cũ **không** hợp lệ; toast/status bar.
+- **LƯU** → promote ảnh hợp lệ sang thư mục chính thức.
 
-- Bắt buộc: ≥ 1 trọng lượng.
-- Khách hàng, biển số, loại hàng, đơn giá: **tùy chọn**; thiếu → `null`.
-- Phiếu mới → sinh số phiếu tự động.
-- Phiếu 1 trọng lượng đã lưu → chọn dòng → tiếp tục → cập nhật phiếu cũ + event 2.
-- Lưu thành công → prepend danh sách, clear form, giữ trọng lượng trực tiếp.
-- Lưu thất bại → **không** clear.
+## LƯU linh hoạt
 
-### Hủy bỏ
+Tối thiểu: ≥ 1 trọng lượng. Các field khác nullable.
 
-Clear form ngay, không xác nhận, không xóa DB.
+## Tiếp tục phiếu 1 cân
 
-## Công thức (Domain)
+Double-click / tiếp tục → UPDATE phiếu cũ, không số phiếu mới. Không sửa cân đã lưu (admin sau này).
+
+## Công thức
 
 ```
-GrossWeight      = Max(W1, W2)
-TareWeight       = Min(W1, W2)
-NetWeight        = Abs(W1 - W2)
-DeductionWeight  = NetWeight / 1000 × 3    // kg, có thể thập phân
-BillableWeight   = Round(NetWeight - DeductionWeight, 0, AwayFromZero)  // kg nguyên
-TotalAmount      = BillableWeight × UnitPrice   // VNĐ nguyên, khi có đơn giá
+GrossWeight = Max(W1,W2)
+TareWeight = Min(W1,W2)
+NetWeight = Abs(W1-W2)
+DeductionWeight = NetWeight/1000×3
+BillableWeight = Round(Net-Deduction, 0, AwayFromZero)
+TotalAmount = BillableWeight × UnitPrice (khi có đơn giá)
 ```
 
-Chỉ tính đủ khi có **hai** trọng lượng.
+## DeviceMode
 
-## Đơn vị hiển thị
+`Simulation` (mặc định) — random/manual cân, camera mô phỏng. `Hardware` — giai đoạn sau.
 
-| Trường | Đơn vị |
-|--------|--------|
-| Trọng lượng | kg |
-| Trọng lượng trực tiếp | kg nguyên |
-| DeductionWeight | kg (có thập phân) |
-| BillableWeight | kg nguyên |
-| Đơn giá | VNĐ/kg, nguyên |
-| Thành tiền | VNĐ nguyên |
+## Ngoài phạm vi 1.1
 
-## Số phiếu
-
-| Loại | Ví dụ |
-|------|-------|
-| Hiển thị | `0059/06` |
-| Nội bộ | `202606-0059` |
-
-Số thứ tự chạy liên tục trong tháng. Không cho sửa (Giai đoạn 1).
-
-## Ngày giờ
-
-`DateTimeOffset`, tự động, không sửa tay (Giai đoạn 1).
-
-## Khách hàng / tìm kiếm
-
-- Gợi ý theo tên (có/không dấu, không phân biệt hoa thường).
-- Chỉ gợi ý, không tự thay thế.
-- Cảnh báo tên gần giống khi lưu.
-- `CustomerNameSnapshot`, `CargoTypeNameSnapshot` trên phiếu.
-
-## Báo cáo (chuẩn bị schema)
-
-Nhóm: **Loại hàng → Khách hàng → Đơn giá**. Không gộp đơn giá khác nhau. Tổng = cộng `TotalAmountVnd` từng phiếu.
-
-## Ngoài phạm vi Giai đoạn 1
-
-COM, RTSP, máy in, Excel, phân quyền admin.
+COM, RTSP, in, Excel, phân quyền admin.

@@ -2,53 +2,39 @@
 
 ## Tổng quan
 
-Ứng dụng cân xe Windows (WPF, .NET 10, MVVM, SQLite + EF Core). Phát triển theo giai đoạn; **Giai đoạn 1** = nền móng + UI mô phỏng.
+Ứng dụng cân xe Windows (WPF, .NET 10, MVVM, SQLite + EF Core).
 
-## Cấu trúc solution
+**Giai đoạn hiện tại:** 1.1 — workflow draft/lưu đồng bộ đặc tả. Chưa triển khai COM/RTSP thật.
 
-```
-CanXe.sln
-├── src/CanXe.Domain          — Entities, WeightCalculator, TextNormalizer
-├── src/CanXe.Application     — Use cases, interfaces (ports), DTOs
-├── src/CanXe.Infrastructure  — EF Core, SQLite, dịch vụ mô phỏng
-├── src/CanXe.Desktop         — WPF Views + ViewModels
-└── tests/CanXe.Tests         — xUnit
-```
-
-## Lệnh thường dùng
+## Lệnh
 
 ```bash
 dotnet restore
-dotnet build
-dotnet test
+dotnet build CanXe.sln
+dotnet test CanXe.sln
 dotnet run --project src/CanXe.Desktop/CanXe.Desktop.csproj
+build\publish-win10-x64.cmd
 ```
 
-## Quy ước quan trọng
+## Workflow cốt lõi (1.1)
 
-### Đơn vị & lưu trữ
+### Draft-only trước LƯU
 
-- **Domain/Application**: `decimal` theo kg và VNĐ.
-- **SQLite**: trọng lượng = `INTEGER` gram; đơn giá = `INTEGER` VNĐ/kg; thành tiền = `INTEGER` VNĐ.
-- Chuyển đổi chỉ ở **Infrastructure** (`WeightStorageMapper`).
+- `LẤY CÂN LẦN 1` / `LẤY CÂN LẦN 2` (hoặc `CẬP NHẬT CÂN LẦN n`) chỉ cập nhật **draft**.
+- Không INSERT `WeighTicket` / `WeighEvent` cho đến khi bấm **LƯU**.
+- Ảnh nháp: `%LocalAppData%\CanXe\Photos\Draft\{sessionId}_W{n}.png`.
 
-### Số phiếu
+### LƯU
 
-- Hiển thị: `0059/06` (số thứ tự/tháng).
-- Mã nội bộ: `202606-0059`.
-- Chạy liên tục theo tháng; người dùng **không sửa** ở Giai đoạn 1.
+- Sinh số phiếu, tạo DB, promote ảnh hợp lệ sang thư mục chính thức, transaction SQLite.
 
-### WeighEvent
+### Tiếp tục phiếu 1 cân
 
-Mỗi lần bấm `GHI TRỌNG LƯỢNG` tạo một `WeighEvent`. Camera gọi sau, không rollback trọng lượng.
+- Khóa cân đã lưu; chỉ lấy lần còn thiếu; UPDATE cùng phiếu.
 
-### Phiếu một trọng lượng
+## Cấu hình
 
-Lưu được với 1 event. Tiếp tục cân = cập nhật **cùng** `WeighTicket`, thêm event thứ 2 — không tạo phiếu mới.
-
-### Chưa triển khai (Giai đoạn 1)
-
-COM scale thật, RTSP, máy in, Excel export, phân quyền admin.
+`src/CanXe.Desktop/appsettings.json` — `DeviceMode: Simulation` mặc định.
 
 ## Tài liệu
 
@@ -56,3 +42,5 @@ COM scale thật, RTSP, máy in, Excel export, phân quyền admin.
 - [docs/UI_SPEC.md](docs/UI_SPEC.md)
 - [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)
 - [docs/ROADMAP.md](docs/ROADMAP.md)
+- [docs/LOW_END_PC_TEST_PLAN.md](docs/LOW_END_PC_TEST_PLAN.md)
+- [docs/SECURITY_NOTES.md](docs/SECURITY_NOTES.md)

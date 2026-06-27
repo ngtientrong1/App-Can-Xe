@@ -1,3 +1,4 @@
+using CanXe.Application.Configuration;
 using CanXe.Application.Interfaces;
 using CanXe.Application.Services;
 using CanXe.Infrastructure.Camera;
@@ -13,15 +14,25 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddCanXeInfrastructure(
         this IServiceCollection services,
+        AppSettings settings,
         string databasePath,
         string photoRoot)
     {
+        services.AddSingleton(settings);
+
         services.AddDbContext<CanXeDbContext>(options =>
             options.UseSqlite($"Data Source={databasePath}"));
 
-        services.AddSingleton<IScaleService, SimulatedScaleService>();
-        services.AddSingleton<ICameraService>(_ => new SimulatedCameraService(photoRoot));
-        services.AddSingleton<IPhotoCleanupService>(_ => new PhotoCleanupService(photoRoot));
+        services.AddSingleton<IPhotoStorageService>(_ => new PhotoStorageService(photoRoot));
+        services.AddSingleton<ICameraService>(_ =>
+            new SimulatedCameraService(settings.SimulateCameraFailure));
+        services.AddSingleton<IPhotoCleanupService>(_ =>
+            new PhotoCleanupService(photoRoot, TimeSpan.FromDays(settings.PhotoRetentionDays)));
+
+        if (string.Equals(settings.DeviceMode, "Simulation", StringComparison.OrdinalIgnoreCase))
+            services.AddSingleton<IScaleService, SimulatedScaleService>();
+        else
+            services.AddSingleton<IScaleService, SimulatedScaleService>(); // Hardware in phase 2
 
         services.AddScoped<IWeighTicketRepository, WeighTicketRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();

@@ -1,11 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Windows;
 using CanXe.Application.Interfaces;
 using CanXe.Application.Models;
 using CanXe.Application.Services;
-using CanXe.Domain.Entities;
 using CanXe.Domain.Services;
+using CanXe.Desktop.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -15,18 +14,23 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 {
     private readonly WeighTicketService _weighTicketService;
     private readonly IScaleService _scaleService;
+    private readonly IUiFocusService _focusService;
 
     private WeighTicketDraft _draft = new();
 
-    public MainViewModel(WeighTicketService weighTicketService, IScaleService scaleService)
+    public MainViewModel(
+        WeighTicketService weighTicketService,
+        IScaleService scaleService,
+        IUiFocusService focusService)
     {
         _weighTicketService = weighTicketService;
         _scaleService = scaleService;
+        _focusService = focusService;
         _scaleService.WeightChanged += OnScaleWeightChanged;
     }
 
     [ObservableProperty] private decimal _liveWeightKg;
-    [ObservableProperty] private string? _displayNumber;
+    [ObservableProperty] private string _displayNumber = "Tự động khi lưu";
     [ObservableProperty] private string _ticketDateTimeDisplay = "—";
     [ObservableProperty] private string? _customerName;
     [ObservableProperty] private string? _licensePlate;
@@ -34,7 +38,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string? _unitPriceText;
     [ObservableProperty] private string? _notes;
     [ObservableProperty] private string _weight1Display = "—";
+    [ObservableProperty] private string _weight1TimeDisplay = "—";
     [ObservableProperty] private string _weight2Display = "—";
+    [ObservableProperty] private string _weight2TimeDisplay = "—";
     [ObservableProperty] private string _grossDisplay = "—";
     [ObservableProperty] private string _tareDisplay = "—";
     [ObservableProperty] private string _netDisplay = "—";
@@ -42,9 +48,16 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string _billableDisplay = "—";
     [ObservableProperty] private string _totalAmountDisplay = "—";
     [ObservableProperty] private string _statusMessage = "Sẵn sàng";
-    [ObservableProperty] private bool _isRecordWeightEnabled = true;
+    [ObservableProperty] private bool _isWeigh1Enabled = true;
+    [ObservableProperty] private bool _isWeigh2Enabled = true;
+    [ObservableProperty] private bool _isContinuationMode;
     [ObservableProperty] private bool _isManualScaleMode;
+    [ObservableProperty] private bool _isCameraPanelVisible = true;
     [ObservableProperty] private string? _manualWeightText;
+    [ObservableProperty] private string? _vehicleSuggestionText;
+
+    [ObservableProperty] private string _weigh1ButtonText = "LẤY CÂN LẦN 1";
+    [ObservableProperty] private string _weigh2ButtonText = "LẤY CÂN LẦN 2";
 
     [ObservableProperty] private DateTime? _filterFromDate;
     [ObservableProperty] private DateTime? _filterToDate;
@@ -62,30 +75,29 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         await _scaleService.StartAsync();
         LiveWeightKg = await _scaleService.GetCurrentWeightAsync();
-        await RefreshListAsync();
+        await FilterTodayAsync();
     }
 
     [RelayCommand]
-    private async Task RecordWeightAsync()
-    {
-        if (!IsRecordWeightEnabled)
-            return;
+    private async Task CaptureWeight1Async() => await CaptureWeightAsync(1);
 
-        var result = await _weighTicketService.RecordWeightAsync(_draft);
+    [RelayCommand]
+    private async Task CaptureWeight2Async() => await CaptureWeightAsync(2);
+
+    private async Task CaptureWeightAsync(int sequence)
+    {
+        var result = await _weighTicketService.CaptureWeightAsync(_draft, sequence);
         if (!result.Success)
         {
-            StatusMessage = result.ErrorMessage ?? "Không thể ghi trọng lượng.";
+            StatusMessage = result.ErrorMessage ?? "Không thể lấy cân.";
             return;
         }
 
-        IsRecordWeightEnabled = !result.IsRecordingLocked;
         UpdateDisplaysFromDraft();
-        StatusMessage = result.IsRecordingLocked
-            ? "Đã ghi đủ hai trọng lượng."
-            : $"Đã ghi lần cân {result.Event!.Sequence}: {result.Event.WeightKg:N0} kg";
-
-        if (result.Event?.PhotoCaptureSucceeded == false && !string.IsNullOrEmpty(result.Event.PhotoErrorMessage))
-            StatusMessage = $"Đã ghi cân. Camera: {result.Event.PhotoErrorMessage}";
+        UpdateButtonLabels();
+        StatusMessage = result.IsUpdate
+            ? $"Đã cập nhật cân lần {sequence}: {result.WeightKg:N0} kg"
+            : $"Đã lấy cân lần {sequence}: {result.WeightKg:N0} kg";
     }
 
     [RelayCommand]
@@ -100,21 +112,30 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        if (result.SimilarCustomerWarnings.Count > 0)
-            StatusMessage = string.Join(" ", result.SimilarCustomerWarnings);
-        else
-            StatusMessage = $"Đã lưu phiếu {result.SavedTicket!.DisplayNumber}.";
+        StatusMessage = result.SimilarCustomerWarnings.Count > 0
+            ? string.Join(" ", result.SimilarCustomerWarnings)
+            : $"Đã lưu phiếu {result.SavedTicket!.DisplayNumber}.";
 
         ResetDraft();
         await RefreshListAsync();
+        _focusService.FocusCustomerField();
     }
 
     [RelayCommand]
     private void Cancel()
     {
+        _weighTicketService.CancelDraft(_draft);
         ResetDraft();
         StatusMessage = "Đã hủy nhập liệu.";
+        _focusService.FocusCustomerField();
     }
+
+    [RelayCommand]
+    private void ToggleCameraPanel() => IsCameraPanelVisible = !IsCameraPanelVisible;
+
+    [RelayCommand]
+    private void PrintTicket() =>
+        StatusMessage = "In phiếu sẽ có ở giai đoạn sau.";
 
     [RelayCommand]
     private async Task ApplyFilterAsync() => await RefreshListAsync();
@@ -124,7 +145,33 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         var today = DateTime.Today;
         FilterFromDate = today;
-        FilterToDate = today.AddDays(1).AddTicks(-1);
+        FilterToDate = today;
+        await RefreshListAsync();
+    }
+
+    [RelayCommand]
+    private async Task FilterYesterdayAsync()
+    {
+        var day = DateTime.Today.AddDays(-1);
+        FilterFromDate = day;
+        FilterToDate = day;
+        await RefreshListAsync();
+    }
+
+    [RelayCommand]
+    private async Task FilterLast7DaysAsync()
+    {
+        FilterFromDate = DateTime.Today.AddDays(-6);
+        FilterToDate = DateTime.Today;
+        await RefreshListAsync();
+    }
+
+    [RelayCommand]
+    private async Task FilterThisMonthAsync()
+    {
+        var today = DateTime.Today;
+        FilterFromDate = new DateTime(today.Year, today.Month, 1);
+        FilterToDate = today;
         await RefreshListAsync();
     }
 
@@ -151,8 +198,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         {
             _draft = await _weighTicketService.LoadTicketForContinuationAsync(item.Id);
             LoadBindingsFromDraft();
-            IsRecordWeightEnabled = _draft.Events.Count < 2;
-            StatusMessage = $"Đang tiếp tục phiếu {item.DisplayNumber}.";
+            IsContinuationMode = true;
+            UpdateButtonStates();
+            UpdateButtonLabels();
+            StatusMessage = $"Đang tiếp tục phiếu {item.DisplayNumber}. Chỉ có thể lấy lần cân còn thiếu.";
         }
         catch (Exception ex)
         {
@@ -194,6 +243,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     partial void OnCargoTypeNameChanged(string? value) => _ = SearchCargoTypesAsync();
 
+    partial void OnLicensePlateChanged(string? value) => _ = UpdateVehicleSuggestionAsync();
+
     partial void OnManualWeightTextChanged(string? value)
     {
         if (!IsManualScaleMode || string.IsNullOrWhiteSpace(value))
@@ -201,6 +252,17 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.CurrentCulture, out var kg))
             _scaleService.SetManualWeightKg(kg);
+    }
+
+    private async Task UpdateVehicleSuggestionAsync()
+    {
+        VehicleSuggestionText = null;
+        if (string.IsNullOrWhiteSpace(LicensePlate))
+            return;
+
+        var suggestion = await _weighTicketService.GetVehicleSuggestionAsync(LicensePlate);
+        if (suggestion?.LastCustomerName is { } name)
+            VehicleSuggestionText = $"Gợi ý khách trước: {name} (không tự đổi)";
     }
 
     private void SetManualWeight(decimal kg)
@@ -234,7 +296,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             CargoTypeName = FilterCargoTypeName,
             LicensePlate = FilterLicensePlate,
             DisplayNumber = FilterDisplayNumber,
-            UnitPriceVndPerKg = unitPrice
+            UnitPriceVndPerKg = unitPrice,
+            MaxResults = 200
         };
 
         var items = await _weighTicketService.GetFilteredAsync(filter);
@@ -246,52 +309,73 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private void ResetDraft()
     {
         _draft = new WeighTicketDraft();
+        IsContinuationMode = false;
         LoadBindingsFromDraft();
-        IsRecordWeightEnabled = true;
+        UpdateButtonStates();
+        UpdateButtonLabels();
     }
 
     private void SyncDraftFromBindings()
     {
-        _draft.CustomerName = CustomerName;
-        _draft.LicensePlate = LicensePlate;
-        _draft.CargoTypeName = CargoTypeName;
-        _draft.Notes = Notes;
+        _draft.DraftCustomer = CustomerName;
+        _draft.DraftVehicle = LicensePlate;
+        _draft.DraftCargoType = CargoTypeName;
+        _draft.DraftNotes = Notes;
 
         if (string.IsNullOrWhiteSpace(UnitPriceText))
-            _draft.UnitPriceVndPerKg = null;
+            _draft.DraftUnitPrice = null;
         else if (decimal.TryParse(UnitPriceText, NumberStyles.Number, CultureInfo.CurrentCulture, out var price))
-            _draft.UnitPriceVndPerKg = Math.Round(price, 0, MidpointRounding.AwayFromZero);
+            _draft.DraftUnitPrice = Math.Round(price, 0, MidpointRounding.AwayFromZero);
         else
-            _draft.UnitPriceVndPerKg = null;
+            _draft.DraftUnitPrice = null;
     }
 
     private void LoadBindingsFromDraft()
     {
-        DisplayNumber = _draft.DisplayNumber ?? "—";
-        TicketDateTimeDisplay = _draft.TicketDateTime?.ToString("dd/MM/yyyy HH:mm:ss") ?? DateTimeOffset.Now.ToString("dd/MM/yyyy HH:mm:ss");
-        CustomerName = _draft.CustomerName;
-        LicensePlate = _draft.LicensePlate;
-        CargoTypeName = _draft.CargoTypeName;
-        UnitPriceText = _draft.UnitPriceVndPerKg?.ToString("N0", CultureInfo.CurrentCulture);
-        Notes = _draft.Notes;
+        DisplayNumber = _draft.ExistingTicketId.HasValue
+            ? _draft.DisplayNumber ?? "—"
+            : "Tự động khi lưu";
+        TicketDateTimeDisplay = _draft.TicketDateTime?.ToString("dd/MM/yyyy HH:mm:ss")
+            ?? DateTimeOffset.Now.ToString("dd/MM/yyyy HH:mm:ss");
+        CustomerName = _draft.DraftCustomer;
+        LicensePlate = _draft.DraftVehicle;
+        CargoTypeName = _draft.DraftCargoType;
+        UnitPriceText = _draft.DraftUnitPrice?.ToString("N0", CultureInfo.CurrentCulture);
+        Notes = _draft.DraftNotes;
         UpdateDisplaysFromDraft();
     }
 
     private void UpdateDisplaysFromDraft()
     {
-        var w1 = _draft.Events.FirstOrDefault(e => e.Sequence == 1)?.WeightKg;
-        var w2 = _draft.Events.FirstOrDefault(e => e.Sequence == 2)?.WeightKg;
+        Weight1Display = _draft.DraftWeight1?.ToString("N0", CultureInfo.CurrentCulture) ?? "—";
+        Weight1TimeDisplay = _draft.DraftWeight1RecordedAt?.ToString("HH:mm:ss") ?? "—";
+        Weight2Display = _draft.DraftWeight2?.ToString("N0", CultureInfo.CurrentCulture) ?? "—";
+        Weight2TimeDisplay = _draft.DraftWeight2RecordedAt?.ToString("HH:mm:ss") ?? "—";
 
-        Weight1Display = w1?.ToString("N0", CultureInfo.CurrentCulture) ?? "—";
-        Weight2Display = w2?.ToString("N0", CultureInfo.CurrentCulture) ?? "—";
-
-        var calc = WeightCalculator.Calculate(w1, w2, _draft.UnitPriceVndPerKg);
+        var calc = WeightCalculator.Calculate(_draft.DraftWeight1, _draft.DraftWeight2, _draft.DraftUnitPrice);
         GrossDisplay = FormatKg(calc.GrossWeightKg);
         TareDisplay = FormatKg(calc.TareWeightKg);
         NetDisplay = FormatKg(calc.NetWeightKg);
         DeductionDisplay = calc.DeductionWeightKg?.ToString("N3", CultureInfo.CurrentCulture) ?? "—";
         BillableDisplay = FormatKg(calc.BillableWeightKg);
         TotalAmountDisplay = calc.TotalAmountVnd?.ToString("N0", CultureInfo.CurrentCulture) ?? "—";
+    }
+
+    private void UpdateButtonStates()
+    {
+        IsWeigh1Enabled = !_draft.IsWeight1LockedFromSavedTicket;
+        IsWeigh2Enabled = !_draft.IsWeight2LockedFromSavedTicket;
+    }
+
+    private void UpdateButtonLabels()
+    {
+        Weigh1ButtonText = _draft.DraftWeight1.HasValue && !_draft.IsWeight1LockedFromSavedTicket
+            ? "CẬP NHẬT CÂN LẦN 1"
+            : _draft.IsWeight1LockedFromSavedTicket ? "CÂN LẦN 1 (ĐÃ LƯU)" : "LẤY CÂN LẦN 1";
+
+        Weigh2ButtonText = _draft.DraftWeight2.HasValue && !_draft.IsWeight2LockedFromSavedTicket
+            ? "CẬP NHẬT CÂN LẦN 2"
+            : _draft.IsWeight2LockedFromSavedTicket ? "CÂN LẦN 2 (ĐÃ LƯU)" : "LẤY CÂN LẦN 2";
     }
 
     private static string FormatKg(decimal? kg) =>

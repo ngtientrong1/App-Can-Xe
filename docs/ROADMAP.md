@@ -1,38 +1,28 @@
 # CanXe — Roadmap
 
-## Giai đoạn 1 ✅ (đang triển khai)
+## Giai đoạn 1 ✅
 
-- Solution 5 projects (.NET 10)
-- SQLite schema đầy đủ (Customers, CargoTypes, Vehicles, WeighTickets, WeighEvents)
-- UI WPF mô phỏng layout cân cũ
-- Công thức + lưu linh hoạt + tiếp tục phiếu 1 cân
-- SimulatedScale (random + manual dev)
-- SimulatedCamera + dọn ảnh 3 ngày
-- xUnit cho calculator và use cases
+Nền móng solution, schema, UI mô phỏng ban đầu.
 
-## Giai đoạn 2 — Phần cứng cân
+## Giai đoạn 1.1 ✅ (hoàn tất)
 
-- COM scale thật (`IScaleService` implementation)
-- `RawScaleData` trên WeighEvent
-- Cấu hình cổng COM
+- Hai nút cân riêng + cập nhật trước lưu
+- Draft-only workflow (không DB trước LƯU)
+- Ảnh nháp / promote / xóa an toàn
+- Tiếp tục phiếu 1 cân (khóa cân đã lưu)
+- appsettings.json DeviceMode
+- Publish Win10WeakPC self-contained
+- 22 tests workflow
+- LOW_END_PC_TEST_PLAN.md
 
-## Giai đoạn 3 — Camera RTSP
+## Giai đoạn 2 — COM scale
 
-- RTSP stream + chụp ảnh thật
-- Preview live
+SerialScaleService, RawScaleData.
 
-## Giai đoạn 4 — In & Xuất
+## Giai đoạn 3 — RTSP camera
 
-- Máy in phiếu
-- Xuất Excel báo cáo nhóm Loại hàng → Khách hàng → Đơn giá
+## Giai đoạn 4 — In & Excel
 
-## Giai đoạn 5 — Quản trị
+## Giai đoạn 5 — Admin (sửa cân đã lưu có kiểm soát)
 
-- Phân quyền admin
-- Ghi lại trọng lượng có kiểm soát (thay thế khóa cứng sau 2 lần ghi)
-- Sửa/xóa phiếu có audit
-
-## Giai đoạn 6 — Báo cáo
-
-- Báo cáo theo nhóm, không gộp đơn giá khác nhau
-- Tổng thành tiền = SUM(TotalAmountVnd) từng phiếu
+## Giai đoạn 6 — Báo cáo nhóm Loại hàng → Khách hàng → Đơn giá

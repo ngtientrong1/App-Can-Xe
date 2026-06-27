@@ -105,6 +105,7 @@ gram → kg:  grams / 1000m
 
 ## Ảnh camera
 
-`%LocalAppData%\CanXe\Photos\{yyyy-MM-dd}\{InternalCode}_W{1|2}.png`
+**Nháp:** `%LocalAppData%\CanXe\Photos\Draft\{sessionId}_W{1|2}.png`  
+**Chính thức:** `%LocalAppData%\CanXe\Photos\{yyyy-MM-dd}\{InternalCode}_W{1|2}.png`
 
-Giữ **3 ngày**; dọn khi khởi động. Xóa ảnh không xóa phiếu/event.
+Giữ **PhotoRetentionDays** (mặc định 3). SQLite chỉ lưu đường dẫn + trạng thái.

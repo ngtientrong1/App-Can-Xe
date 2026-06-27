@@ -1,5 +1,7 @@
 ﻿using System.IO;
+using System.Text.Json;
 using System.Windows;
+using CanXe.Application.Configuration;
 using CanXe.Application.Interfaces;
 using CanXe.Desktop.Services;
 using CanXe.Desktop.ViewModels;
@@ -26,11 +28,14 @@ public partial class App : System.Windows.Application
         var photoRoot = Path.Combine(appData, "Photos");
         Directory.CreateDirectory(photoRoot);
 
+        var settings = LoadSettings();
+
         _host = Host.CreateDefaultBuilder()
             .ConfigureServices(services =>
             {
-                services.AddCanXeInfrastructure(dbPath, photoRoot);
+                services.AddCanXeInfrastructure(settings, dbPath, photoRoot);
                 services.AddSingleton<IUserNotificationService, WpfNotificationService>();
+                services.AddSingleton<IUiFocusService, WpfUiFocusService>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })
@@ -59,5 +64,18 @@ public partial class App : System.Windows.Application
         }
 
         base.OnExit(e);
+    }
+
+    private static AppSettings LoadSettings()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        if (!File.Exists(path))
+            return new AppSettings();
+
+        var json = File.ReadAllText(path);
+        return JsonSerializer.Deserialize<AppSettings>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        }) ?? new AppSettings();
     }
 }
