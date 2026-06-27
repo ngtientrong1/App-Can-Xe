@@ -20,169 +20,186 @@
 
     <Grid Margin="8">
         <Grid.RowDefinitions>
-            <RowDefinition Height="*" MinHeight="300"/>
+            <RowDefinition Height="*" MinHeight="280"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*" MinHeight="220"/>
+            <RowDefinition Height="*" MinHeight="200"/>
         </Grid.RowDefinitions>
 
         <!-- TOP WORK AREA -->
         <Grid Grid.Row="0" Margin="0,0,0,6">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="27*" MinWidth="220"/>
-                <ColumnDefinition Width="{Binding InfoColumnWidth}" MinWidth="480"/>
+                <ColumnDefinition Width="{Binding WeighColumnWidth}" MinWidth="300"/>
+                <ColumnDefinition Width="{Binding InfoColumnWidth}" MinWidth="420"/>
                 <ColumnDefinition Width="{Binding CameraColumnWidth}" MinWidth="0"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Live weight -->
+            <!-- Left: live weight + weigh results -->
             <Border Grid.Column="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="1" Padding="14" Margin="0,0,6,0">
-                <StackPanel VerticalAlignment="Center">
+                    BorderThickness="1" Padding="12" Margin="0,0,6,0">
+                <StackPanel>
                     <TextBlock Text="TRỌNG LƯỢNG TRỰC TIẾP" Style="{StaticResource SectionHeader}"/>
                     <TextBlock Text="{Binding LiveWeightKg, StringFormat={}{0:N0}}"
-                               FontSize="72" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
-                    <TextBlock Text="kg" FontSize="24" Foreground="#616161"/>
+                               FontSize="64" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}"/>
+                    <TextBlock Text="kg" FontSize="20" Foreground="#616161" Margin="0,0,0,2"/>
+                    <TextBlock Text="{Binding ScaleStabilityText}" FontSize="16" Foreground="#2E7D32" Margin="0,0,0,10"/>
+
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" BorderBrush="#BDBDBD" BorderThickness="1" Padding="8" Margin="0,0,4,0" Background="White">
+                            <StackPanel>
+                                <TextBlock Text="CÂN LẦN 1" FontWeight="SemiBold" FontSize="16"/>
+                                <TextBlock Text="{Binding Weight1ValueText}" FontSize="20" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                                <TextBlock Text="{Binding Weight1TimeText}" FontSize="14" Foreground="#616161"
+                                           Visibility="{Binding Weight1HasValue, Converter={StaticResource BoolToVis}}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="1" BorderBrush="#BDBDBD" BorderThickness="1" Padding="8" Margin="4,0,0,0" Background="White">
+                            <StackPanel>
+                                <TextBlock Text="CÂN LẦN 2" FontWeight="SemiBold" FontSize="16"/>
+                                <TextBlock Text="{Binding Weight2ValueText}" FontSize="20" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                                <TextBlock Text="{Binding Weight2TimeText}" FontSize="14" Foreground="#616161"
+                                           Visibility="{Binding Weight2HasValue, Converter={StaticResource BoolToVis}}"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <UniformGrid Columns="3" Margin="0,0,0,6">
+                        <StackPanel Margin="0,0,4,0">
+                            <TextBlock Text="TỔNG" FontSize="15"/>
+                            <TextBlock Text="{Binding GrossDisplay}" FontSize="22" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel Margin="4,0">
+                            <TextBlock Text="BÌ" FontSize="15"/>
+                            <TextBlock Text="{Binding TareDisplay}" FontSize="22" FontWeight="SemiBold"/>
+                        </StackPanel>
+                        <StackPanel Margin="4,0,0,0">
+                            <TextBlock Text="HÀNG" FontSize="15" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding NetDisplay}" FontSize="26" FontWeight="Bold" Foreground="{StaticResource NetHighlightBrush}"/>
+                        </StackPanel>
+                    </UniformGrid>
+
+                    <TextBlock FontSize="16" Margin="0,1,0,0">
+                        <Run Text="Trừ bì: "/>
+                        <Run Text="{Binding DeductionDisplay, Mode=OneWay}"/>
+                    </TextBlock>
+                    <TextBlock FontSize="16" Margin="0,1,0,0">
+                        <Run Text="KL tính tiền: "/>
+                        <Run Text="{Binding BillableDisplay, Mode=OneWay}"/>
+                    </TextBlock>
+                    <TextBlock FontSize="16" Margin="0,1,0,0">
+                        <Run Text="Thành tiền: "/>
+                        <Run Text="{Binding TotalAmountDisplay, Mode=OneWay}"/>
+                    </TextBlock>
+                    <TextBlock Text="Cân dịch vụ — chưa nhập đơn giá" Foreground="#757575" FontSize="14" Margin="0,4,0,0"
+                               Visibility="{Binding IsServiceWeighVisible, Converter={StaticResource BoolToVis}}"/>
                 </StackPanel>
             </Border>
 
-            <!-- Ticket + results -->
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="3,0">
-                <Border Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="14">
-                    <StackPanel>
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Số phiếu" Style="{StaticResource SectionHeader}"/>
-                                <TextBlock Text="{Binding DisplayNumber}" FontSize="20" FontWeight="SemiBold"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="Ngày giờ" Style="{StaticResource SectionHeader}"/>
-                                <TextBlock Text="{Binding TicketDateTimeDisplay}" FontSize="19"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Tên khách hàng" Style="{StaticResource SectionHeader}"/>
-                                <ctrl:AutoCompleteTextBox x:Name="CustomerField"
-                                                          Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
-                                                          ItemsSource="{Binding CustomerSuggestions}" FontSize="20"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="Biển số xe" Style="{StaticResource SectionHeader}"/>
-                                <TextBox Text="{Binding LicensePlate, UpdateSourceTrigger=PropertyChanged}"/>
-                                <TextBlock Text="{Binding VehicleSuggestionText}" Foreground="#757575" FontSize="14" TextWrapping="Wrap"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Loại hàng" Style="{StaticResource SectionHeader}"/>
-                                <ctrl:AutoCompleteTextBox Text="{Binding CargoTypeName, UpdateSourceTrigger=PropertyChanged}"
-                                                          ItemsSource="{Binding CargoTypeSuggestions}" FontSize="20"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Text="Đơn giá (VNĐ/kg)" Style="{StaticResource SectionHeader}"/>
-                                <TextBox Text="{Binding UnitPriceText, UpdateSourceTrigger=PropertyChanged}"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <StackPanel Margin="0,0,0,10">
-                            <TextBlock Text="Ghi chú" Style="{StaticResource SectionHeader}"/>
-                            <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" MinHeight="48"/>
+            <!-- Middle: ticket info only -->
+            <Border Grid.Column="1" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1" Padding="14" Margin="3,0">
+                <StackPanel VerticalAlignment="Top">
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Số phiếu" Style="{StaticResource SectionHeader}"/>
+                            <TextBlock Text="{Binding DisplayNumber}" FontSize="24" FontWeight="Bold"/>
+                            <TextBlock Text="Số dự kiến" Foreground="#757575" FontSize="14"
+                                       Visibility="{Binding IsPreviewDisplayNumber, Converter={StaticResource BoolToVis}}"/>
                         </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Ngày giờ" Style="{StaticResource SectionHeader}"/>
+                            <TextBlock Text="{Binding TicketDateTimeDisplay}" FontSize="19"/>
+                        </StackPanel>
+                    </Grid>
 
-                        <!-- Weigh slots -->
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" BorderBrush="#BDBDBD" BorderThickness="1" Padding="10" Margin="0,0,6,0" Background="White">
-                                <StackPanel>
-                                    <TextBlock Text="CÂN LẦN 1" FontWeight="SemiBold" FontSize="17"/>
-                                    <TextBlock Text="{Binding Weight1ValueText}" FontSize="22" FontWeight="SemiBold" Margin="0,4,0,0"/>
-                                    <TextBlock Text="{Binding Weight1TimeText}" FontSize="15" Foreground="#616161"
-                                               Visibility="{Binding Weight1HasValue, Converter={StaticResource BoolToVis}}"/>
-                                </StackPanel>
-                            </Border>
-                            <Border Grid.Column="1" BorderBrush="#BDBDBD" BorderThickness="1" Padding="10" Margin="6,0,0,0" Background="White">
-                                <StackPanel>
-                                    <TextBlock Text="CÂN LẦN 2" FontWeight="SemiBold" FontSize="17"/>
-                                    <TextBlock Text="{Binding Weight2ValueText}" FontSize="22" FontWeight="SemiBold" Margin="0,4,0,0"/>
-                                    <TextBlock Text="{Binding Weight2TimeText}" FontSize="15" Foreground="#616161"
-                                               Visibility="{Binding Weight2HasValue, Converter={StaticResource BoolToVis}}"/>
-                                </StackPanel>
-                            </Border>
-                        </Grid>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Tên khách hàng" Style="{StaticResource SectionHeader}"/>
+                            <ctrl:AutoCompleteTextBox x:Name="CustomerField" TabIndex="1"
+                                                      Text="{Binding CustomerName, UpdateSourceTrigger=PropertyChanged}"
+                                                      ItemsSource="{Binding CustomerSuggestions}" FontSize="20"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Biển số xe" Style="{StaticResource SectionHeader}"/>
+                            <ctrl:AutoCompleteTextBox x:Name="VehicleField" TabIndex="2"
+                                                      Text="{Binding LicensePlate, UpdateSourceTrigger=PropertyChanged}"
+                                                      ItemsSource="{Binding VehicleSuggestions}" FontSize="20"/>
+                            <TextBlock Text="{Binding VehicleSuggestionText}" Foreground="#757575" FontSize="14" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
 
-                        <!-- Results -->
-                        <Border Background="White" BorderBrush="#9E9E9E" BorderThickness="1" Padding="12">
-                            <StackPanel>
-                                <TextBlock Text="KẾT QUẢ CÂN" FontWeight="SemiBold" FontSize="18" Margin="0,0,0,8"/>
-                                <UniformGrid Columns="3" Margin="0,0,0,8">
-                                    <StackPanel Margin="0,0,4,0">
-                                        <TextBlock Text="TỔNG" FontSize="16"/>
-                                        <TextBlock Text="{Binding GrossDisplay}" FontSize="24" FontWeight="SemiBold"/>
-                                    </StackPanel>
-                                    <StackPanel Margin="4,0">
-                                        <TextBlock Text="BÌ" FontSize="16"/>
-                                        <TextBlock Text="{Binding TareDisplay}" FontSize="24" FontWeight="SemiBold"/>
-                                    </StackPanel>
-                                    <StackPanel Margin="4,0,0,0">
-                                        <TextBlock Text="HÀNG" FontSize="16" FontWeight="SemiBold"/>
-                                        <TextBlock Text="{Binding NetDisplay}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource NetHighlightBrush}"/>
-                                    </StackPanel>
-                                </UniformGrid>
-                                <TextBlock FontSize="17" Margin="0,2,0,0">
-                                    <Run Text="Trừ bì 3/1.000: "/>
-                                    <Run Text="{Binding DeductionDisplay, Mode=OneWay}"/>
-                                </TextBlock>
-                                <TextBlock FontSize="17" Margin="0,2,0,0">
-                                    <Run Text="Khối lượng tính tiền: "/>
-                                    <Run Text="{Binding BillableDisplay, Mode=OneWay}"/>
-                                </TextBlock>
-                                <TextBlock FontSize="17" Margin="0,2,0,0">
-                                    <Run Text="Thành tiền: "/>
-                                    <Run Text="{Binding TotalAmountDisplay, Mode=OneWay}"/>
-                                </TextBlock>
-                                <TextBlock Text="Cân dịch vụ — chưa nhập đơn giá" Foreground="#757575" FontSize="15" Margin="0,6,0,0"
-                                           Visibility="{Binding IsServiceWeighVisible, Converter={StaticResource BoolToVis}}"/>
-                            </StackPanel>
-                        </Border>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Loại hàng" Style="{StaticResource SectionHeader}"/>
+                            <ctrl:AutoCompleteTextBox x:Name="CargoField" TabIndex="3"
+                                                      Text="{Binding CargoTypeName, UpdateSourceTrigger=PropertyChanged}"
+                                                      ItemsSource="{Binding CargoTypeSuggestions}" FontSize="20"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Đơn giá (VNĐ/kg)" Style="{StaticResource SectionHeader}"/>
+                            <TextBox TabIndex="4" Text="{Binding UnitPriceText, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel>
+                        <TextBlock Text="Ghi chú" Style="{StaticResource SectionHeader}"/>
+                        <TextBox TabIndex="5" Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
+                                 AcceptsReturn="True" MinHeight="56" MaxHeight="120"/>
                     </StackPanel>
-                </Border>
-            </ScrollViewer>
+                </StackPanel>
+            </Border>
 
-            <!-- Camera -->
+            <!-- Right: camera + dev (collapsed by default) -->
             <Border Grid.Column="2" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="1" Padding="10" Margin="6,0,0,0"
+                    BorderThickness="1" Padding="8" Margin="6,0,0,0"
                     Visibility="{Binding IsCameraPanelVisible, Converter={StaticResource BoolToVis}}">
                 <StackPanel>
-                    <DockPanel Margin="0,0,0,6">
+                    <DockPanel Margin="0,0,0,4">
                         <TextBlock Text="CAMERA" Style="{StaticResource SectionHeader}" DockPanel.Dock="Left"/>
-                        <Button Content="Thu gọn" Command="{Binding ToggleCameraPanelCommand}" DockPanel.Dock="Right" Style="{StaticResource FilterButton}" Padding="8,4"/>
+                        <Button Content="Thu gọn" Command="{Binding ToggleCameraPanelCommand}" DockPanel.Dock="Right"
+                                Style="{StaticResource FilterButton}" Padding="6,2" TabIndex="-1"/>
                     </DockPanel>
-                    <Border MinHeight="100" Background="#263238" Margin="0,0,0,8">
-                        <TextBlock Text="Preview" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Border Height="72" Background="#263238" Margin="0,0,0,6">
+                        <TextBlock Text="Preview" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"/>
                     </Border>
-                    <TextBlock Text="DEV — CÂN MÔ PHỎNG" Style="{StaticResource SectionHeader}"/>
-                    <CheckBox Content="Chế độ thủ công" IsChecked="{Binding IsManualScaleMode}" FontSize="16" Margin="0,0,0,4"/>
-                    <TextBox Text="{Binding ManualWeightText, UpdateSourceTrigger=PropertyChanged}"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <Button Content="8.500" Command="{Binding SetManualScale8500Command}" Style="{StaticResource FilterButton}"/>
-                        <Button Content="18.500" Command="{Binding SetManualScale18500Command}" Style="{StaticResource FilterButton}"/>
+
+                    <StackPanel Visibility="{Binding IsDeveloperPanelAvailable, Converter={StaticResource BoolToVis}}"
+                                Focusable="False">
+                        <Button Content="MỞ MÔ PHỎNG" Command="{Binding ToggleDevPanelCommand}"
+                                Style="{StaticResource FilterButton}" TabIndex="-1" Margin="0,0,0,4"
+                                Visibility="{Binding IsDevPanelExpanded, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                        <StackPanel Visibility="{Binding IsDevPanelExpanded, Converter={StaticResource BoolToVis}}"
+                                    Focusable="False">
+                            <DockPanel Margin="0,0,0,4">
+                                <TextBlock Text="DEV — CÂN MÔ PHỎNG" Style="{StaticResource SectionHeader}" DockPanel.Dock="Left"/>
+                                <Button Content="Thu gọn" Command="{Binding ToggleDevPanelCommand}" DockPanel.Dock="Right"
+                                        Style="{StaticResource FilterButton}" Padding="6,2" TabIndex="-1"/>
+                            </DockPanel>
+                            <CheckBox Content="Chế độ thủ công" IsChecked="{Binding IsManualScaleMode}" FontSize="15"
+                                      Margin="0,0,0,4" Focusable="False" TabIndex="-1"/>
+                            <TextBox Text="{Binding ManualWeightText, UpdateSourceTrigger=PropertyChanged}"
+                                     Focusable="False" TabIndex="-1"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0" Focusable="False">
+                                <Button Content="8.500" Command="{Binding SetManualScale8500Command}" Style="{StaticResource FilterButton}" TabIndex="-1"/>
+                                <Button Content="18.500" Command="{Binding SetManualScale18500Command}" Style="{StaticResource FilterButton}" TabIndex="-1"/>
+                            </StackPanel>
+                        </StackPanel>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -190,15 +207,15 @@
 
         <!-- Buttons -->
         <WrapPanel Grid.Row="1" HorizontalAlignment="Stretch" Margin="0,4">
-            <Button Content="{Binding Weigh1ButtonText}" Style="{StaticResource RecordWeightButton}"
+            <Button x:Name="Weigh1Button" TabIndex="6" Content="{Binding Weigh1ButtonText}" Style="{StaticResource RecordWeightButton}"
                     Command="{Binding CaptureWeight1Command}" IsEnabled="{Binding IsWeigh1Enabled}"/>
-            <Button Content="{Binding Weigh2ButtonText}" Style="{StaticResource RecordWeightButton}"
+            <Button x:Name="Weigh2Button" TabIndex="7" Content="{Binding Weigh2ButtonText}" Style="{StaticResource RecordWeightButton}"
                     Command="{Binding CaptureWeight2Command}" IsEnabled="{Binding IsWeigh2Enabled}"/>
-            <Button Content="LƯU" Style="{StaticResource ActionButton}" Command="{Binding SaveCommand}"/>
-            <Button Content="HỦY BỎ" Style="{StaticResource ActionButton}" Command="{Binding CancelCommand}" Background="#616161"/>
-            <Button Content="IN PHIẾU" Style="{StaticResource ActionButton}" Command="{Binding PrintTicketCommand}" Background="#455A64"/>
+            <Button TabIndex="8" Content="LƯU" Style="{StaticResource ActionButton}" Command="{Binding SaveCommand}"/>
+            <Button TabIndex="9" Content="HỦY BỎ" Style="{StaticResource ActionButton}" Command="{Binding CancelCommand}" Background="#616161"/>
+            <Button TabIndex="10" Content="IN PHIẾU" Style="{StaticResource ActionButton}" Command="{Binding PrintTicketCommand}" Background="#455A64"/>
             <Button Content="MỞ CAMERA" Style="{StaticResource FilterButton}" Command="{Binding ToggleCameraPanelCommand}"
-                    Visibility="{Binding IsCameraPanelVisible, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
+                    TabIndex="-1" Visibility="{Binding IsCameraPanelVisible, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
         </WrapPanel>
 
         <!-- Status -->
@@ -216,39 +233,39 @@
             <WrapPanel Grid.Row="0" Margin="0,0,0,6">
                 <StackPanel Orientation="Horizontal" Margin="0,0,10,6">
                     <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="16" FontWeight="SemiBold"/>
-                    <DatePicker SelectedDate="{Binding FilterFromDate}" Width="130" FontSize="16"/>
+                    <DatePicker SelectedDate="{Binding FilterFromDate}" Width="130" FontSize="16" TabIndex="-1"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,10,6">
                     <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="16" FontWeight="SemiBold"/>
-                    <DatePicker SelectedDate="{Binding FilterToDate}" Width="130" FontSize="16"/>
+                    <DatePicker SelectedDate="{Binding FilterToDate}" Width="130" FontSize="16" TabIndex="-1"/>
                 </StackPanel>
                 <StackPanel Width="130" Margin="0,0,8,6">
                     <TextBlock Text="Khách hàng" FontSize="16" FontWeight="SemiBold"/>
-                    <TextBox Text="{Binding FilterCustomerName, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBox Text="{Binding FilterCustomerName, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                 </StackPanel>
                 <StackPanel Width="120" Margin="0,0,8,6">
                     <TextBlock Text="Loại hàng" FontSize="16" FontWeight="SemiBold"/>
-                    <TextBox Text="{Binding FilterCargoTypeName, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBox Text="{Binding FilterCargoTypeName, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                 </StackPanel>
                 <StackPanel Width="110" Margin="0,0,8,6">
                     <TextBlock Text="Biển số" FontSize="16" FontWeight="SemiBold"/>
-                    <TextBox Text="{Binding FilterLicensePlate, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBox Text="{Binding FilterLicensePlate, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                 </StackPanel>
                 <StackPanel Width="100" Margin="0,0,8,6">
                     <TextBlock Text="Số phiếu" FontSize="16" FontWeight="SemiBold"/>
-                    <TextBox Text="{Binding FilterDisplayNumber, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBox Text="{Binding FilterDisplayNumber, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                 </StackPanel>
                 <StackPanel Width="100" Margin="0,0,8,6">
                     <TextBlock Text="Đơn giá" FontSize="16" FontWeight="SemiBold"/>
-                    <TextBox Text="{Binding FilterUnitPriceText, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBox Text="{Binding FilterUnitPriceText, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,0,0,6">
-                    <Button Content="LỌC" Style="{StaticResource FilterButton}" Command="{Binding ApplyFilterCommand}"/>
-                    <Button Content="HÔM NAY" Style="{StaticResource FilterButton}" Command="{Binding FilterTodayCommand}"/>
-                    <Button Content="HÔM QUA" Style="{StaticResource FilterButton}" Command="{Binding FilterYesterdayCommand}"/>
-                    <Button Content="7 NGÀY" Style="{StaticResource FilterButton}" Command="{Binding FilterLast7DaysCommand}"/>
-                    <Button Content="THÁNG NÀY" Style="{StaticResource FilterButton}" Command="{Binding FilterThisMonthCommand}"/>
-                    <Button Content="XÓA LỌC" Style="{StaticResource FilterButton}" Command="{Binding ClearFilterCommand}"/>
+                    <Button Content="LỌC" Style="{StaticResource FilterButton}" Command="{Binding ApplyFilterCommand}" TabIndex="-1"/>
+                    <Button Content="HÔM NAY" Style="{StaticResource FilterButton}" Command="{Binding FilterTodayCommand}" TabIndex="-1"/>
+                    <Button Content="HÔM QUA" Style="{StaticResource FilterButton}" Command="{Binding FilterYesterdayCommand}" TabIndex="-1"/>
+                    <Button Content="7 NGÀY" Style="{StaticResource FilterButton}" Command="{Binding FilterLast7DaysCommand}" TabIndex="-1"/>
+                    <Button Content="THÁNG NÀY" Style="{StaticResource FilterButton}" Command="{Binding FilterThisMonthCommand}" TabIndex="-1"/>
+                    <Button Content="XÓA LỌC" Style="{StaticResource FilterButton}" Command="{Binding ClearFilterCommand}" TabIndex="-1"/>
                 </StackPanel>
             </WrapPanel>
 
@@ -268,20 +285,22 @@
                       HorizontalScrollBarVisibility="Auto"
                       HeadersVisibility="Column"
                       CanUserSortColumns="True"
+                      TabIndex="-1"
                       MouseDoubleClick="TicketsGrid_OnMouseDoubleClick">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Ngày giờ" Binding="{Binding TicketDateTime, StringFormat=dd/MM/yyyy HH:mm}" Width="140" SortMemberPath="TicketDateTime"/>
-                    <DataGridTextColumn Header="Số phiếu" Binding="{Binding DisplayNumber}" Width="90" SortMemberPath="DisplayNumber"/>
-                    <DataGridTextColumn Header="Biển số" Binding="{Binding LicensePlate, TargetNullValue=—}" Width="100"/>
-                    <DataGridTextColumn Header="Khách hàng" Binding="{Binding CustomerName, TargetNullValue=—}" Width="140"/>
-                    <DataGridTextColumn Header="Loại hàng" Binding="{Binding CargoTypeName, TargetNullValue=—}" Width="110"/>
-                    <DataGridTextColumn Header="Tổng" Binding="{Binding GrossWeightKg, StringFormat=N0, TargetNullValue=—}" Width="80"/>
-                    <DataGridTextColumn Header="Bì" Binding="{Binding TareWeightKg, StringFormat=N0, TargetNullValue=—}" Width="70"/>
-                    <DataGridTextColumn Header="Hàng" Binding="{Binding NetWeightKg, StringFormat=N0, TargetNullValue=—}" Width="80"/>
-                    <DataGridTextColumn Header="Khối lượng tính tiền" Binding="{Binding BillableWeightKg, StringFormat=N0, TargetNullValue=—}" Width="120"/>
-                    <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPriceVndPerKg, StringFormat=N0, TargetNullValue=—}" Width="90"/>
-                    <DataGridTextColumn Header="Thành tiền" Binding="{Binding TotalAmountVnd, StringFormat=N0, TargetNullValue=—}" Width="110"/>
-                    <DataGridTextColumn Header="Ghi chú" Binding="{Binding Notes, TargetNullValue=—}" Width="*" MinWidth="100"/>
+                    <DataGridTextColumn Header="Ngày giờ" Binding="{Binding TicketDateTime, StringFormat=dd/MM/yyyy HH:mm}" Width="130" SortMemberPath="TicketDateTime"/>
+                    <DataGridTextColumn Header="Số phiếu" Binding="{Binding DisplayNumber}" Width="85" SortMemberPath="DisplayNumber"/>
+                    <DataGridTextColumn Header="Biển số" Binding="{Binding LicensePlate, TargetNullValue=—}" Width="95"/>
+                    <DataGridTextColumn Header="Khách hàng" Binding="{Binding CustomerName, TargetNullValue=—}" Width="130"/>
+                    <DataGridTextColumn Header="Loại hàng" Binding="{Binding CargoTypeName, TargetNullValue=—}" Width="100"/>
+                    <DataGridTextColumn Header="Cân một lần" Binding="{Binding SingleRecordedWeightKg, StringFormat=N0, TargetNullValue=—}" Width="95"/>
+                    <DataGridTextColumn Header="Tổng" Binding="{Binding GrossWeightKg, StringFormat=N0, TargetNullValue=—}" Width="70"/>
+                    <DataGridTextColumn Header="Bì" Binding="{Binding TareWeightKg, StringFormat=N0, TargetNullValue=—}" Width="65"/>
+                    <DataGridTextColumn Header="Hàng" Binding="{Binding NetWeightKg, StringFormat=N0, TargetNullValue=—}" Width="70"/>
+                    <DataGridTextColumn Header="KL tính tiền" Binding="{Binding BillableWeightKg, StringFormat=N0, TargetNullValue=—}" Width="95"/>
+                    <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPriceVndPerKg, StringFormat=N0, TargetNullValue=—}" Width="85"/>
+                    <DataGridTextColumn Header="Thành tiền" Binding="{Binding TotalAmountVnd, StringFormat=N0, TargetNullValue=—}" Width="100"/>
+                    <DataGridTextColumn Header="Ghi chú" Binding="{Binding Notes, TargetNullValue=—}" Width="*" MinWidth="80"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Grid>

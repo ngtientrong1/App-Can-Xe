@@ -95,6 +95,7 @@ public sealed class WeighTicketListItem
     public decimal? GrossWeightKg { get; init; }
     public decimal? TareWeightKg { get; init; }
     public decimal? NetWeightKg { get; init; }
+    public decimal? SingleRecordedWeightKg { get; init; }
     public decimal? BillableWeightKg { get; init; }
     public decimal? UnitPriceVndPerKg { get; init; }
     public decimal? TotalAmountVnd { get; init; }

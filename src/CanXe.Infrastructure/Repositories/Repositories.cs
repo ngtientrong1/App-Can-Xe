@@ -118,6 +118,15 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
         return row.LastSequence;
     }
 
+    public async Task<int> PeekNextSequenceAsync(int year, int month, CancellationToken cancellationToken = default)
+    {
+        var row = await _db.TicketSequences
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Year == year && s.Month == month, cancellationToken);
+
+        return row is null ? 1 : row.LastSequence + 1;
+    }
+
     public async Task<T> ExecuteInTransactionAsync<T>(
         Func<Task<T>> action,
         CancellationToken cancellationToken = default)
@@ -280,6 +289,26 @@ public sealed class VehicleRepository : IVehicleRepository
         var normalized = PlateNormalizer.Normalize(plateNumber);
         return await _db.Vehicles
             .FirstOrDefaultAsync(v => v.NormalizedPlateNumber == normalized, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Vehicle>> SearchAsync(
+        string searchTerm,
+        int maxResults = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var normalized = PlateNormalizer.Normalize(searchTerm);
+        if (normalized.Length == 0)
+            return (await _db.Vehicles.ToListAsync(cancellationToken))
+                .OrderByDescending(v => v.LastUsedAt)
+                .Take(maxResults)
+                .ToList();
+
+        return (await _db.Vehicles
+            .Where(v => v.NormalizedPlateNumber.Contains(normalized))
+            .ToListAsync(cancellationToken))
+            .OrderByDescending(v => v.LastUsedAt)
+            .Take(maxResults)
+            .ToList();
     }
 
     public async Task<VehicleSuggestion?> GetSuggestionForPlateAsync(

@@ -14,12 +14,20 @@ public partial class MainWindow : Window
         InitializeComponent();
         if (focusService is WpfUiFocusService wpfFocus)
             wpfFocus.RegisterWindow(this);
+
+        Loaded += OnLoaded;
     }
 
-    public void FocusCustomerField()
+    private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        CustomerField.FocusInput();
+        VehicleField.ItemCommitted += async (_, _) =>
+        {
+            if (DataContext is MainViewModel vm)
+                await vm.OnVehicleCommittedAsync(VehicleField.Text);
+        };
     }
+
+    public void FocusCustomerField() => CustomerField.FocusInput();
 
     private async void TicketsGrid_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {

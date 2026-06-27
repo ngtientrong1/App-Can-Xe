@@ -1,85 +1,51 @@
-# CanXe — UI Spec (Giai đoạn 1.2)
+# CanXe — UI Spec (Giai đoạn 1.3)
 
-## Cửa sổ chính
+## Bố cục 16:9
 
-- Mở **Maximized** mặc định, tận dụng chiều rộng 16:9.
-- Bố cục cột: trọng lượng trực tiếp ~27% · thông tin phiếu + kết quả ~53% · camera ~20%.
-- Camera thu gọn → cột thông tin phiếu mở rộng, không để cột trống.
-- Grid star sizing; không Width cố định cho panel.
+| Cột | Tỷ lệ | Nội dung |
+|-----|-------|----------|
+| Trái | 34% | Trọng lượng trực tiếp + kết quả cân |
+| Giữa | 46% | Form phiếu (không có kết quả cân) |
+| Phải | 20% | Camera + DEV (thu gọn mặc định) |
 
-## Font (Segoe UI, người lớn tuổi)
+Camera thu gọn → cột giữa mở rộng 66%.
 
-| Thành phần | Kích thước |
-|---|---|
-| Trọng lượng trực tiếp | 72 px (Full HD) |
-| Nhãn trường | 17–18 px |
-| Ô nhập | 19–22 px |
-| Nút thao tác | 20–22 px, MinHeight 58 px |
-| DataGrid | 16–18 px, dòng ≥42 px, header ≥44 px |
-
-## Thanh nút
+## Cột trái
 
 ```
-[LẤY CÂN LẦN 1] [LẤY CÂN LẦN 2] [LƯU] [HỦY BỎ] [IN PHIẾU]
+TRỌNG LƯỢNG TRỰC TIẾP
+11.247 kg
+● ỔN ĐỊNH
+
+CÂN LẦN 1    CÂN LẦN 2
+...
+
+TỔNG   BÌ   HÀNG
+Trừ bì / KL tính tiền / Thành tiền
 ```
 
-- Nút cân đổi nhãn **CẬP NHẬT CÂN LẦN n** sau lần đầu.
-- Tiếp tục phiếu: khóa nút cân đã lưu, nhãn `(ĐÃ LƯU)`.
-- **IN PHIẾU**: stub giai đoạn sau.
+Không scroll dọc trên 1920×1080.
 
-## Khu cân lần 1 / 2
+## Số phiếu
 
-Chưa lấy cân:
-
-```
-CÂN LẦN 1
-Chưa lấy cân
-```
-
-Đã lấy cân:
-
-```
-CÂN LẦN 1
-8.500 kg
-08:35:20
-```
-
-Không dùng `@`. Thời gian dòng riêng, chữ nhỏ hơn.
-
-## Khu KẾT QUẢ CÂN
-
-Ba thẻ lớn: **TỔNG · BÌ · HÀNG** (HÀNG nhấn mạnh).
-
-Bên dưới: Trừ bì 3/1.000 · Khối lượng tính tiền · Thành tiền.
-
-Cân dịch vụ: các dòng tính tiền = `—`, ghi chú nhỏ *Cân dịch vụ — chưa nhập đơn giá*.
+Giá trị lớn (ví dụ `0009/06`) + nhãn nhỏ **Số dự kiến** khi chưa lưu.
 
 ## Autocomplete
 
-Một control duy nhất cho **Khách hàng** và **Loại hàng**. Popup khi gõ/focus; không ListBox cố định bên dưới.
+Keyboard đầy đủ; highlight dòng chọn; Enter/Tab commit; Escape đóng popup.
 
-## Camera
+## TabIndex
 
-Góc phải ~20% rộng, có **Thu gọn** / **MỞ CAMERA**. Dev: manual 8.500 / 18.500 kg.
+1–5: form · 6–7: cân · 8–10: Lưu/Hủy/In · Filter/DataGrid/DEV: `-1`.
 
-## Danh sách (nửa dưới)
+## DataGrid (13 cột)
 
-12 cột: Ngày giờ · Số phiếu · Biển số · Khách · Loại hàng · Tổng · Bì · Hàng · KL tính tiền · Đơn giá · Thành tiền · Ghi chú.
+Ngày giờ · Số phiếu · Biển số · Khách · Loại hàng · **Cân một lần** · Tổng · Bì · Hàng · KL tính tiền · Đơn giá · Thành tiền · Ghi chú.
 
-Virtualization, header cố định, scroll ngang, dòng mới nhất trên cùng. Double-click → **Chi tiết phiếu**.
+## Panel DEV
 
-## Bộ lọc
-
-Nhãn rõ: Từ ngày · Đến ngày · Khách hàng · Loại hàng · Biển số · Số phiếu · Đơn giá.
-
-Nút: **LỌC · HÔM NAY · HÔM QUA · 7 NGÀY · THÁNG NÀY · XÓA LỌC**.
-
-Mặc định mở app: **Hôm nay**. Tối đa **200** bản ghi. Lọc đơn giá không trả phiếu cân dịch vụ (null).
+Chỉ khi `DeviceMode = Simulation` và `ShowDeveloperPanel = true`. Nút **MỞ MÔ PHỎNG**; thu gọn mặc định; không tham gia Tab.
 
 ## Chi tiết phiếu
 
-Weight1/2 + thời gian + ảnh · Tổng/Bì/Hàng · trừ bì/KL TT/thành tiền (hoặc *Cân dịch vụ*) · khách/biển/loại/ghi chú · **TIẾP TỤC CÂN** nếu chỉ 1 cân.
-
-## Sau LƯU / HỦY
-
-Focus về ô **Khách hàng**. Trọng lượng trực tiếp vẫn chạy.
+Double-click danh sách; **TIẾP TỤC CÂN** cho phiếu một lần.

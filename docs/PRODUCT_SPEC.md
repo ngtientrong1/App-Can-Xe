@@ -1,70 +1,44 @@
-# CanXe — Product Spec (Giai đoạn 1.2)
+# CanXe — Product Spec (Giai đoạn 1.3)
 
-## Luồng lấy cân
+## Bố cục cân
 
-Hai nút độc lập:
+Cột trái (~34%): trọng lượng trực tiếp, ổn định, Cân lần 1/2, Tổng/Bì/Hàng, trừ bì/KL TT/thành tiền.
 
-- **LẤY CÂN LẦN 1** → `DraftWeight1` (+ thời gian, ảnh nháp). Lần sau: **CẬP NHẬT CÂN LẦN 1**.
-- **LẤY CÂN LẦN 2** → tương tự. Không khóa sau khi đủ 2 lần — có thể cập nhật trước khi LƯU.
+Cột giữa (~46%): chỉ thông tin phiếu (số phiếu dự kiến, ngày giờ, khách, biển số, loại hàng, đơn giá, ghi chú).
 
-Tổng/Bì/Hàng chỉ tính khi có **đủ 2** giá trị draft. Phiếu chỉ 1 cân: Tổng/Bì/Hàng = null (UI `—`).
+Cột phải (~20%): camera nhỏ + panel DEV thu gọn (Simulation + `ShowDeveloperPanel`).
 
-## Cân dịch vụ (không đơn giá)
+## Số phiếu dự kiến
 
-Không nhập đơn giá hoặc đơn giá ≤ 0 được coi là **cân dịch vụ**:
+- Hiển thị số dự kiến (ví dụ `0009/06`) trước khi lưu — **không** tăng sequence.
+- Số chính thức cấp trong transaction khi **LƯU**.
+- **HỦY BỎ** không tăng sequence.
+- Sau lưu: hiển thị số dự kiến tiếp theo.
 
-- Vẫn lưu Tổng, Bì, Hàng khi có 2 cân.
-- **Không** tính trừ bì, khối lượng tính tiền, thành tiền.
-- DB lưu `NULL` (không lưu 0).
-- UI và danh sách hiển thị `—` cho các trường tính tiền.
+## Autocomplete
 
-Nhập/xóa đơn giá trên draft → tính lại ngay trên giao diện.
+Khách hàng, biển số, loại hàng — một control duy nhất mỗi trường:
 
-## Draft vs dữ liệu chính thức
+- ArrowUp/Down, Enter, Tab, Escape, click chọn.
+- Tab không có selection → giữ text người dùng gõ.
+- Biển số: tìm không phân biệt dấu chấm/gạch, tự chữ hoa.
 
-Trước **LƯU**: không phiếu DB, không danh sách, không số phiếu, không báo cáo.
+## Danh sách — cột Cân một lần
 
-## Ảnh
+- 1 WeighEvent → hiển thị trọng lượng.
+- 2 events → `—`.
+- Không ảnh hưởng công thức Tổng/Bì/Hàng.
 
-- Mỗi lần cân → chụp mới. Cập nhật thành công → xóa ảnh nháp cũ.
-- Camera lỗi → giữ kg mới, ảnh cũ **không** hợp lệ; toast/status bar.
-- **LƯU** → promote ảnh hợp lệ sang thư mục chính thức.
+## Công thức & cân dịch vụ
 
-## LƯU linh hoạt
+Giữ nguyên quy tắc Giai đoạn 1.2.
 
-Tối thiểu: ≥ 1 trọng lượng. Các field khác nullable.
+## Tab order
 
-## Tiếp tục phiếu 1 cân
+Khách → Biển số → Loại hàng → Đơn giá → Ghi chú → Cân 1 → Cân 2 → Lưu → Hủy → In.
 
-Cửa sổ **Chi tiết phiếu** hoặc nút **TIẾP TỤC CÂN** → UPDATE phiếu cũ. Không sửa cân đã lưu (admin sau này).
+Panel DEV: `IsTabStop = false`.
 
-## Công thức
-
-Khi có đủ 2 trọng lượng:
-
-```
-GrossWeight = Max(W1,W2)
-TareWeight = Min(W1,W2)
-NetWeight = Abs(W1-W2)
-```
-
-Chỉ khi `UnitPrice > 0`:
-
-```
-DeductionWeight = NetWeight/1000×3
-BillableWeight = Round(Net-Deduction, 0, AwayFromZero)
-TotalAmount = BillableWeight × UnitPrice
-```
-
-## Danh sách vs chi tiết
-
-- **Danh sách chính:** Ngày giờ, Số phiếu, Biển số, Khách, Loại hàng, Tổng, Bì, Hàng, KL tính tiền, Đơn giá, Thành tiền, Ghi chú. Không hiển thị Lần 1/Lần 2.
-- **Chi tiết phiếu:** Weight1/2, thời gian, ảnh, kết quả đầy đủ.
-
-## DeviceMode
-
-`Simulation` (mặc định) — random/manual cân, camera mô phỏng. `Hardware` — giai đoạn sau.
-
-## Ngoài phạm vi 1.2
+## Ngoài phạm vi 1.3
 
 COM, RTSP, in, Excel, phân quyền admin.

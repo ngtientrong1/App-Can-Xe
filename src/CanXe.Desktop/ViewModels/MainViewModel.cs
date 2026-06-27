@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
+using CanXe.Application.Configuration;
 using CanXe.Application.Interfaces;
 using CanXe.Application.Models;
 using CanXe.Application.Services;
@@ -16,22 +17,28 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly WeighTicketService _weighTicketService;
     private readonly IScaleService _scaleService;
     private readonly IUiFocusService _focusService;
+    private readonly AppSettings _settings;
 
     private WeighTicketDraft _draft = new();
 
     public MainViewModel(
         WeighTicketService weighTicketService,
         IScaleService scaleService,
-        IUiFocusService focusService)
+        IUiFocusService focusService,
+        AppSettings settings)
     {
         _weighTicketService = weighTicketService;
         _scaleService = scaleService;
         _focusService = focusService;
+        _settings = settings;
         _scaleService.WeightChanged += OnScaleWeightChanged;
+        IsDeveloperPanelAvailable = string.Equals(settings.DeviceMode, "Simulation", StringComparison.OrdinalIgnoreCase)
+                                   && settings.ShowDeveloperPanel;
     }
 
     [ObservableProperty] private decimal _liveWeightKg;
-    [ObservableProperty] private string _displayNumber = "Tự động khi lưu";
+    [ObservableProperty] private string _displayNumber = "—";
+    [ObservableProperty] private bool _isPreviewDisplayNumber = true;
     [ObservableProperty] private string _ticketDateTimeDisplay = "—";
     [ObservableProperty] private string? _customerName;
     [ObservableProperty] private string? _licensePlate;
@@ -51,12 +58,15 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string _billableDisplay = "—";
     [ObservableProperty] private string _totalAmountDisplay = "—";
     [ObservableProperty] private bool _isServiceWeighVisible;
+    [ObservableProperty] private string _scaleStabilityText = "● ỔN ĐỊNH";
     [ObservableProperty] private string _statusMessage = "Sẵn sàng";
     [ObservableProperty] private bool _isWeigh1Enabled = true;
     [ObservableProperty] private bool _isWeigh2Enabled = true;
     [ObservableProperty] private bool _isContinuationMode;
     [ObservableProperty] private bool _isManualScaleMode;
-    [ObservableProperty] private bool _isCameraPanelVisible = true;
+    [ObservableProperty] private bool _isCameraPanelVisible;
+    [ObservableProperty] private bool _isDevPanelExpanded;
+    [ObservableProperty] private bool _isDeveloperPanelAvailable;
     [ObservableProperty] private string? _manualWeightText;
     [ObservableProperty] private string? _vehicleSuggestionText;
 
@@ -71,17 +81,21 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string? _filterDisplayNumber;
     [ObservableProperty] private string? _filterUnitPriceText;
 
-    public GridLength InfoColumnWidth => new(IsCameraPanelVisible ? 53 : 73, GridUnitType.Star);
+    public GridLength WeighColumnWidth => new(34, GridUnitType.Star);
+    public GridLength InfoColumnWidth => new(IsCameraPanelVisible ? 46 : 66, GridUnitType.Star);
     public GridLength CameraColumnWidth => new(IsCameraPanelVisible ? 20 : 0, GridUnitType.Star);
 
     public ObservableCollection<WeighTicketListItem> Tickets { get; } = [];
     public ObservableCollection<string> CustomerSuggestions { get; } = [];
     public ObservableCollection<string> CargoTypeSuggestions { get; } = [];
+    public ObservableCollection<string> VehicleSuggestions { get; } = [];
 
     public async Task InitializeAsync()
     {
         await _scaleService.StartAsync();
         LiveWeightKg = await _scaleService.GetCurrentWeightAsync();
+        await RefreshPreviewDisplayNumberAsync();
+        LoadBindingsFromDraft();
         await FilterTodayAsync();
     }
 
@@ -123,22 +137,30 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             ? string.Join(" ", result.SimilarCustomerWarnings)
             : $"Đã lưu phiếu {result.SavedTicket!.DisplayNumber}.";
 
-        ResetDraft();
+        await ResetDraftAsync();
         await RefreshListAsync();
         _focusService.FocusCustomerField();
     }
 
     [RelayCommand]
-    private void Cancel()
+    private async Task CancelAsync()
     {
         _weighTicketService.CancelDraft(_draft);
-        ResetDraft();
+        await ResetDraftAsync();
         StatusMessage = "Đã hủy nhập liệu.";
         _focusService.FocusCustomerField();
     }
 
     [RelayCommand]
-    private void ToggleCameraPanel() => IsCameraPanelVisible = !IsCameraPanelVisible;
+    private void ToggleCameraPanel()
+    {
+        IsCameraPanelVisible = !IsCameraPanelVisible;
+        OnPropertyChanged(nameof(InfoColumnWidth));
+        OnPropertyChanged(nameof(CameraColumnWidth));
+    }
+
+    [RelayCommand]
+    private void ToggleDevPanel() => IsDevPanelExpanded = !IsDevPanelExpanded;
 
     [RelayCommand]
     private void PrintTicket() =>
@@ -215,7 +237,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     }
 
     [RelayCommand]
-    private async Task ContinueTicketAsync(WeighTicketListItem? item)
+    public async Task ContinueTicketAsync(WeighTicketListItem? item)
     {
         if (item is null || item.EventCount >= 2)
             return;
@@ -225,6 +247,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             _draft = await _weighTicketService.LoadTicketForContinuationAsync(item.Id);
             LoadBindingsFromDraft();
             IsContinuationMode = true;
+            IsPreviewDisplayNumber = false;
             UpdateButtonStates();
             UpdateButtonLabels();
             StatusMessage = $"Đang tiếp tục phiếu {item.DisplayNumber}. Chỉ có thể lấy lần cân còn thiếu.";
@@ -254,6 +277,15 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     }
 
     [RelayCommand]
+    private async Task SearchVehiclesAsync()
+    {
+        VehicleSuggestions.Clear();
+        var results = await _weighTicketService.SearchVehiclesAsync(LicensePlate ?? string.Empty);
+        foreach (var v in results)
+            VehicleSuggestions.Add(v.PlateNumber);
+    }
+
+    [RelayCommand]
     private void SetManualScale8500() => SetManualWeight(8500m);
 
     [RelayCommand]
@@ -262,6 +294,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     partial void OnIsManualScaleModeChanged(bool value)
     {
         _scaleService.SetManualMode(value);
+        ScaleStabilityText = value ? "● THỦ CÔNG" : "● ỔN ĐỊNH";
         StatusMessage = value ? "Chế độ cân thủ công." : "Chế độ cân random.";
     }
 
@@ -269,19 +302,23 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     partial void OnCargoTypeNameChanged(string? value) => _ = SearchCargoTypesAsync();
 
+    partial void OnLicensePlateChanged(string? value)
+    {
+        if (!string.IsNullOrEmpty(value) && value != value.ToUpperInvariant())
+        {
+            LicensePlate = value.ToUpperInvariant();
+            return;
+        }
+
+        _ = SearchVehiclesAsync();
+        _ = UpdateVehicleSuggestionAsync();
+    }
+
     partial void OnUnitPriceTextChanged(string? value)
     {
         _draft.DraftUnitPrice = ParseUnitPrice(value);
         UpdateDisplaysFromDraft();
     }
-
-    partial void OnIsCameraPanelVisibleChanged(bool value)
-    {
-        OnPropertyChanged(nameof(InfoColumnWidth));
-        OnPropertyChanged(nameof(CameraColumnWidth));
-    }
-
-    partial void OnLicensePlateChanged(string? value) => _ = UpdateVehicleSuggestionAsync();
 
     partial void OnManualWeightTextChanged(string? value)
     {
@@ -290,6 +327,15 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.CurrentCulture, out var kg))
             _scaleService.SetManualWeightKg(kg);
+    }
+
+    public async Task OnVehicleCommittedAsync(string? plate)
+    {
+        if (string.IsNullOrWhiteSpace(plate))
+            return;
+
+        LicensePlate = plate.ToUpperInvariant();
+        await UpdateVehicleSuggestionAsync();
     }
 
     private async Task UpdateVehicleSuggestionAsync()
@@ -345,13 +391,27 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             Tickets.Add(item);
     }
 
-    private void ResetDraft()
+    private async Task ResetDraftAsync()
     {
         _draft = new WeighTicketDraft();
         IsContinuationMode = false;
         LoadBindingsFromDraft();
+        await RefreshPreviewDisplayNumberAsync();
         UpdateButtonStates();
         UpdateButtonLabels();
+    }
+
+    private async Task RefreshPreviewDisplayNumberAsync()
+    {
+        if (_draft.ExistingTicketId.HasValue)
+        {
+            DisplayNumber = _draft.DisplayNumber ?? "—";
+            IsPreviewDisplayNumber = false;
+            return;
+        }
+
+        DisplayNumber = await _weighTicketService.GetPreviewDisplayNumberAsync();
+        IsPreviewDisplayNumber = true;
     }
 
     private void SyncDraftFromBindings()
@@ -377,9 +437,12 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void LoadBindingsFromDraft()
     {
-        DisplayNumber = _draft.ExistingTicketId.HasValue
-            ? _draft.DisplayNumber ?? "—"
-            : "Tự động khi lưu";
+        if (_draft.ExistingTicketId.HasValue)
+        {
+            DisplayNumber = _draft.DisplayNumber ?? "—";
+            IsPreviewDisplayNumber = false;
+        }
+
         TicketDateTimeDisplay = _draft.TicketDateTime?.ToString("dd/MM/yyyy HH:mm:ss")
             ?? DateTimeOffset.Now.ToString("dd/MM/yyyy HH:mm:ss");
         CustomerName = _draft.DraftCustomer;

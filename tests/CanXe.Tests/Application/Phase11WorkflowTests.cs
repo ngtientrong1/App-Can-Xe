@@ -456,6 +456,9 @@ public class Phase11WorkflowTests : IAsyncLifetime
         public Task<int> GetNextSequenceAsync(int year, int month, CancellationToken cancellationToken = default) =>
             _inner.GetNextSequenceAsync(year, month, cancellationToken);
 
+        public Task<int> PeekNextSequenceAsync(int year, int month, CancellationToken cancellationToken = default) =>
+            _inner.PeekNextSequenceAsync(year, month, cancellationToken);
+
         public Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken = default) =>
             _inner.ExecuteInTransactionAsync(action, cancellationToken);
     }

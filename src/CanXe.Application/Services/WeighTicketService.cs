@@ -210,6 +210,18 @@ public sealed class WeighTicketService
         CancellationToken cancellationToken = default) =>
         _vehicleRepository.GetSuggestionForPlateAsync(plateNumber, cancellationToken);
 
+    public Task<IReadOnlyList<Vehicle>> SearchVehiclesAsync(
+        string searchTerm,
+        CancellationToken cancellationToken = default) =>
+        _vehicleRepository.SearchAsync(searchTerm, 10, cancellationToken);
+
+    public async Task<string> GetPreviewDisplayNumberAsync(CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.Now;
+        var sequence = await _ticketRepository.PeekNextSequenceAsync(now.Year, now.Month, cancellationToken);
+        return TicketNumberFormatter.FormatDisplayNumber(sequence, now.Month);
+    }
+
     public async Task<WeighTicketDetailDto> GetTicketDetailAsync(
         int ticketId,
         CancellationToken cancellationToken = default)
@@ -308,17 +320,31 @@ public sealed class WeighTicketService
 
             await ApplyDraftMetadataAsync(ticket, draft, cancellationToken);
 
+            if (draft.DraftWeight1.HasValue && !draft.IsWeight1LockedFromSavedTicket &&
+                ticket.Events.All(e => e.Sequence != 1))
+            {
+                await _ticketRepository.AddEventAsync(new WeighEvent
+                {
+                    WeighTicketId = ticket.Id,
+                    Sequence = 1,
+                    WeightGrams = WeightStorageMapper.ToGrams(draft.DraftWeight1)!.Value,
+                    RecordedAt = draft.DraftWeight1RecordedAt!.Value,
+                    PhotoPath = ResolveOfficialPhotoPath(draft, 1, ticket.InternalCode),
+                    PhotoCaptureSucceeded = draft.DraftWeight1PhotoStatus == DraftPhotoStatus.Valid,
+                    PhotoErrorMessage = draft.DraftWeight1PhotoError
+                }, cancellationToken);
+            }
+
             if (draft.DraftWeight2.HasValue && !draft.IsWeight2LockedFromSavedTicket &&
                 ticket.Events.All(e => e.Sequence != 2))
             {
-                var officialPath = ResolveOfficialPhotoPath(draft, 2, ticket.InternalCode);
                 await _ticketRepository.AddEventAsync(new WeighEvent
                 {
                     WeighTicketId = ticket.Id,
                     Sequence = 2,
                     WeightGrams = WeightStorageMapper.ToGrams(draft.DraftWeight2)!.Value,
                     RecordedAt = draft.DraftWeight2RecordedAt!.Value,
-                    PhotoPath = officialPath,
+                    PhotoPath = ResolveOfficialPhotoPath(draft, 2, ticket.InternalCode),
                     PhotoCaptureSucceeded = draft.DraftWeight2PhotoStatus == DraftPhotoStatus.Valid,
                     PhotoErrorMessage = draft.DraftWeight2PhotoError
                 }, cancellationToken);
@@ -532,8 +558,12 @@ public sealed class WeighTicketService
         return tickets.Select(MapToListItem).ToList();
     }
 
-    private static WeighTicketListItem MapToListItem(WeighTicket ticket) =>
-        new()
+    private static WeighTicketListItem MapToListItem(WeighTicket ticket)
+    {
+        var eventCount = ticket.Events.Count;
+        int? singleGrams = eventCount == 1 ? ticket.Events.First().WeightGrams : null;
+
+        return new()
         {
             Id = ticket.Id,
             TicketDateTime = ticket.TicketDateTime,
@@ -544,12 +574,14 @@ public sealed class WeighTicketService
             GrossWeightKg = WeightStorageMapper.FromGrams(ticket.GrossWeightGrams),
             TareWeightKg = WeightStorageMapper.FromGrams(ticket.TareWeightGrams),
             NetWeightKg = WeightStorageMapper.FromGrams(ticket.NetWeightGrams),
+            SingleRecordedWeightKg = SingleRecordedWeightResolver.Resolve(eventCount, singleGrams),
             BillableWeightKg = WeightStorageMapper.FromGrams(ticket.BillableWeightGrams),
             UnitPriceVndPerKg = WeightStorageMapper.FromVndPerKg(ticket.UnitPriceVndPerKg),
             TotalAmountVnd = WeightStorageMapper.FromVnd(ticket.TotalAmountVnd),
             Notes = ticket.Notes,
-            EventCount = ticket.Events.Count
+            EventCount = eventCount
         };
+    }
 
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

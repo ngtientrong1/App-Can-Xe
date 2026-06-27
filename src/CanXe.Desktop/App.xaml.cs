@@ -34,6 +34,7 @@ public partial class App : System.Windows.Application
             .ConfigureServices(services =>
             {
                 services.AddCanXeInfrastructure(settings, dbPath, photoRoot);
+                services.AddSingleton(settings);
                 services.AddSingleton<IUserNotificationService, WpfNotificationService>();
                 services.AddSingleton<IUiFocusService, WpfUiFocusService>();
                 services.AddSingleton<MainViewModel>();
