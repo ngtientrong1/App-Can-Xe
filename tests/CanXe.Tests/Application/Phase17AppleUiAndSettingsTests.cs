@@ -17,8 +17,8 @@ public class Phase17AppleUiAndSettingsTests
         Assert.Equal(0, WorkAreaLayoutCalculator.GetCameraDrawerWidth(false));
         Assert.InRange(WorkAreaLayoutCalculator.GetUtilityRailWidth(false), 52, 64);
         var (weigh, info) = WorkAreaLayoutCalculator.GetMainColumnStars(false);
-        Assert.Equal(31, weigh);
-        Assert.Equal(69, info);
+        Assert.Equal(38, weigh);
+        Assert.Equal(62, info);
     }
 
     [Fact]

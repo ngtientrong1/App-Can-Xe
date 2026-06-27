@@ -14,21 +14,19 @@ public static class ScaleInputModeDisplay
 
     public static ScaleInputMode ResolveStartupMode(string deviceMode, ScaleInputMode? savedScaleInputMode)
     {
-        if (!IsHardwareDeviceMode(deviceMode))
-        {
-            if (savedScaleInputMode == ScaleInputMode.SimulationManual)
-                return ScaleInputMode.SimulationManual;
-            return ScaleInputMode.SimulationAutomatic;
-        }
+        if (IsHardwareDeviceMode(deviceMode))
+            return ScaleInputMode.Hardware;
 
-        return savedScaleInputMode switch
-        {
-            ScaleInputMode.Hardware => ScaleInputMode.Hardware,
-            ScaleInputMode.SimulationAutomatic => ScaleInputMode.SimulationAutomatic,
-            ScaleInputMode.SimulationManual => ScaleInputMode.SimulationManual,
-            _ => ScaleInputMode.Hardware
-        };
+        if (savedScaleInputMode == ScaleInputMode.SimulationManual)
+            return ScaleInputMode.SimulationManual;
+
+        return ScaleInputMode.SimulationAutomatic;
     }
+
+    public static bool ShouldNormalizeLegacyScaleMode(string deviceMode, ScaleInputMode? savedScaleInputMode) =>
+        IsHardwareDeviceMode(deviceMode)
+        && savedScaleInputMode.HasValue
+        && savedScaleInputMode.Value != ScaleInputMode.Hardware;
 
     public static bool IsValidModeForDevice(string deviceMode, ScaleInputMode mode)
     {
@@ -40,21 +38,32 @@ public static class ScaleInputModeDisplay
     public static string GetWeightSourceText(ScaleInputMode mode) => mode switch
     {
         ScaleInputMode.SimulationAutomatic => "Nguồn: Tự động mô phỏng",
-        ScaleInputMode.SimulationManual => "Nguồn: DEV thủ công",
+        ScaleInputMode.SimulationManual => "Nguồn: Thủ công mô phỏng",
         ScaleInputMode.Hardware => "Nguồn: Đầu cân COM",
         _ => "Nguồn: —"
     };
 
     public static string GetHeaderScaleBadge(ScaleInputMode mode, bool isDisconnected) =>
-        isDisconnected
-            ? "● Đầu cân: Mất kết nối"
-            : mode switch
-            {
-                ScaleInputMode.SimulationAutomatic => "● Đầu cân: Tự động",
-                ScaleInputMode.SimulationManual => "● Đầu cân: DEV thủ công",
-                ScaleInputMode.Hardware => "● Đầu cân: COM",
-                _ => "● Đầu cân: —"
-            };
+        mode == ScaleInputMode.Hardware
+            ? GetHeaderScaleBadge(
+                mode,
+                isDisconnected ? ScaleHeaderConnectionState.Disconnected : ScaleHeaderConnectionState.Connected)
+            : isDisconnected
+                ? "● Đầu cân: Mất kết nối"
+                : GetHeaderScaleBadge(mode, ScaleHeaderConnectionState.Connected);
+
+    public static string GetHeaderScaleBadge(ScaleInputMode mode, ScaleHeaderConnectionState connectionState) =>
+        mode switch
+        {
+            ScaleInputMode.SimulationAutomatic => "● Đầu cân: Tự động",
+            ScaleInputMode.SimulationManual => "● Đầu cân: Thủ công",
+            ScaleInputMode.Hardware when connectionState == ScaleHeaderConnectionState.Connecting =>
+                "● Đầu cân: Đang kết nối",
+            ScaleInputMode.Hardware when connectionState == ScaleHeaderConnectionState.Disconnected =>
+                "● Đầu cân: Mất kết nối",
+            ScaleInputMode.Hardware => "● Đầu cân: COM",
+            _ => "● Đầu cân: —"
+        };
 
     public static bool ShouldPersistMode(ScaleInputMode mode) => true;
 

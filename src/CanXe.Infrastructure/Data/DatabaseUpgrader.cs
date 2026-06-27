@@ -8,6 +8,7 @@ public static class DatabaseUpgrader
     public const string Phase16MigrationId = "202606270001_Phase16_AuditAndWeightOverride";
     public const string Phase17MigrationId = "202606270002_Phase17_StationAndDeviceSettings";
     public const string Phase2CMigrationId = "202606270003_Phase2C_ScaleInputMode";
+    public const string Phase2DMigrationId = "202606270004_Phase2D_AutoConnectScale";
 
     public static async Task UpgradeAsync(CanXeDbContext db, string databasePath, CancellationToken cancellationToken = default)
     {
@@ -20,6 +21,7 @@ public static class DatabaseUpgrader
             await RecordMigrationAsync(db, Phase16MigrationId, cancellationToken);
             await RecordMigrationAsync(db, Phase17MigrationId, cancellationToken);
             await RecordMigrationAsync(db, Phase2CMigrationId, cancellationToken);
+            await RecordMigrationAsync(db, Phase2DMigrationId, cancellationToken);
             return;
         }
 
@@ -32,6 +34,9 @@ public static class DatabaseUpgrader
 
         await ApplyPhase2CScaleInputModeAsync(db, cancellationToken);
         await RecordMigrationAsync(db, Phase2CMigrationId, cancellationToken);
+
+        await ApplyPhase2DAutoConnectScaleAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase2DMigrationId, cancellationToken);
     }
 
     public static void BackupDatabase(string databasePath)
@@ -118,6 +123,19 @@ public static class DatabaseUpgrader
             return;
 
         await AddColumnIfMissingAsync(db, "ScaleDeviceSettings", "ScaleInputMode", "TEXT NULL", cancellationToken);
+    }
+
+    private static async Task ApplyPhase2DAutoConnectScaleAsync(CanXeDbContext db, CancellationToken cancellationToken)
+    {
+        if (!await TableExistsAsync(db, "ScaleDeviceSettings", cancellationToken))
+            return;
+
+        await AddColumnIfMissingAsync(
+            db,
+            "ScaleDeviceSettings",
+            "AutoConnectScaleOnStartup",
+            "INTEGER NOT NULL DEFAULT 1",
+            cancellationToken);
     }
 
     private static async Task ApplyPhase16WeighEventColumnsAsync(

@@ -48,27 +48,43 @@
     </Style>
     <Style x:Key="CardBorder" TargetType="Border" BasedOn="{StaticResource CanXeCardStyle}"/>
 
+    <Style x:Key="SectionHeaderTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}"/>
+        <Setter Property="Margin" Value="0,0,0,6"/>
+    </Style>
+
     <!-- TextBox -->
     <Style x:Key="CanXeTextBoxStyle" TargetType="TextBox">
-        <Setter Property="FontSize" Value="19"/>
+        <Setter Property="FontSize" Value="20"/>
         <Setter Property="FontWeight" Value="Normal"/>
-        <Setter Property="Padding" Value="12,10"/>
-        <Setter Property="MinHeight" Value="48"/>
-        <Setter Property="Margin" Value="0,0,0,8"/>
+        <Setter Property="Foreground" Value="#1F2937"/>
+        <Setter Property="Background" Value="White"/>
+        <Setter Property="CaretBrush" Value="#111827"/>
+        <Setter Property="SelectionBrush" Value="#BFDBFE"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="Padding" Value="14,0,14,0"/>
+        <Setter Property="MinHeight" Value="52"/>
+        <Setter Property="Margin" Value="0,0,0,6"/>
         <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Background" Value="White"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TextBox">
                     <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8"
-                            Padding="{TemplateBinding Padding}">
-                        <ScrollViewer x:Name="PART_ContentHost"/>
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center"/>
                     </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+    <Style x:Key="CanXeFormFieldLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource SectionHeaderTextStyle}">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Margin" Value="0,0,0,4"/>
     </Style>
     <Style TargetType="TextBox" BasedOn="{StaticResource CanXeTextBoxStyle}"/>
 
@@ -147,10 +163,10 @@
     <Style x:Key="CanXeWeightButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
         <Setter Property="Background" Value="{StaticResource WeightOrangeBrush}"/>
         <Setter Property="Foreground" Value="White"/>
-        <Setter Property="FontSize" Value="18"/>
-        <Setter Property="MinHeight" Value="56"/>
-        <Setter Property="Padding" Value="20,12"/>
-        <Setter Property="MinWidth" Value="180"/>
+        <Setter Property="FontSize" Value="19"/>
+        <Setter Property="MinHeight" Value="60"/>
+        <Setter Property="Padding" Value="16,10"/>
+        <Setter Property="MinWidth" Value="160"/>
     </Style>
 
     <Style x:Key="CanXeSecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
@@ -178,20 +194,22 @@
         <Setter Property="Background" Value="#546E7A"/>
         <Setter Property="Foreground" Value="White"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="MinHeight" Value="56"/>
+        <Setter Property="MinHeight" Value="60"/>
         <Setter Property="FontSize" Value="18"/>
-        <Setter Property="Margin" Value="4,0"/>
+        <Setter Property="Margin" Value="3,0"/>
     </Style>
     <Style x:Key="SaveButton" TargetType="Button" BasedOn="{StaticResource CanXeSuccessButtonStyle}">
-        <Setter Property="Margin" Value="4,0"/>
-        <Setter Property="MinWidth" Value="120"/>
+        <Setter Property="Margin" Value="3,0"/>
+        <Setter Property="MinWidth" Value="110"/>
+        <Setter Property="MinHeight" Value="60"/>
+        <Setter Property="FontSize" Value="19"/>
     </Style>
     <Style x:Key="CancelButton" TargetType="Button" BasedOn="{StaticResource CanXeSecondaryButtonStyle}">
         <Setter Property="Background" Value="{StaticResource CancelGrayBrush}"/>
         <Setter Property="Foreground" Value="White"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="MinHeight" Value="56"/>
-        <Setter Property="Margin" Value="4,0"/>
+        <Setter Property="MinHeight" Value="60"/>
+        <Setter Property="Margin" Value="3,0"/>
     </Style>
     <Style x:Key="RecordWeightButton" TargetType="Button" BasedOn="{StaticResource CanXeWeightButtonStyle}">
         <Setter Property="Margin" Value="4,0"/>
@@ -257,13 +275,6 @@
         </Style.Triggers>
     </Style>
 
-    <Style TargetType="TextBlock" x:Key="SectionHeader">
-        <Setter Property="FontSize" Value="16"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}"/>
-        <Setter Property="Margin" Value="0,0,0,6"/>
-    </Style>
-
     <Style x:Key="CanXeStatusBadgeStyle" TargetType="Border">
         <Setter Property="Background" Value="#E8F5E9"/>
         <Setter Property="BorderBrush" Value="#C8E6C9"/>
@@ -303,7 +314,8 @@
         <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="10"/>
-        <Setter Property="Padding" Value="14,12"/>
-        <Setter Property="MinWidth" Value="140"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="MinWidth" Value="120"/>
+        <Setter Property="MinHeight" Value="64"/>
     </Style>
 </ResourceDictionary>

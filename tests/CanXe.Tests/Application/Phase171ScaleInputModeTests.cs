@@ -72,7 +72,7 @@ public class Phase171ScaleInputModeTests
 
     [Theory]
     [InlineData(ScaleInputMode.SimulationAutomatic, false, "● Đầu cân: Tự động")]
-    [InlineData(ScaleInputMode.SimulationManual, false, "● Đầu cân: DEV thủ công")]
+    [InlineData(ScaleInputMode.SimulationManual, false, "● Đầu cân: Thủ công")]
     [InlineData(ScaleInputMode.SimulationAutomatic, true, "● Đầu cân: Mất kết nối")]
     public void HeaderBadge_ReflectsMode(ScaleInputMode mode, bool disconnected, string expected)
     {
@@ -134,20 +134,20 @@ public class Phase171ScaleInputModeTests
     }
 
     [Fact]
-    public void FullHdLayout_Uses31And51StarsWhenCameraOpen()
+    public void FullHdLayout_Uses35And45StarsWhenCameraOpen()
     {
         var (weigh, info) = WorkAreaLayoutCalculator.GetMainColumnStars(isCameraDrawerOpen: true);
-        Assert.Equal(31, weigh);
-        Assert.Equal(51, info);
-        Assert.Equal(300, WorkAreaLayoutCalculator.GetCameraDrawerWidth(true));
+        Assert.Equal(35, weigh);
+        Assert.Equal(45, info);
+        Assert.Equal(340, WorkAreaLayoutCalculator.GetCameraDrawerWidth(true, 1920));
     }
 
     [Fact]
     public void FullHdLayout_ExpandsInfoWhenCameraClosed()
     {
         var (weigh, info) = WorkAreaLayoutCalculator.GetMainColumnStars(isCameraDrawerOpen: false);
-        Assert.Equal(31, weigh);
-        Assert.Equal(69, info);
+        Assert.Equal(38, weigh);
+        Assert.Equal(62, info);
         Assert.Equal(0, WorkAreaLayoutCalculator.GetCameraDrawerWidth(false));
     }
 
@@ -175,7 +175,7 @@ public class Phase171ScaleInputModeTests
 
     [Theory]
     [InlineData(ScaleInputMode.SimulationAutomatic, "Nguồn: Tự động mô phỏng")]
-    [InlineData(ScaleInputMode.SimulationManual, "Nguồn: DEV thủ công")]
+    [InlineData(ScaleInputMode.SimulationManual, "Nguồn: Thủ công mô phỏng")]
     public void WeightSourceText_MatchesMode(ScaleInputMode mode, string expected)
     {
         Assert.Equal(expected, ScaleInputModeDisplay.GetWeightSourceText(mode));

@@ -17,43 +17,57 @@ public partial class App : System.Windows.Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
-        base.OnStartup(e);
+        try
+        {
+            base.OnStartup(e);
 
-        var appData = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CanXe");
-        Directory.CreateDirectory(appData);
+            var appData = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "CanXe");
+            Directory.CreateDirectory(appData);
 
-        var dbPath = Path.Combine(appData, "canxe.db");
-        var photoRoot = Path.Combine(appData, "Photos");
-        Directory.CreateDirectory(photoRoot);
+            var dbPath = Path.Combine(appData, "canxe.db");
+            var photoRoot = Path.Combine(appData, "Photos");
+            Directory.CreateDirectory(photoRoot);
 
-        var settings = LoadSettings();
-        var appPaths = new AppPaths { DatabasePath = dbPath, PhotoRoot = photoRoot };
+            var settings = LoadSettings();
+            var appPaths = new AppPaths { DatabasePath = dbPath, PhotoRoot = photoRoot };
 
-        _host = Host.CreateDefaultBuilder()
-            .ConfigureServices(services =>
-            {
-                services.AddCanXeInfrastructure(settings, dbPath, photoRoot);
-                services.AddSingleton(settings);
-                services.AddSingleton(appPaths);
-                services.AddSingleton<IUserNotificationService, WpfNotificationService>();
-                services.AddSingleton<IUiFocusService, WpfUiFocusService>();
-                services.AddSingleton<ITicketDocumentRenderer, WpfTicketDocumentRenderer>();
-                services.AddSingleton<SettingsViewModel>();
-                services.AddSingleton<MainViewModel>();
-                services.AddSingleton<MainWindow>();
-            })
-            .Build();
+            _host = Host.CreateDefaultBuilder()
+                .ConfigureServices(services =>
+                {
+                    services.AddCanXeInfrastructure(settings, dbPath, photoRoot);
+                    services.AddSingleton(settings);
+                    services.AddSingleton(appPaths);
+                    services.AddSingleton<IUserNotificationService, WpfNotificationService>();
+                    services.AddSingleton<IUiFocusService, WpfUiFocusService>();
+                    services.AddSingleton<ITicketDocumentRenderer, WpfTicketDocumentRenderer>();
+                    services.AddSingleton<SettingsViewModel>();
+                    services.AddSingleton<MainViewModel>();
+                    services.AddSingleton<MainWindow>();
+                })
+                .Build();
 
-        await _host.StartAsync();
-        await DependencyInjection.InitializeDatabaseAsync(_host.Services, dbPath);
+            await _host.StartAsync();
+            await DependencyInjection.InitializeDatabaseAsync(_host.Services, dbPath);
 
-        var mainWindow = _host.Services.GetRequiredService<MainWindow>();
-        var viewModel = _host.Services.GetRequiredService<MainViewModel>();
-        mainWindow.DataContext = viewModel;
-        await viewModel.InitializeAsync();
-        mainWindow.Show();
+            var mainWindow = _host.Services.GetRequiredService<MainWindow>();
+            var viewModel = _host.Services.GetRequiredService<MainViewModel>();
+            mainWindow.DataContext = viewModel;
+            await viewModel.InitializeAsync();
+            mainWindow.Show();
+        }
+        catch (Exception ex)
+        {
+            StartupErrorLogger.Write(ex);
+            MessageBox.Show(
+                "Không thể khởi động giao diện CanXe. Chi tiết đã được ghi vào startup-error.log.",
+                "CanXe — Lỗi khởi động",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(1);
+            throw;
+        }
     }
 
     protected override async void OnExit(ExitEventArgs e)

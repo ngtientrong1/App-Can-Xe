@@ -4,6 +4,7 @@ using CanXe.Application.Interfaces;
 using CanXe.Application.Models;
 using CanXe.Application.Services;
 using CanXe.Domain.Models;
+using CanXe.Domain.Services;
 using CanXe.Infrastructure.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,17 +18,20 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly ICameraConnectionTester _cameraTester;
     private readonly IScaleConnectionTester _scaleTester;
     private readonly AppSettings _appSettings;
+    private readonly IHardwareScaleDiagnostics? _hardwareScale;
 
     public SettingsViewModel(
         StationSettingsService settingsService,
         ICameraConnectionTester cameraTester,
         IScaleConnectionTester scaleTester,
-        AppSettings appSettings)
+        AppSettings appSettings,
+        IHardwareScaleDiagnostics? hardwareScaleDiagnostics = null)
     {
         _settingsService = settingsService;
         _cameraTester = cameraTester;
         _scaleTester = scaleTester;
         _appSettings = appSettings;
+        _hardwareScale = hardwareScaleDiagnostics;
     }
 
     [ObservableProperty] private string _stationName = "Trạm cân CanXe";
@@ -49,6 +53,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _handshake = "None";
     [ObservableProperty] private string? _scaleTestMessage;
     [ObservableProperty] private ScaleInputMode? _savedScaleInputMode;
+    [ObservableProperty] private bool _autoConnectScaleOnStartup = true;
 
     [ObservableProperty] private string? _cameraName;
     [ObservableProperty] private bool _cameraEnabled = true;
@@ -77,7 +82,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         DatabasePath = databasePath;
         DeviceModeDisplay = _appSettings.DeviceMode;
-        MigrationStatus = $"{DatabaseUpgrader.Phase16MigrationId}, {DatabaseUpgrader.Phase17MigrationId}, {DatabaseUpgrader.Phase2CMigrationId}";
+        MigrationStatus = $"{DatabaseUpgrader.Phase16MigrationId}, {DatabaseUpgrader.Phase17MigrationId}, {DatabaseUpgrader.Phase2CMigrationId}, {DatabaseUpgrader.Phase2DMigrationId}";
 
         var station = await _settingsService.GetStationAsync();
         StationName = station.StationName;
@@ -100,6 +105,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         StopBits = scale.StopBits;
         Handshake = scale.Handshake;
         SavedScaleInputMode = scale.ScaleInputMode;
+        AutoConnectScaleOnStartup = scale.AutoConnectScaleOnStartup;
+        if (!ScaleInputModeDisplay.IsHardwareDeviceMode(DeviceMode))
+            AutoConnectScaleOnStartup = false;
 
         var camera = await _settingsService.GetCameraAsync();
         CameraName = camera.CameraName;
@@ -131,8 +139,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task SaveScaleAsync()
+    private async Task SaveScaleAsync() =>
+        await PersistScaleSettingsAsync(SavedScaleInputMode).ConfigureAwait(false);
+
+    public async Task PersistScaleSettingsAsync(ScaleInputMode? activeMode)
     {
+        SavedScaleInputMode = activeMode;
         await _settingsService.SaveScaleAsync(new ScaleDeviceSettingsDto
         {
             DeviceMode = DeviceMode,
@@ -142,25 +154,14 @@ public sealed partial class SettingsViewModel : ObservableObject
             Parity = Parity,
             StopBits = StopBits,
             Handshake = Handshake,
-            ScaleInputMode = SavedScaleInputMode
-        });
-        SettingsStatusMessage = "Đã lưu cấu hình đầu cân.";
+            ScaleInputMode = activeMode,
+            AutoConnectScaleOnStartup = AutoConnectScaleOnStartup
+        }).ConfigureAwait(false);
     }
 
     public async Task SaveScaleInputModeAsync(ScaleInputMode mode)
     {
-        SavedScaleInputMode = mode;
-        await _settingsService.SaveScaleAsync(new ScaleDeviceSettingsDto
-        {
-            DeviceMode = DeviceMode,
-            PortName = PortName,
-            BaudRate = BaudRate,
-            DataBits = DataBits,
-            Parity = Parity,
-            StopBits = StopBits,
-            Handshake = Handshake,
-            ScaleInputMode = mode
-        });
+        await PersistScaleSettingsAsync(mode).ConfigureAwait(false);
     }
 
     public ScaleDeviceSettingsDto BuildScaleDto() => new()
@@ -172,7 +173,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         Parity = Parity,
         StopBits = StopBits,
         Handshake = Handshake,
-        ScaleInputMode = SavedScaleInputMode
+        ScaleInputMode = SavedScaleInputMode,
+        AutoConnectScaleOnStartup = AutoConnectScaleOnStartup
     };
 
     [RelayCommand]

@@ -37,6 +37,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private bool _suppressAutoFillEditTracking;
     private WeighTicketDetailDto? _lastSavedTicketDetail;
     private CancellationTokenSource? _toastCts;
+    private bool _unitPriceIsEditing;
 
     public MainViewModel(
         WeighTicketService weighTicketService,
@@ -195,18 +196,21 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public GridLength InfoColumnWidth =>
         new(WorkAreaLayoutCalculator.GetMainColumnStars(IsCameraDrawerOpen).InfoStars, GridUnitType.Star);
 
-    public GridLength CameraDrawerColumnWidth =>
-        IsCameraDrawerOpen
-            ? new GridLength(WorkAreaLayoutCalculator.CameraDrawerWidthPixels)
-            : new GridLength(0);
+    public GridLength CameraDrawerColumnWidth
+    {
+        get
+        {
+            var width = WorkAreaLayoutCalculator.GetCameraDrawerWidth(IsCameraDrawerOpen, WindowWidth);
+            return width > 0 ? new GridLength(width) : new GridLength(0);
+        }
+    }
 
     public GridLength UtilityRailColumnWidth =>
         new GridLength(WorkAreaLayoutCalculator.GetUtilityRailWidth(IsCompactMode));
 
-    public double LiveWeightFontSize => IsCompactMode ? 72 : 96;
+    public double LiveWeightFontSize =>
+        WorkAreaLayoutCalculator.GetLiveWeightFontSize(WindowWidth);
 
-    public bool IsSimulationAutomaticMode => ScaleInputMode == ScaleInputMode.SimulationAutomatic;
-    public bool IsSimulationManualMode => ScaleInputMode == ScaleInputMode.SimulationManual;
     public bool IsReturnToAutomaticVisible => ScaleInputMode == ScaleInputMode.SimulationManual;
     public bool IsManualWeightInputVisible => ScaleInputMode == ScaleInputMode.SimulationManual;
 
@@ -258,7 +262,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     public async Task InitializeAsync()
     {
-        IsCompactMode = CompactLayoutPolicy.ShouldUseCompactMode(SystemParameters.PrimaryScreenWidth);
+        ActiveSection = AppNavigationSection.WeighTicket;
+        UpdateWindowWidth(SystemParameters.PrimaryScreenWidth);
         if (IsCompactMode)
         {
             IsCameraDrawerOpen = false;
@@ -268,19 +273,26 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         await Settings.LoadAsync(_appPaths.DatabasePath);
 
         var effectiveDeviceMode = EffectiveDeviceMode;
-        var startupMode = ScaleInputModeDisplay.ResolveStartupMode(
-            effectiveDeviceMode,
-            Settings.SavedScaleInputMode);
-        await ApplyScaleInputModeAsync(startupMode, userInitiated: false);
+        var savedFromDb = Settings.SavedScaleInputMode;
+        if (ScaleInputModeDisplay.ShouldNormalizeLegacyScaleMode(effectiveDeviceMode, savedFromDb))
+            ScaleModeLogger.WriteNormalization(savedFromDb, ScaleInputMode.Hardware, effectiveDeviceMode);
 
-        if (Settings.SavedScaleInputMode != startupMode)
-            await Settings.SaveScaleInputModeAsync(startupMode);
+        var startupMode = ScaleInputModeDisplay.ResolveStartupMode(effectiveDeviceMode, savedFromDb);
+        await ApplyScaleInputModeAsync(startupMode, userInitiated: false, persistSettings: false);
+
+        if (Settings.SavedScaleInputMode != ScaleInputMode)
+            await Settings.SaveScaleInputModeAsync(ScaleInputMode);
+
+        LogScaleModeState("Startup");
 
         HeaderClockText = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.CurrentCulture);
         _ = RunClockAsync();
         await RefreshPreviewDisplayNumberAsync();
         LoadBindingsFromDraft();
         await FilterTodayAsync();
+
+        _focusService.FocusCustomerField();
+        _ = AutoConnectScaleIfNeededAsync();
     }
 
     [RelayCommand]
@@ -301,47 +313,62 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private async Task ReturnToAutomaticModeAsync() =>
         await ApplyScaleInputModeAsync(ScaleInputMode.SimulationAutomatic, userInitiated: true);
 
-    private async Task ApplyScaleInputModeAsync(ScaleInputMode mode, bool userInitiated)
+    [RelayCommand]
+    private async Task SaveScaleConfigurationAsync()
+    {
+        var targetMode = ScaleInputMode;
+
+        if (_hardwareScale?.IsConnected == true)
+            await DisconnectHardwareAsync().ConfigureAwait(false);
+
+        Settings.SavedScaleInputMode = targetMode;
+        await Settings.PersistScaleSettingsAsync(targetMode).ConfigureAwait(false);
+
+        await ApplyScaleInputModeAsync(targetMode, userInitiated: false, persistSettings: false)
+            .ConfigureAwait(false);
+
+        if (targetMode == ScaleInputMode.Hardware && Settings.AutoConnectScaleOnStartup)
+        {
+            _disconnectedByUser = false;
+            _ = AutoConnectScaleIfNeededAsync();
+        }
+
+        Settings.SettingsStatusMessage = "Đã lưu cấu hình đầu cân.";
+        LogScaleModeState("SaveScaleConfiguration");
+    }
+
+    private async Task ApplyScaleInputModeAsync(
+        ScaleInputMode mode,
+        bool userInitiated,
+        bool persistSettings = true)
     {
         if (!ScaleInputModeDisplay.IsValidModeForDevice(EffectiveDeviceMode, mode))
             return;
 
-        if (_hardwareScale is not null)
-            await _hardwareScale.SetInputModeAsync(mode);
-        else
+        if (mode == ScaleInputMode.Hardware)
         {
-            switch (mode)
-            {
-                case ScaleInputMode.SimulationAutomatic:
-                    await _scaleService.StartAsync();
-                    _scaleService.ResumeAutomaticSimulation();
-                    _scaleService.SetManualMode(false);
-                    break;
-                case ScaleInputMode.SimulationManual:
-                    await _scaleService.StartAsync();
-                    _scaleService.SetManualMode(true);
-                    break;
-                case ScaleInputMode.Hardware:
-                    await _scaleService.StopAsync();
-                    break;
-            }
+            _hasReceivedHardwareFrame = false;
+            LiveWeightKg = 0;
+            RefreshLiveWeightDisplay();
         }
 
-        ScaleInputMode = mode;
+        await SetCompositeScaleInputModeAsync(mode).ConfigureAwait(false);
+        ScaleInputMode = _hardwareScale?.InputMode ?? mode;
+        Settings.SavedScaleInputMode = ScaleInputMode;
 
-        switch (mode)
+        switch (ScaleInputMode)
         {
             case ScaleInputMode.SimulationAutomatic:
                 if (userInitiated)
                     StatusMessage = "Đã chuyển về chế độ tự động mô phỏng.";
-                LiveWeightKg = await _scaleService.GetCurrentWeightAsync();
+                LiveWeightKg = await _scaleService.GetCurrentWeightAsync().ConfigureAwait(false);
                 break;
             case ScaleInputMode.SimulationManual:
                 if (userInitiated)
                     StatusMessage = "Đang dùng nguồn thủ công mô phỏng.";
                 try
                 {
-                    LiveWeightKg = await _scaleService.GetCurrentWeightAsync();
+                    LiveWeightKg = await _scaleService.GetCurrentWeightAsync().ConfigureAwait(false);
                 }
                 catch
                 {
@@ -349,27 +376,84 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                 }
                 break;
             case ScaleInputMode.Hardware:
-                LiveWeightKg = 0;
                 if (userInitiated)
-                    StatusMessage = "Đang dùng nguồn đầu cân COM — bấm KẾT NỐI trong tab Thiết bị.";
+                    StatusMessage = "Đang dùng nguồn đầu cân COM.";
+                RefreshLiveWeightDisplay();
                 break;
         }
 
-        if (userInitiated && ScaleInputModeDisplay.ShouldPersistMode(mode))
-            await Settings.SaveScaleInputModeAsync(mode);
+        if (persistSettings && userInitiated && ScaleInputModeDisplay.ShouldPersistMode(ScaleInputMode))
+            await Settings.SaveScaleInputModeAsync(ScaleInputMode).ConfigureAwait(false);
 
-        IsHardwareModeSelected = mode == ScaleInputMode.Hardware;
+        IsHardwareModeSelected = ScaleInputMode == ScaleInputMode.Hardware;
 
         UpdateScaleStatusDisplay();
         UpdateHardwareDiagnostics();
         NotifyScaleInputModeBindings();
+        LogScaleModeState(userInitiated ? "UserModeChange" : "ApplyScaleInputMode");
+    }
+
+    private async Task SetCompositeScaleInputModeAsync(ScaleInputMode mode)
+    {
+        if (_hardwareScale is not null)
+        {
+            await _hardwareScale.SetInputModeAsync(mode).ConfigureAwait(false);
+            return;
+        }
+
+        switch (mode)
+        {
+            case ScaleInputMode.SimulationAutomatic:
+                await _scaleService.StartAsync().ConfigureAwait(false);
+                _scaleService.ResumeAutomaticSimulation();
+                _scaleService.SetManualMode(false);
+                break;
+            case ScaleInputMode.SimulationManual:
+                await _scaleService.StartAsync().ConfigureAwait(false);
+                _scaleService.SetManualMode(true);
+                break;
+            case ScaleInputMode.Hardware:
+                await _scaleService.StopAsync().ConfigureAwait(false);
+                break;
+        }
+    }
+
+    private ScaleInputMode GetActiveServiceMode() =>
+        _hardwareScale?.InputMode ?? ScaleInputMode;
+
+    private void LogScaleModeState(string eventName)
+    {
+        var serviceMode = GetActiveServiceMode();
+        var simulationRunning = serviceMode != ScaleInputMode.Hardware;
+        ScaleModeLogger.Write(
+            eventName,
+            EffectiveDeviceMode,
+            Settings.SavedScaleInputMode,
+            ScaleInputMode,
+            ScaleInputMode,
+            serviceMode,
+            simulationRunning,
+            _hardwareScale?.IsConnected == true);
+    }
+
+    private ScaleHeaderConnectionState GetHardwareHeaderConnectionState()
+    {
+        if (IsScaleConnecting)
+            return ScaleHeaderConnectionState.Connecting;
+        if (_hardwareScale is null || !_hardwareScale.IsConnected || _hardwareScale.IsStale || !_hasReceivedHardwareFrame)
+            return ScaleHeaderConnectionState.Disconnected;
+        return ScaleHeaderConnectionState.Connected;
     }
 
     private void NotifyScaleInputModeBindings()
     {
+        OnPropertyChanged(nameof(IsHardwareScaleMode));
+        OnPropertyChanged(nameof(IsAutomaticSimulationMode));
+        OnPropertyChanged(nameof(IsManualSimulationMode));
         OnPropertyChanged(nameof(IsSimulationAutomaticMode));
         OnPropertyChanged(nameof(IsSimulationManualMode));
         OnPropertyChanged(nameof(IsHardwareMode));
+        OnPropertyChanged(nameof(IsSimulationScaleSourceSelectionEnabled));
         OnPropertyChanged(nameof(IsHardwareModeEnabled));
         OnPropertyChanged(nameof(IsHardwareOperationsPanelVisible));
         OnPropertyChanged(nameof(IsScaleSourceSelectionVisible));
@@ -382,27 +466,38 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         if (ScaleInputMode == ScaleInputMode.Hardware && _hardwareScale is not null)
         {
-            var disconnected = !_hardwareScale.IsConnected || _hardwareScale.IsStale;
-            HeaderScaleStatus = ScaleInputModeDisplay.GetHeaderScaleBadge(ScaleInputMode, disconnected);
-            ScaleStabilityText = !_hardwareScale.IsConnected
-                ? "● MẤT KẾT NỐI"
-                : _hardwareScale.IsStale
-                    ? "● DỮ LIỆU CŨ"
-                    : _hardwareScale.IsStable
-                        ? "● ỔN ĐỊNH"
-                        : "● CHƯA ỔN ĐỊNH";
+            HeaderScaleStatus = ScaleInputModeDisplay.GetHeaderScaleBadge(
+                ScaleInputMode,
+                GetHardwareHeaderConnectionState());
+            ScaleStabilityText = HardwareStableText;
             return;
         }
 
-        HeaderScaleStatus = ScaleInputModeDisplay.GetHeaderScaleBadge(ScaleInputMode, SimulateScaleDisconnected);
+        HeaderScaleStatus = ScaleInputModeDisplay.GetHeaderScaleBadge(
+            ScaleInputMode,
+            SimulateScaleDisconnected);
         ScaleStabilityText = SimulateScaleDisconnected
             ? "● MẤT KẾT NỐI"
             : SimulateScaleStable ? "● ỔN ĐỊNH" : "● ĐANG THAY ĐỔI";
     }
 
+    partial void OnIsScaleConnectingChanged(bool value)
+    {
+        UpdateScaleStatusDisplay();
+        RefreshLiveWeightDisplay();
+    }
+
+    partial void OnStatusMessageChanged(string value) => OnPropertyChanged(nameof(OperatorBarText));
+
+    partial void OnOperatorStatusMessageChanged(string value) => OnPropertyChanged(nameof(OperatorBarText));
+
     partial void OnSimulateScaleStableChanged(bool value) => UpdateScaleStatusDisplay();
     partial void OnSimulateScaleDisconnectedChanged(bool value) => UpdateScaleStatusDisplay();
-    partial void OnScaleInputModeChanged(ScaleInputMode value) => UpdateScaleStatusDisplay();
+    partial void OnScaleInputModeChanged(ScaleInputMode value)
+    {
+        UpdateScaleStatusDisplay();
+        NotifyScaleInputModeBindings();
+    }
 
     [RelayCommand]
     private void ApplySimulatedWeight()
@@ -532,6 +627,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(CameraDrawerColumnWidth));
         OnPropertyChanged(nameof(UtilityRailColumnWidth));
         OnPropertyChanged(nameof(LiveWeightFontSize));
+        OnPropertyChanged(nameof(LiveWeightUnitFontSize));
+        OnPropertyChanged(nameof(CameraDrawerColumnWidth));
     }
 
     [RelayCommand]
@@ -899,7 +996,18 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     partial void OnUnitPriceTextChanged(string? value)
     {
-        _draft.DraftUnitPrice = ParseUnitPrice(value);
+        if (_unitPriceIsEditing)
+            _draft.DraftUnitPrice = UnitPriceInputHelper.Parse(value);
+        UpdateDisplaysFromDraft();
+    }
+
+    public void BeginUnitPriceEdit() => _unitPriceIsEditing = true;
+
+    public void CommitUnitPriceEdit()
+    {
+        _unitPriceIsEditing = false;
+        UnitPriceText = UnitPriceInputHelper.CommitDisplay(UnitPriceText);
+        _draft.DraftUnitPrice = UnitPriceInputHelper.Parse(UnitPriceText);
         UpdateDisplaysFromDraft();
     }
 
@@ -1126,9 +1234,12 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             {
                 if (_hardwareScale is null || !_hardwareScale.IsConnected || _hardwareScale.IsStale)
                     return;
+
+                _hasReceivedHardwareFrame = true;
             }
 
             LiveWeightKg = weightKg;
+            RefreshLiveWeightDisplay();
         });
     }
 
@@ -1242,7 +1353,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _draft.DraftVehicle = LicensePlate;
         _draft.DraftCargoType = CargoTypeName;
         _draft.DraftNotes = Notes;
-        _draft.DraftUnitPrice = ParseUnitPrice(UnitPriceText);
+        _draft.DraftUnitPrice = UnitPriceInputHelper.Parse(UnitPriceText);
         _draft.DeveloperWeight1OverrideEnabled = DeveloperWeight1OverrideEnabled;
         _draft.DeveloperWeightUnlockEnabled = IsDevWeightEditUnlocked;
         _draft.WeightOverrideReasonCode = WeightOverrideReasonCode;
@@ -1255,17 +1366,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    private static decimal? ParseUnitPrice(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return null;
-
-        if (!decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out var price))
-            return null;
-
-        price = Math.Round(price, 0, MidpointRounding.AwayFromZero);
-        return price > 0 ? price : null;
-    }
+    private static decimal? ParseUnitPrice(string? text) => UnitPriceInputHelper.Parse(text);
 
     private void LoadBindingsFromDraft()
     {
@@ -1283,7 +1384,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             CustomerName = _draft.DraftCustomer;
             LicensePlate = _draft.DraftVehicle;
             CargoTypeName = _draft.DraftCargoType;
-            UnitPriceText = _draft.DraftUnitPrice?.ToString("N0", CultureInfo.CurrentCulture);
+            UnitPriceText = UnitPriceInputHelper.FormatDisplay(_draft.DraftUnitPrice);
             Notes = _draft.DraftNotes;
             DeveloperWeight1OverrideEnabled = _draft.DeveloperWeight1OverrideEnabled;
             UpdateDisplaysFromDraft();

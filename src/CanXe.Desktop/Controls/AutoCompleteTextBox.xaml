@@ -60,7 +60,7 @@
 
                                  FontSize="{TemplateBinding FontSize}"
 
-                                 MinHeight="48"/>
+                                 MinHeight="56"/>
 
                         <Border x:Name="PART_DropDown" Grid.Row="1" Margin="0,4,0,0"
 

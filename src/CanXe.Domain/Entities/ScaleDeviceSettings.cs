@@ -11,5 +11,6 @@ public sealed class ScaleDeviceSettings
     public string StopBits { get; set; } = "One";
     public string Handshake { get; set; } = "None";
     public string? ScaleInputMode { get; set; }
+    public bool AutoConnectScaleOnStartup { get; set; } = true;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

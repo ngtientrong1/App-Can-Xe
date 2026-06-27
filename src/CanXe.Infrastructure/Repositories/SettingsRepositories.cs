@@ -66,6 +66,7 @@ public sealed class ScaleDeviceSettingsRepository(CanXeDbContext db) : IScaleDev
         entity.StopBits = settings.StopBits.Trim();
         entity.Handshake = settings.Handshake.Trim();
         entity.ScaleInputMode = settings.ScaleInputMode?.ToString();
+        entity.AutoConnectScaleOnStartup = settings.AutoConnectScaleOnStartup;
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -79,7 +80,8 @@ public sealed class ScaleDeviceSettingsRepository(CanXeDbContext db) : IScaleDev
         Parity = entity.Parity,
         StopBits = entity.StopBits,
         Handshake = entity.Handshake,
-        ScaleInputMode = ParseScaleInputMode(entity.ScaleInputMode)
+        ScaleInputMode = ParseScaleInputMode(entity.ScaleInputMode),
+        AutoConnectScaleOnStartup = entity.AutoConnectScaleOnStartup
     };
 
     private static ScaleInputMode? ParseScaleInputMode(string? value) =>

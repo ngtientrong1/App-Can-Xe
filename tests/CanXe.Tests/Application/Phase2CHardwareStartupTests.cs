@@ -24,8 +24,9 @@ public class Phase2CHardwareStartupTests
 
     [Theory]
     [InlineData("Hardware", null, ScaleInputMode.Hardware)]
-    [InlineData("Hardware", ScaleInputMode.SimulationAutomatic, ScaleInputMode.SimulationAutomatic)]
     [InlineData("Hardware", ScaleInputMode.Hardware, ScaleInputMode.Hardware)]
+    [InlineData("Hardware", ScaleInputMode.SimulationAutomatic, ScaleInputMode.Hardware)]
+    [InlineData("Hardware", ScaleInputMode.SimulationManual, ScaleInputMode.Hardware)]
     [InlineData("Simulation", null, ScaleInputMode.SimulationAutomatic)]
     [InlineData("Simulation", ScaleInputMode.Hardware, ScaleInputMode.SimulationAutomatic)]
     [InlineData("Simulation", ScaleInputMode.SimulationManual, ScaleInputMode.SimulationManual)]

@@ -18,16 +18,38 @@ public partial class MainWindow : Window
             wpfFocus.RegisterWindow(this);
 
         Loaded += OnLoaded;
+        SizeChanged += OnSizeChanged;
         Deactivated += OnWindowDeactivated;
         PreviewKeyDown += OnPreviewKeyDown;
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         WireAutocomplete(CustomerField, AutocompleteField.Customer);
         WireAutocomplete(VehicleField, AutocompleteField.Vehicle);
         WireAutocomplete(CargoField, AutocompleteField.CargoType);
         WireAutocomplete(NotesField, AutocompleteField.Notes);
+
+        if (DataContext is MainViewModel vm)
+            vm.UpdateWindowWidth(ActualWidth);
+    }
+
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+            vm.UpdateWindowWidth(e.NewSize.Width);
+    }
+
+    private void UnitPriceField_OnGotFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+            vm.BeginUnitPriceEdit();
+    }
+
+    private void UnitPriceField_OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+            vm.CommitUnitPriceEdit();
     }
 
     private void OnWindowDeactivated(object? sender, EventArgs e) =>
