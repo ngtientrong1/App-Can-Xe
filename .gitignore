@@ -1,0 +1,18 @@
+## Build artifacts
+bin/
+obj/
+*.user
+*.suo
+
+## IDE
+.vs/
+.idea/
+
+## Database & photos (local dev)
+*.db
+*.db-shm
+*.db-wal
+
+## OS
+Thumbs.db
+.DS_Store
