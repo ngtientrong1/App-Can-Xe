@@ -7,5 +7,5 @@ public interface IUiFocusService
     void FocusCargoTypeField();
     void FocusUnitPriceField();
     void FocusNotesField();
-    void FocusVehicleContextCard();
+    void HighlightTicketRow(int ticketId, bool scrollToTop);
 }

@@ -16,6 +16,12 @@ public interface IWeighTicketRepository
     Task<int> GetCargoUsageCountAsync(string cargoTypeName, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<string>> SearchRecentNotesAsync(string searchTerm, int maxResults = 5, CancellationToken cancellationToken = default);
     Task<VehicleUsageContext?> GetVehicleUsageContextAsync(string normalizedPlate, CancellationToken cancellationToken = default);
+    Task UpdateTicketEditAsync(
+        WeighTicket ticket,
+        IReadOnlyList<WeighEvent> events,
+        IReadOnlyList<AuditLog> auditLogs,
+        CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<AuditLog>> GetAuditLogsForTicketAsync(int ticketId, CancellationToken cancellationToken = default);
     Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken = default);
 }
 

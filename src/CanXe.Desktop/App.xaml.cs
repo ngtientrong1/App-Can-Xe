@@ -37,13 +37,14 @@ public partial class App : System.Windows.Application
                 services.AddSingleton(settings);
                 services.AddSingleton<IUserNotificationService, WpfNotificationService>();
                 services.AddSingleton<IUiFocusService, WpfUiFocusService>();
+                services.AddSingleton<ITicketDocumentRenderer, WpfTicketDocumentRenderer>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })
             .Build();
 
         await _host.StartAsync();
-        await DependencyInjection.InitializeDatabaseAsync(_host.Services);
+        await DependencyInjection.InitializeDatabaseAsync(_host.Services, dbPath);
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         var viewModel = _host.Services.GetRequiredService<MainViewModel>();

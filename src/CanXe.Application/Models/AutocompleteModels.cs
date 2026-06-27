@@ -16,7 +16,9 @@ public sealed class WeighTicketFilterResult
     public IReadOnlyList<WeighTicketListItem> Items { get; init; } = [];
     public int Count { get; init; }
     public decimal TotalNetWeightKg { get; init; }
+    public decimal TotalBillableWeightKg { get; init; }
     public decimal TotalAmountVnd { get; init; }
+    public int MissingPriceCount { get; init; }
 }
 
 public sealed class ActiveFilterChip

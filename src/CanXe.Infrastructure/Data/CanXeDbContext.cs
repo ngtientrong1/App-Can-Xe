@@ -13,6 +13,7 @@ public sealed class CanXeDbContext : DbContext
     public DbSet<WeighTicket> WeighTickets => Set<WeighTicket>();
     public DbSet<WeighEvent> WeighEvents => Set<WeighEvent>();
     public DbSet<TicketSequence> TicketSequences => Set<TicketSequence>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -61,8 +62,17 @@ public sealed class CanXeDbContext : DbContext
         modelBuilder.Entity<WeighEvent>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.OriginalWeightGrams).HasColumnName("WeightGrams");
             entity.HasIndex(e => new { e.WeighTicketId, e.Sequence }).IsUnique();
             entity.HasOne(e => e.WeighTicket).WithMany(t => t.Events).HasForeignKey(e => e.WeighTicketId);
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FieldName).IsRequired();
+            entity.HasIndex(e => e.TicketId);
+            entity.HasIndex(e => e.EditedAt);
         });
 
         modelBuilder.Entity<TicketSequence>(entity =>

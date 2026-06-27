@@ -18,5 +18,6 @@ public sealed class WpfUiFocusService : IUiFocusService
 
     public void FocusNotesField() => _window?.FocusNotesField();
 
-    public void FocusVehicleContextCard() => _window?.FocusVehicleContextCard();
+    public void HighlightTicketRow(int ticketId, bool scrollToTop) =>
+        _window?.HighlightTicketRow(ticketId, scrollToTop);
 }

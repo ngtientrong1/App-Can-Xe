@@ -78,19 +78,44 @@ Indexes:
 
 ## WeighEvents
 
+| Cột | Kiểu | Nullable | Ghi chú |
+|-----|------|----------|---------|
+| Id | INTEGER PK | No | |
+| WeighTicketId | INTEGER FK | No | |
+| Sequence | INTEGER | No | 1 hoặc 2 |
+| WeightGrams | INTEGER | No | **OriginalWeightGrams** (domain) |
+| OverrideWeightGrams | INTEGER | Yes | Phase 1.6 |
+| IsManualOverride | INTEGER (bool) | No | Phase 1.6 |
+| OverrideReason | TEXT | Yes | Phase 1.6 |
+| OverrideAt | TEXT (DateTimeOffset) | Yes | Phase 1.6 |
+| OverrideBy | TEXT | Yes | Phase 1.6 |
+| RecordedAt | TEXT (DateTimeOffset) | No | |
+| PhotoPath | TEXT | Yes | |
+| PhotoCaptureSucceeded | INTEGER (bool) | No | |
+| PhotoErrorMessage | TEXT | Yes | |
+| RawScaleData | TEXT | Yes | |
+
+`EffectiveWeightGrams` (domain) = `OverrideWeightGrams ?? OriginalWeightGrams`. Ảnh gắn với giá trị cân gốc.
+
+Unique: `(WeighTicketId, Sequence)`
+
+## AuditLogs (Phase 1.6)
+
 | Cột | Kiểu | Nullable |
 |-----|------|----------|
 | Id | INTEGER PK | No |
-| WeighTicketId | INTEGER FK | No |
-| Sequence | INTEGER | No | 1 hoặc 2 |
-| WeightGrams | INTEGER | No |
-| RecordedAt | TEXT (DateTimeOffset) | No |
-| PhotoPath | TEXT | Yes |
-| PhotoCaptureSucceeded | INTEGER (bool) | No |
-| PhotoErrorMessage | TEXT | Yes |
-| RawScaleData | TEXT | Yes |
+| TicketId | INTEGER FK | No |
+| FieldName | TEXT | No |
+| OldValue | TEXT | Yes |
+| NewValue | TEXT | Yes |
+| Reason | TEXT | Yes |
+| EditedAt | TEXT (DateTimeOffset) | No |
+| EditedBy | TEXT | Yes |
+| IsDeveloperOverride | INTEGER (bool) | No |
 
-Unique: `(WeighTicketId, Sequence)`
+Index: `TicketId`. Không xóa từ UI.
+
+Migration: `202606270001_Phase16_AuditAndWeightOverride` — xem [DATABASE_MIGRATION.md](DATABASE_MIGRATION.md).
 
 ## TicketSequences (sinh số phiếu)
 

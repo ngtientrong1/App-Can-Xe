@@ -2,7 +2,9 @@
 
 ## Tổng quan
 
-**Giai đoạn hiện tại:** 1.5 — UI 16:9 responsive, ngữ cảnh xe từ lịch sử phiếu, bộ lọc nhanh/nâng cao.
+**Giai đoạn hiện tại:** 1.6 MVP — chỉnh sửa phiếu inline, danh sách/summary, autocomplete, preview phiếu.
+
+**Branch:** `phase1-6-mvp-finalization`
 
 ## Lệnh
 
@@ -13,30 +15,23 @@ dotnet test CanXe.sln
 build\publish-win10-x64.cmd
 ```
 
-## Ngữ cảnh xe (`VehicleUsageContext`)
+## MVP 1.6 (chưa triển khai phần cứng)
 
-- Truy vấn tối đa **50 phiếu gần nhất** theo `VehicleId` / biển số.
-- Khách gần nhất, loại hàng gần nhất, loại hàng thường dùng (tie-break theo ngày).
-- Thẻ **XE ĐÃ TỪNG CÂN** — không tự điền; xác nhận qua DÙNG CẢ HAI / CHỈ DÙNG KHÁCH / CHỈ DÙNG LOẠI HÀNG.
-- `VehicleUsageContextApplier`, `FrequentCargoTypeResolver`, `WorkAreaLayoutCalculator` — unit-testable.
+- Double-click DataGrid → sửa phiếu trên form chính (`IsEditingExistingTicket`, `TicketUpdateService`, `AuditLogs`).
+- Tự điền khách/loại hàng khi commit biển số (không còn thẻ XE ĐÃ TỪNG CÂN).
+- Autocomplete dropdown nội bộ (không Popup top-level); đóng khi Alt+Tab.
+- Summary: Số phiếu, Tổng hàng, KL tính tiền, Tổng thành tiền, Chưa có đơn giá.
+- Sort danh sách: `TicketDateTime ↓` → `Sequence ↓` → `Id ↓`.
+- Preview phiếu overlay: `ITicketDocumentRenderer`, sao chép/lưu PNG.
+- Migration `202606270001_Phase16_AuditAndWeightOverride` — xem [docs/DATABASE_MIGRATION.md](docs/DATABASE_MIGRATION.md).
 
-## Bố cục UI (Full HD)
+## Bố cục UI
 
-- Khu cân **32%** · Thông tin phiếu **50%** · Camera **18%** (thu gọn → info **68%**, camera **0**).
-- Bộ lọc nhanh (HÔM NAY …) + bộ lọc nâng cao (ẩn/hiện).
-- DataGrid stretch; thanh tổng hợp cố định phía dưới.
-
-## Giai đoạn 1.4 (vẫn áp dụng)
-
-Phiếu một lần cân (Bì=0), khóa Cân lần 1, autocomplete nhanh, chip lọc.
+- Header thiết bị gọn · Khu làm việc ~280–340px · DataGrid `*` · Footer cố định.
+- Camera: 32/50/18 mở; 34/66/0 + cột CAM thu gọn khi đóng.
 
 ## Cấu hình
 
-`appsettings.json`: `DeviceMode`, `ShowDeveloperPanel`.
+`appsettings.json`: `DeviceMode`, `ShowDeveloperPanel`, `DeveloperTicketEditEnabled`.
 
-## Tài liệu
-
-- [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md)
-- [docs/UI_SPEC.md](docs/UI_SPEC.md)
-
-Chưa triển khai COM/RTSP/in/Excel thật.
+Chưa triển khai COM/RTSP/Brother print/Excel thật.

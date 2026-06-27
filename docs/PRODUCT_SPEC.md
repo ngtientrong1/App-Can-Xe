@@ -1,45 +1,39 @@
-# CanXe — Product Spec (Giai đoạn 1.5)
+# CanXe — Product Spec (Giai đoạn 1.6 MVP)
 
-## Ngữ cảnh xe từ lịch sử cân
+## Danh sách và summary
 
-Khi chọn biển số đã có trong hệ thống, truy vấn lịch sử WeighTickets (tối đa 50 phiếu gần nhất):
+Sort mặc định: `TicketDateTime DESC` → `Sequence DESC` → `Id DESC`.
 
-| Trường | Nguồn |
-|--------|--------|
-| Khách gần nhất | Phiếu mới nhất có khách (fallback `Vehicle.LastCustomer` nếu phiếu không có) |
-| Loại hàng gần nhất | Phiếu mới nhất có loại hàng |
-| Loại hàng thường dùng | Nhiều lượt nhất; hòa → dùng gần đây hơn |
-| Bỏ qua | CargoType null / tên trống |
+Summary trên bộ lọc hiện tại:
 
-Không suy diễn loại hàng từ ghi chú.
+- Số phiếu
+- Tổng hàng (mọi phiếu có NetWeight, kể cả cân dịch vụ)
+- KL tính tiền (chỉ phiếu có BillableWeight)
+- Tổng thành tiền
+- Số phiếu chưa có đơn giá
 
-Thẻ **XE ĐÃ TỪNG CÂN** — ba nút xác nhận; không ghi đè âm thầm. Enter trên thẻ (khi cả hai trường trống) → DÙNG CẢ HAI.
+Sau lưu mới: refresh, highlight dòng đầu nếu khớp lọc. Sau sửa: giữ vị trí sort, scroll + highlight.
 
-Autocomplete biển số: dòng phụ khách gần nhất + loại hàng thường dùng.
+## Tự điền theo biển số
 
-## Index (không migration mới)
+Khi commit biển số (Enter/Tab/click suggestion): tự điền khách gần nhất và loại hàng thường dùng. Toast nhỏ tự ẩn. Không còn thẻ xác nhận thủ công.
 
-Bổ sung EF index: `VehicleId`, `LicensePlateSnapshot`, `CustomerId`, `CargoTypeId` trên WeighTickets.
+## Autocomplete
 
-## Bố cục 16:9
+Dropdown trong visual tree MainWindow. Debounce ~200ms. Ranking: exact → starts-with → token → contains → recent.
 
-- Maximized; hỗ trợ 1366×768, 1600×900, 1920×1080.
-- Không scroll dọc toàn màn hình Full HD.
-- Tỷ lệ trên: cân 32% · phiếu 50% · camera 18%.
-- Camera thu gọn → phiếu mở rộng, không để cột trống.
+## Chỉnh sửa phiếu
 
-## Bộ lọc
+Double-click → form chính. DEV mở khóa sửa trọng lượng + lý do + audit. Không đổi số phiếu/ngày gốc.
 
-**Lọc nhanh:** HÔM NAY, HÔM QUA, 7 NGÀY, THÁNG NÀY.
+## Xem trước phiếu
 
-**Nâng cao (ẩn/hiện):** Từ/Đến ngày, Khách, Loại hàng, Biển số, Số phiếu, Từ giá/Đến giá, ÁP DỤNG / XÓA / XUẤT EXCEL (stub).
+Overlay nội bộ: mặt trước/sau, sao chép ảnh ghép, lưu PNG. `ITicketDocumentRenderer`.
 
-Chip chỉ khi có lọc thực sự. Tổng hợp ở thanh cuối: Số phiếu, Tổng hàng, Tổng thành tiền.
+## Migration
 
-## Quy tắc nghiệp vụ (giữ từ 1.4)
+`202606270001_Phase16_AuditAndWeightOverride`
 
-Phiếu một lần cân, khóa Cân lần 1, autocomplete, billing.
+## Ngoài phạm vi
 
-## Ngoài phạm vi 1.5
-
-COM, RTSP, in, Excel thật.
+COM, RTSP, Brother print, Excel thật.

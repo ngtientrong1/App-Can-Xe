@@ -84,9 +84,11 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
             results = results.Where(t => t.UnitPriceVndPerKg <= vndTo).ToList();
         }
 
-        return results
-            .OrderByDescending(t => t.TicketDateTime)
-            .ThenByDescending(t => t.Id)
+        return TicketListSorter.SortNewestFirst(
+            results,
+            t => t.TicketDateTime,
+            t => t.SequenceNumber,
+            t => t.Id)
             .Take(filter.MaxResults > 0 ? filter.MaxResults : 200)
             .ToList();
     }
@@ -247,6 +249,52 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
             FrequentCargoUsageCount = frequent?.UsageCount ?? 0,
             LastUsedAt = tickets.Max(t => t.TicketDateTime)
         };
+    }
+
+    public async Task UpdateTicketEditAsync(
+        WeighTicket ticket,
+        IReadOnlyList<WeighEvent> events,
+        IReadOnlyList<AuditLog> auditLogs,
+        CancellationToken cancellationToken = default)
+    {
+        await ExecuteInTransactionAsync(async () =>
+        {
+            _db.WeighTickets.Update(ticket);
+
+            var existingInDb = await _db.WeighEvents
+                .Where(e => e.WeighTicketId == ticket.Id)
+                .ToListAsync(cancellationToken);
+
+            var incomingIds = events.Where(e => e.Id > 0).Select(e => e.Id).ToHashSet();
+            var toRemove = existingInDb.Where(e => !incomingIds.Contains(e.Id)).ToList();
+            if (toRemove.Count > 0)
+                _db.WeighEvents.RemoveRange(toRemove);
+
+            foreach (var weighEvent in events)
+            {
+                if (weighEvent.Id == 0)
+                    await _db.WeighEvents.AddAsync(weighEvent, cancellationToken);
+                else
+                    _db.WeighEvents.Update(weighEvent);
+            }
+
+            if (auditLogs.Count > 0)
+                await _db.AuditLogs.AddRangeAsync(auditLogs, cancellationToken);
+
+            await _db.SaveChangesAsync(cancellationToken);
+            return true;
+        }, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<AuditLog>> GetAuditLogsForTicketAsync(
+        int ticketId,
+        CancellationToken cancellationToken = default)
+    {
+        var logs = await _db.AuditLogs
+            .Where(a => a.TicketId == ticketId)
+            .ToListAsync(cancellationToken);
+
+        return logs.OrderByDescending(a => a.EditedAt.UtcDateTime).ToList();
     }
 
     public async Task<T> ExecuteInTransactionAsync<T>(

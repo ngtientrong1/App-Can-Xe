@@ -17,6 +17,17 @@ public sealed class WeighTicketDraft
     public decimal? DraftUnitPrice { get; set; }
     public string? DraftNotes { get; set; }
     public bool DeveloperWeight1OverrideEnabled { get; set; }
+    public bool IsEditMode { get; set; }
+    public bool DeveloperWeightUnlockEnabled { get; set; }
+    public string? WeightOverrideReasonCode { get; set; }
+    public string? WeightOverrideReasonOther { get; set; }
+    public decimal? LoadedEffectiveWeight1Kg { get; set; }
+    public decimal? LoadedEffectiveWeight2Kg { get; set; }
+    public int SequenceNumber { get; set; }
+    public DateTimeOffset? CreatedAt { get; set; }
+
+    public bool LoadedWeight1HadOverride { get; set; }
+    public bool LoadedWeight2HadOverride { get; set; }
 
     public decimal? DraftWeight1 { get; set; }
     public DateTimeOffset? DraftWeight1RecordedAt { get; set; }
@@ -152,6 +163,14 @@ public sealed class SaveTicketResult
     public string? ErrorMessage { get; init; }
     public WeighTicketListItem? SavedTicket { get; init; }
     public IReadOnlyList<string> SimilarCustomerWarnings { get; init; } = [];
+    public bool IsVisibleInCurrentFilter { get; init; } = true;
+}
+
+public sealed class UpdateTicketResult
+{
+    public bool Success { get; init; }
+    public string? ErrorMessage { get; init; }
+    public WeighTicketListItem? UpdatedTicket { get; init; }
 }
 
 public sealed class CaptureWeightResult

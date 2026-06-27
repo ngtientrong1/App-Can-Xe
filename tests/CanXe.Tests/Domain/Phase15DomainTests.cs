@@ -62,10 +62,10 @@ public class FrequentCargoTypeResolverTests
 public class WorkAreaLayoutCalculatorTests
 {
     [Fact]
-    public void CameraCollapsed_DoesNotLeaveUnusedCameraGap()
+    public void CameraCollapsed_Uses34_66_0Ratio()
     {
         var stars = WorkAreaLayoutCalculator.GetColumnStars(false);
-        Assert.Equal(0, stars.CameraStars);
+        Assert.Equal((34, 66, 0), stars);
         Assert.False(WorkAreaLayoutCalculator.HasUnusedCameraColumnGap(false, 0));
     }
 

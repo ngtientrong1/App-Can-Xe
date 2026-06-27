@@ -17,33 +17,34 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type local:AutoCompleteTextBox}">
                     <Grid>
-                        <TextBox x:Name="PART_TextBox"
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBox x:Name="PART_TextBox" Grid.Row="0"
                                  Text="{Binding Text, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                  FontSize="{TemplateBinding FontSize}"
                                  Padding="8,6"/>
-                        <Popup x:Name="PART_Popup"
-                               PlacementTarget="{Binding ElementName=PART_TextBox}"
-                               Placement="Bottom"
-                               StaysOpen="True"
-                               AllowsTransparency="True">
-                            <Border Background="White" BorderBrush="#BDBDBD" BorderThickness="1" MaxHeight="220" MinWidth="{Binding ActualWidth, ElementName=PART_TextBox}">
-                                <ListBox x:Name="PART_ListBox"
-                                         ItemsSource="{Binding ItemsSource, RelativeSource={RelativeSource TemplatedParent}}"
-                                         BorderThickness="0">
-                                    <ListBox.ItemContainerStyle>
-                                        <Style TargetType="ListBoxItem">
-                                            <Setter Property="Padding" Value="8,6"/>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter Property="Background" Value="#E3F2FD"/>
-                                                    <Setter Property="Foreground" Value="#0D47A1"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ListBox.ItemContainerStyle>
-                                </ListBox>
-                            </Border>
-                        </Popup>
+                        <Border x:Name="PART_DropDown" Grid.Row="1"
+                                Background="White" BorderBrush="#BDBDBD" BorderThickness="1"
+                                MaxHeight="220"
+                                Visibility="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static local:BoolToVisibilityConverter.Instance}}">
+                            <ListBox x:Name="PART_ListBox"
+                                     ItemsSource="{Binding ItemsSource, RelativeSource={RelativeSource TemplatedParent}}"
+                                     BorderThickness="0">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Padding" Value="8,6"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#E3F2FD"/>
+                                                <Setter Property="Foreground" Value="#0D47A1"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
+                        </Border>
                     </Grid>
                 </ControlTemplate>
             </Setter.Value>

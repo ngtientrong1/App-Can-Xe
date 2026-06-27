@@ -1,7 +1,9 @@
-﻿using System.Windows;
+﻿using System.Linq;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using CanXe.Application.Models;
+using CanXe.Desktop.Controls;
 using CanXe.Desktop.Services;
 using CanXe.Desktop.ViewModels;
 
@@ -16,6 +18,8 @@ public partial class MainWindow : Window
             wpfFocus.RegisterWindow(this);
 
         Loaded += OnLoaded;
+        Deactivated += OnWindowDeactivated;
+        PreviewKeyDown += OnPreviewKeyDown;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -24,6 +28,18 @@ public partial class MainWindow : Window
         WireAutocomplete(VehicleField, AutocompleteField.Vehicle);
         WireAutocomplete(CargoField, AutocompleteField.CargoType);
         WireAutocomplete(NotesField, AutocompleteField.Notes);
+    }
+
+    private void OnWindowDeactivated(object? sender, EventArgs e) =>
+        AutoCompleteTextBox.CloseAllDropDowns();
+
+    private void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && DataContext is MainViewModel { IsTicketPreviewVisible: true } vm)
+        {
+            vm.CloseTicketPreviewCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     private void WireAutocomplete(Controls.AutoCompleteTextBox box, AutocompleteField field)
@@ -51,23 +67,26 @@ public partial class MainWindow : Window
 
     public void FocusNotesField() => NotesField.FocusInput();
 
-    public void FocusVehicleContextCard()
+    public void HighlightTicketRow(int ticketId, bool scrollToTop)
     {
-        if (VehicleContextCard.Visibility == Visibility.Visible)
-        {
-            VehicleContextCard.Focus();
-            if (ApplyBothButton.IsEnabled)
-                ApplyBothButton.Focus();
-        }
-    }
-
-    private void VehicleContextCard_OnKeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Enter || DataContext is not MainViewModel vm)
+        if (DataContext is not MainViewModel vm)
             return;
 
-        vm.ApplyVehicleContextFromKeyboard();
-        e.Handled = true;
+        if (scrollToTop && vm.Tickets.Count > 0)
+        {
+            TicketsGrid.SelectedItem = vm.Tickets[0];
+            TicketsGrid.ScrollIntoView(vm.Tickets[0]);
+            return;
+        }
+
+        var item = vm.Tickets.FirstOrDefault(t => t.Id == ticketId);
+        if (item is null)
+            return;
+
+        vm.SelectedTicket = item;
+        TicketsGrid.SelectedItem = item;
+        TicketsGrid.UpdateLayout();
+        TicketsGrid.ScrollIntoView(item);
     }
 
     private async void TicketsGrid_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -75,7 +94,10 @@ public partial class MainWindow : Window
         if (DataContext is not MainViewModel vm)
             return;
 
+        if (!vm.CanLoadTicketIntoForm)
+            return;
+
         if (sender is DataGrid grid && grid.SelectedItem is WeighTicketListItem item)
-            await vm.OpenTicketDetailCommand.ExecuteAsync(item);
+            await vm.BeginEditTicketCommand.ExecuteAsync(item);
     }
 }

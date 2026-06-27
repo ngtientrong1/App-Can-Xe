@@ -27,7 +27,7 @@ public sealed class TestApplicationFactory : IAsyncDisposable
     public ServiceProvider Provider { get; }
 
     public async Task InitializeAsync() =>
-        await DependencyInjection.InitializeDatabaseAsync(Provider);
+        await DependencyInjection.InitializeDatabaseAsync(Provider, _dbPath);
 
     public async ValueTask DisposeAsync()
     {

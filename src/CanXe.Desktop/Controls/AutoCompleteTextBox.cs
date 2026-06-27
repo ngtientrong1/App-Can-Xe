@@ -2,13 +2,23 @@ using System.Collections;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using CanXe.Application.Models;
 using CanXe.Domain.Services;
 
 namespace CanXe.Desktop.Controls;
+
+public sealed class BoolToVisibilityConverter : IValueConverter
+{
+    public static readonly BoolToVisibilityConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+        value is true ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture) =>
+        throw new NotSupportedException();
+}
 
 public sealed class NullToVisibilityConverter : IValueConverter
 {
@@ -23,8 +33,9 @@ public sealed class NullToVisibilityConverter : IValueConverter
 
 public class AutoCompleteTextBox : Control
 {
+    private static readonly HashSet<AutoCompleteTextBox> ActiveInstances = [];
+
     private TextBox? _textBox;
-    private Popup? _popup;
     private ListBox? _listBox;
     private bool _isCommitting;
     private bool _moveFocusAfterCommit;
@@ -40,7 +51,7 @@ public class AutoCompleteTextBox : Control
             new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnTextChanged));
 
     public static readonly DependencyProperty ItemsSourceProperty =
-        DependencyProperty.Register(nameof(ItemsSource), typeof(System.Collections.IEnumerable), typeof(AutoCompleteTextBox),
+        DependencyProperty.Register(nameof(ItemsSource), typeof(IEnumerable), typeof(AutoCompleteTextBox),
             new PropertyMetadata(null, OnItemsSourceChanged));
 
     public static readonly DependencyProperty SelectedItemProperty =
@@ -49,7 +60,7 @@ public class AutoCompleteTextBox : Control
 
     public static readonly DependencyProperty IsDropDownOpenProperty =
         DependencyProperty.Register(nameof(IsDropDownOpen), typeof(bool), typeof(AutoCompleteTextBox),
-            new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnIsDropDownOpenChanged));
+            new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
 
     public static readonly DependencyProperty HighlightedIndexProperty =
         DependencyProperty.Register(nameof(HighlightedIndex), typeof(int), typeof(AutoCompleteTextBox),
@@ -61,9 +72,9 @@ public class AutoCompleteTextBox : Control
         set => SetValue(TextProperty, value);
     }
 
-    public System.Collections.IEnumerable? ItemsSource
+    public IEnumerable? ItemsSource
     {
-        get => (System.Collections.IEnumerable?)GetValue(ItemsSourceProperty);
+        get => (IEnumerable?)GetValue(ItemsSourceProperty);
         set => SetValue(ItemsSourceProperty, value);
     }
 
@@ -88,6 +99,12 @@ public class AutoCompleteTextBox : Control
     public event EventHandler? TextChangedByUser;
     public event EventHandler? ItemCommitted;
 
+    public static void CloseAllDropDowns()
+    {
+        foreach (var instance in ActiveInstances.ToArray())
+            instance.ClosePopup();
+    }
+
     public void FocusInput()
     {
         _textBox?.Focus();
@@ -97,8 +114,11 @@ public class AutoCompleteTextBox : Control
     public override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
+        ActiveInstances.Add(this);
+
+        Unloaded += (_, _) => ActiveInstances.Remove(this);
+
         _textBox = GetTemplateChild("PART_TextBox") as TextBox;
-        _popup = GetTemplateChild("PART_Popup") as Popup;
         _listBox = GetTemplateChild("PART_ListBox") as ListBox;
 
         if (_textBox is not null)
@@ -118,7 +138,7 @@ public class AutoCompleteTextBox : Control
             _textBox.PreviewKeyDown += OnTextBoxPreviewKeyDown;
             _textBox.LostFocus += (_, e) =>
             {
-                if (_popup?.IsOpen == true && _listBox?.IsKeyboardFocusWithin == true)
+                if (_listBox?.IsKeyboardFocusWithin == true)
                 {
                     e.Handled = true;
                     return;
@@ -140,6 +160,26 @@ public class AutoCompleteTextBox : Control
                 }
             };
         }
+
+        var window = Window.GetWindow(this);
+        if (window is not null)
+        {
+            window.Deactivated += OnOwnerWindowDeactivated;
+            window.StateChanged += OnOwnerWindowStateChanged;
+            Unloaded += (_, _) =>
+            {
+                window.Deactivated -= OnOwnerWindowDeactivated;
+                window.StateChanged -= OnOwnerWindowStateChanged;
+            };
+        }
+    }
+
+    private void OnOwnerWindowDeactivated(object? sender, EventArgs e) => ClosePopup();
+
+    private void OnOwnerWindowStateChanged(object? sender, EventArgs e)
+    {
+        if (Window.GetWindow(this)?.WindowState == WindowState.Minimized)
+            ClosePopup();
     }
 
     private void OnTextBoxPreviewKeyDown(object sender, KeyEventArgs e)
@@ -161,15 +201,21 @@ public class AutoCompleteTextBox : Control
                 e.Handled = true;
                 break;
 
-            case Key.Enter when hasPopup:
+            case Key.Enter:
                 _moveFocusAfterCommit = true;
-                CommitHighlighted();
+                if (hasPopup && HighlightedIndex >= 0)
+                    CommitHighlighted();
+                else
+                    CommitText(Text.Trim(), SelectedItem, moveFocus: true);
                 e.Handled = true;
                 break;
 
-            case Key.Tab when hasPopup && HighlightedIndex >= 0:
+            case Key.Tab:
                 _moveFocusAfterCommit = true;
-                CommitHighlighted();
+                if (hasPopup && HighlightedIndex >= 0)
+                    CommitHighlighted();
+                else
+                    CommitText(Text.Trim(), SelectedItem, moveFocus: !e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Shift));
                 break;
 
             case Key.Escape when IsDropDownOpen:
@@ -188,7 +234,7 @@ public class AutoCompleteTextBox : Control
             return;
         }
 
-        ClosePopup();
+        CommitText(Text.Trim(), SelectedItem, _moveFocusAfterCommit);
     }
 
     private void CommitItem(object item, bool moveFocus)
@@ -202,8 +248,7 @@ public class AutoCompleteTextBox : Control
             return;
         }
 
-        var text = item.ToString() ?? string.Empty;
-        CommitText(text, item, moveFocus);
+        CommitText(item.ToString() ?? string.Empty, item, moveFocus);
     }
 
     private void CommitText(string text, object? selectedItem, bool moveFocus)
@@ -245,8 +290,20 @@ public class AutoCompleteTextBox : Control
     private List<object> GetItems() =>
         ItemsSource?.Cast<object>().ToList() ?? [];
 
+    private bool IsOwnerWindowActive()
+    {
+        var window = Window.GetWindow(this);
+        return window is { IsActive: true, WindowState: not WindowState.Minimized };
+    }
+
     private void UpdatePopupState(bool selectFirst = false)
     {
+        if (!IsVisible || !IsEnabled || !IsOwnerWindowActive())
+        {
+            ClosePopup();
+            return;
+        }
+
         var items = GetItems();
         var isFocused = _textBox?.IsFocused == true;
         var shouldOpen = isFocused && items.Count > 0 &&
@@ -269,12 +326,6 @@ public class AutoCompleteTextBox : Control
     {
         if (d is AutoCompleteTextBox box)
             box.UpdatePopupState();
-    }
-
-    private static void OnIsDropDownOpenChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    {
-        if (d is AutoCompleteTextBox box && box._popup is not null)
-            box._popup.IsOpen = (bool)e.NewValue;
     }
 
     private static void OnHighlightedIndexChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

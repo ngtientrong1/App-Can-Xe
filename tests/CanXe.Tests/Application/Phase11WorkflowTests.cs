@@ -117,7 +117,8 @@ public class Phase11WorkflowTests : IAsyncLifetime
         var scale = scope.ServiceProvider.GetRequiredService<IScaleService>();
         var photos = scope.ServiceProvider.GetRequiredService<IPhotoStorageService>();
 
-        var service = new WeighTicketService(repo, customers, cargo, vehicles, scale, camera, photos);
+        var service = new WeighTicketService(repo, customers, cargo, vehicles, scale, camera, photos,
+            scope.ServiceProvider.GetRequiredService<TicketUpdateService>());
         scale.SetManualMode(true);
         scale.SetManualWeightKg(8500m);
 
@@ -166,7 +167,8 @@ public class Phase11WorkflowTests : IAsyncLifetime
             sp.GetRequiredService<IVehicleRepository>(),
             sp.GetRequiredService<IScaleService>(),
             camera,
-            sp.GetRequiredService<IPhotoStorageService>());
+            sp.GetRequiredService<IPhotoStorageService>(),
+            sp.GetRequiredService<TicketUpdateService>());
 
         var scale = sp.GetRequiredService<IScaleService>();
         scale.SetManualMode(true);
@@ -335,7 +337,8 @@ public class Phase11WorkflowTests : IAsyncLifetime
             sp.GetRequiredService<IVehicleRepository>(),
             sp.GetRequiredService<IScaleService>(),
             sp.GetRequiredService<ICameraService>(),
-            sp.GetRequiredService<IPhotoStorageService>());
+            sp.GetRequiredService<IPhotoStorageService>(),
+            sp.GetRequiredService<TicketUpdateService>());
 
         var scale = sp.GetRequiredService<IScaleService>();
         scale.SetManualMode(true);
@@ -470,6 +473,12 @@ public class Phase11WorkflowTests : IAsyncLifetime
 
         public Task<VehicleUsageContext?> GetVehicleUsageContextAsync(string normalizedPlate, CancellationToken cancellationToken = default) =>
             _inner.GetVehicleUsageContextAsync(normalizedPlate, cancellationToken);
+
+        public Task UpdateTicketEditAsync(WeighTicket ticket, IReadOnlyList<WeighEvent> events, IReadOnlyList<AuditLog> auditLogs, CancellationToken cancellationToken = default) =>
+            _inner.UpdateTicketEditAsync(ticket, events, auditLogs, cancellationToken);
+
+        public Task<IReadOnlyList<AuditLog>> GetAuditLogsForTicketAsync(int ticketId, CancellationToken cancellationToken = default) =>
+            _inner.GetAuditLogsForTicketAsync(ticketId, cancellationToken);
 
         public Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken = default) =>
             _inner.ExecuteInTransactionAsync(action, cancellationToken);

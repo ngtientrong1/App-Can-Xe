@@ -9,6 +9,7 @@ public sealed class AppSettings
     public bool SimulateCameraFailure { get; set; }
     public bool SimulateScaleDisconnect { get; set; }
     public bool ShowDeveloperPanel { get; set; } = true;
+    public bool DeveloperTicketEditEnabled { get; set; } = true;
 }
 
 public sealed class ScaleSettings

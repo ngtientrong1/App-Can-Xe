@@ -63,17 +63,22 @@ public class VehicleUsageContextApplierTests
     }
 
     [Fact]
-    public void WithoutConfirmation_DoesNotAutoApplyContext()
+    public void AutoFillApplier_FillsBothFieldsWhenAvailable()
     {
-        var context = CreateContext();
-        var result = VehicleUsageContextApplier.Apply(
-            context,
-            VehicleContextApplyMode.Both,
-            "Anh Bình",
-            "Cà tươi");
+        var context = new VehicleUsageContext
+        {
+            VehicleId = 1,
+            PlateNumber = "81C-04621",
+            RecentCustomerId = 10,
+            RecentCustomerName = "Chị Thanh",
+            FrequentCargoTypeId = 20,
+            FrequentCargoTypeName = "Rô tươi"
+        };
 
-        Assert.True(result.CustomerChanged);
-        Assert.True(result.CargoTypeChanged);
+        var result = VehicleUsageContextApplier.Apply(context, VehicleContextApplyMode.Both, null, null);
+
+        Assert.Equal("Chị Thanh", result.CustomerName);
+        Assert.Equal("Rô tươi", result.CargoTypeName);
     }
 
     [Fact]

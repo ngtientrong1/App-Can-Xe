@@ -1,0 +1,158 @@
+using CanXe.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace CanXe.Infrastructure.Data;
+
+public static class DatabaseUpgrader
+{
+    public const string Phase16MigrationId = "202606270001_Phase16_AuditAndWeightOverride";
+
+    public static async Task UpgradeAsync(CanXeDbContext db, string databasePath, CancellationToken cancellationToken = default)
+    {
+        if (File.Exists(databasePath))
+            BackupDatabase(databasePath);
+
+        if (!await TableExistsAsync(db, "WeighTickets", cancellationToken))
+        {
+            await db.Database.EnsureCreatedAsync(cancellationToken);
+            await RecordMigrationAsync(db, Phase16MigrationId, cancellationToken);
+            return;
+        }
+
+        await ApplyPhase16WeighEventColumnsAsync(db, cancellationToken);
+        await ApplyPhase16AuditLogsAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase16MigrationId, cancellationToken);
+    }
+
+    public static void BackupDatabase(string databasePath)
+    {
+        var backupDir = Path.Combine(Path.GetDirectoryName(databasePath)!, "backups");
+        Directory.CreateDirectory(backupDir);
+        var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var backupPath = Path.Combine(backupDir, $"{Path.GetFileNameWithoutExtension(databasePath)}_{stamp}.db");
+        File.Copy(databasePath, backupPath, overwrite: true);
+    }
+
+    private static async Task ApplyPhase16WeighEventColumnsAsync(
+        CanXeDbContext db,
+        CancellationToken cancellationToken)
+    {
+        await AddColumnIfMissingAsync(db, "WeighEvents", "OverrideWeightGrams", "INTEGER NULL", cancellationToken);
+        await AddColumnIfMissingAsync(db, "WeighEvents", "IsManualOverride", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
+        await AddColumnIfMissingAsync(db, "WeighEvents", "OverrideReason", "TEXT NULL", cancellationToken);
+        await AddColumnIfMissingAsync(db, "WeighEvents", "OverrideAt", "TEXT NULL", cancellationToken);
+        await AddColumnIfMissingAsync(db, "WeighEvents", "OverrideBy", "TEXT NULL", cancellationToken);
+    }
+
+    private static async Task ApplyPhase16AuditLogsAsync(CanXeDbContext db, CancellationToken cancellationToken)
+    {
+        if (await TableExistsAsync(db, "AuditLogs", cancellationToken))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE AuditLogs (
+                Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                TicketId INTEGER NOT NULL,
+                FieldName TEXT NOT NULL,
+                OldValue TEXT NULL,
+                NewValue TEXT NULL,
+                Reason TEXT NULL,
+                EditedAt TEXT NOT NULL,
+                EditedBy TEXT NULL,
+                IsDeveloperOverride INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE INDEX IX_AuditLogs_TicketId ON AuditLogs (TicketId);
+            CREATE INDEX IX_AuditLogs_EditedAt ON AuditLogs (EditedAt DESC);
+            """,
+            cancellationToken);
+    }
+
+    private static async Task AddColumnIfMissingAsync(
+        CanXeDbContext db,
+        string table,
+        string column,
+        string definition,
+        CancellationToken cancellationToken)
+    {
+        if (await ColumnExistsAsync(db, table, column, cancellationToken))
+            return;
+
+        await db.Database.ExecuteSqlRawAsync($"ALTER TABLE {table} ADD COLUMN {column} {definition};", cancellationToken);
+    }
+
+    private static async Task<bool> TableExistsAsync(
+        CanXeDbContext db,
+        string table,
+        CancellationToken cancellationToken)
+    {
+        var connection = db.Database.GetDbConnection();
+        await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=$name;";
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "$name";
+            parameter.Value = table;
+            command.Parameters.Add(parameter);
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return Convert.ToInt64(result) > 0;
+        }
+        finally
+        {
+            await connection.CloseAsync();
+        }
+    }
+
+    private static async Task<bool> ColumnExistsAsync(
+        CanXeDbContext db,
+        string table,
+        string column,
+        CancellationToken cancellationToken)
+    {
+        var connection = db.Database.GetDbConnection();
+        await connection.OpenAsync(cancellationToken);
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"PRAGMA table_info({table});";
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var name = reader.GetString(1);
+                if (string.Equals(name, column, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+        finally
+        {
+            await connection.CloseAsync();
+        }
+    }
+
+    private static async Task RecordMigrationAsync(
+        CanXeDbContext db,
+        string migrationId,
+        CancellationToken cancellationToken)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE IF NOT EXISTS __EFMigrationsHistory (
+                MigrationId TEXT NOT NULL PRIMARY KEY,
+                ProductVersion TEXT NOT NULL
+            );
+            """,
+            cancellationToken);
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            INSERT OR IGNORE INTO __EFMigrationsHistory (MigrationId, ProductVersion)
+            VALUES ({0}, '10.0.9');
+            """,
+            [migrationId],
+            cancellationToken);
+    }
+}

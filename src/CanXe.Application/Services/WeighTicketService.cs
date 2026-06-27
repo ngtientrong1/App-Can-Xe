@@ -16,6 +16,7 @@ public sealed class WeighTicketService
     private readonly ICameraService _cameraService;
     private readonly IPhotoStorageService _photoStorage;
     private readonly IUserNotificationService? _notificationService;
+    private readonly TicketUpdateService _ticketUpdateService;
     private readonly List<Task> _pendingPhotoTasks = [];
 
     public Task WaitForPendingPhotosAsync() => Task.WhenAll(_photoTasksSnapshot());
@@ -34,6 +35,7 @@ public sealed class WeighTicketService
         IScaleService scaleService,
         ICameraService cameraService,
         IPhotoStorageService photoStorage,
+        TicketUpdateService ticketUpdateService,
         IUserNotificationService? notificationService = null)
     {
         _ticketRepository = ticketRepository;
@@ -43,8 +45,23 @@ public sealed class WeighTicketService
         _scaleService = scaleService;
         _cameraService = cameraService;
         _photoStorage = photoStorage;
+        _ticketUpdateService = ticketUpdateService;
         _notificationService = notificationService;
     }
+
+    public Task<WeighTicketDraft> LoadTicketForEditAsync(
+        int ticketId,
+        CancellationToken cancellationToken = default) =>
+        _ticketUpdateService.LoadForEditAsync(ticketId, cancellationToken);
+
+    public Task<UpdateTicketResult> UpdateTicketAsync(
+        WeighTicketDraft draft,
+        string? editedBy = null,
+        CancellationToken cancellationToken = default) =>
+        _ticketUpdateService.UpdateAsync(draft, editedBy, cancellationToken);
+
+    public static bool TicketMatchesFilter(WeighTicket ticket, WeighTicketFilter filter) =>
+        TicketUpdateService.MatchesFilterInternal(ticket, filter);
 
     public async Task<WeighTicketDraft> LoadTicketForContinuationAsync(
         int ticketId,
@@ -72,7 +89,7 @@ public sealed class WeighTicketService
         var w1 = ticket.Events.FirstOrDefault(e => e.Sequence == 1);
         if (w1 is not null)
         {
-            draft.DraftWeight1 = WeightStorageMapper.FromGrams(w1.WeightGrams);
+            draft.DraftWeight1 = WeightStorageMapper.FromGrams(w1 is null ? null : WeighEventWeightResolver.GetEffectiveWeightGrams(w1));
             draft.DraftWeight1RecordedAt = w1.RecordedAt;
             draft.DraftWeight1PhotoPath = w1.PhotoPath;
             draft.DraftWeight1PhotoStatus = w1.PhotoCaptureSucceeded ? DraftPhotoStatus.Valid : DraftPhotoStatus.Failed;
@@ -83,7 +100,7 @@ public sealed class WeighTicketService
         var w2 = ticket.Events.FirstOrDefault(e => e.Sequence == 2);
         if (w2 is not null)
         {
-            draft.DraftWeight2 = WeightStorageMapper.FromGrams(w2.WeightGrams);
+            draft.DraftWeight2 = WeightStorageMapper.FromGrams(w2 is null ? null : WeighEventWeightResolver.GetEffectiveWeightGrams(w2));
             draft.DraftWeight2RecordedAt = w2.RecordedAt;
             draft.DraftWeight2PhotoPath = w2.PhotoPath;
             draft.DraftWeight2PhotoStatus = w2.PhotoCaptureSucceeded ? DraftPhotoStatus.Valid : DraftPhotoStatus.Failed;
@@ -155,6 +172,7 @@ public sealed class WeighTicketService
 
     public async Task<SaveTicketResult> SaveAsync(
         WeighTicketDraft draft,
+        WeighTicketFilter? visibilityFilter = null,
         CancellationToken cancellationToken = default)
     {
         if (!draft.HasAnyWeight)
@@ -174,7 +192,9 @@ public sealed class WeighTicketService
             {
                 Success = true,
                 SavedTicket = MapToListItem(ticket),
-                SimilarCustomerWarnings = similarWarnings
+                SimilarCustomerWarnings = similarWarnings,
+                IsVisibleInCurrentFilter = visibilityFilter is null ||
+                    TicketUpdateService.TicketMatchesFilter(ticket, visibilityFilter)
             };
         }
         catch (Exception ex)
@@ -251,8 +271,8 @@ public sealed class WeighTicketService
         var w1 = ticket.Events.FirstOrDefault(e => e.Sequence == 1);
         var w2 = ticket.Events.FirstOrDefault(e => e.Sequence == 2);
         var unitPrice = WeightStorageMapper.FromVndPerKg(ticket.UnitPriceVndPerKg);
-        var weight1 = WeightStorageMapper.FromGrams(w1?.WeightGrams);
-        var weight2 = WeightStorageMapper.FromGrams(w2?.WeightGrams);
+        var weight1 = w1 is null ? null : WeightStorageMapper.FromGrams(WeighEventWeightResolver.GetEffectiveWeightGrams(w1));
+        var weight2 = w2 is null ? null : WeightStorageMapper.FromGrams(WeighEventWeightResolver.GetEffectiveWeightGrams(w2));
 
         return new WeighTicketDetailDto
         {
@@ -265,12 +285,12 @@ public sealed class WeighTicketService
             Notes = ticket.Notes,
             UnitPriceVndPerKg = unitPrice,
             IsServiceWeigh = !WeightCalculator.HasBillableUnitPrice(unitPrice),
-            Weight1Kg = WeightStorageMapper.FromGrams(w1?.WeightGrams),
+            Weight1Kg = weight1,
             Weight1RecordedAt = w1?.RecordedAt,
             Weight1PhotoPath = w1?.PhotoPath,
             Weight1PhotoAvailable = IsPhotoAvailable(w1?.PhotoPath, w1?.PhotoCaptureSucceeded),
             Weight1PhotoStatusText = GetPhotoStatusText(w1?.PhotoPath, w1?.PhotoCaptureSucceeded),
-            Weight2Kg = WeightStorageMapper.FromGrams(w2?.WeightGrams),
+            Weight2Kg = weight2,
             Weight2RecordedAt = w2?.RecordedAt,
             Weight2PhotoPath = w2?.PhotoPath,
             Weight2PhotoAvailable = IsPhotoAvailable(w2?.PhotoPath, w2?.PhotoCaptureSucceeded),
@@ -344,7 +364,7 @@ public sealed class WeighTicketService
                 {
                     WeighTicketId = ticket.Id,
                     Sequence = 1,
-                    WeightGrams = WeightStorageMapper.ToGrams(draft.DraftWeight1)!.Value,
+                    OriginalWeightGrams = WeightStorageMapper.ToGrams(draft.DraftWeight1)!.Value,
                     RecordedAt = draft.DraftWeight1RecordedAt!.Value,
                     PhotoPath = ResolveOfficialPhotoPath(draft, 1, ticket.InternalCode),
                     PhotoCaptureSucceeded = draft.DraftWeight1PhotoStatus == DraftPhotoStatus.Valid,
@@ -359,7 +379,7 @@ public sealed class WeighTicketService
                 {
                     WeighTicketId = ticket.Id,
                     Sequence = 2,
-                    WeightGrams = WeightStorageMapper.ToGrams(draft.DraftWeight2)!.Value,
+                    OriginalWeightGrams = WeightStorageMapper.ToGrams(draft.DraftWeight2)!.Value,
                     RecordedAt = draft.DraftWeight2RecordedAt!.Value,
                     PhotoPath = ResolveOfficialPhotoPath(draft, 2, ticket.InternalCode),
                     PhotoCaptureSucceeded = draft.DraftWeight2PhotoStatus == DraftPhotoStatus.Valid,
@@ -400,7 +420,7 @@ public sealed class WeighTicketService
         {
             WeighTicketId = ticketId,
             Sequence = sequence,
-            WeightGrams = WeightStorageMapper.ToGrams(weight)!.Value,
+            OriginalWeightGrams = WeightStorageMapper.ToGrams(weight)!.Value,
             RecordedAt = recordedAt,
             PhotoPath = ResolveOfficialPhotoPath(draft, sequence, internalCode),
             PhotoCaptureSucceeded = photoStatus == DraftPhotoStatus.Valid,

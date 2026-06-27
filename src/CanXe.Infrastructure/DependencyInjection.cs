@@ -40,15 +40,16 @@ public static class DependencyInjection
         services.AddScoped<IVehicleRepository, VehicleRepository>();
         services.AddScoped<WeighTicketService>();
         services.AddScoped<FastEntrySearchService>();
+        services.AddScoped<TicketUpdateService>();
 
         return services;
     }
 
-    public static async Task InitializeDatabaseAsync(IServiceProvider services)
+    public static async Task InitializeDatabaseAsync(IServiceProvider services, string databasePath)
     {
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CanXeDbContext>();
-        await db.Database.EnsureCreatedAsync();
+        await DatabaseUpgrader.UpgradeAsync(db, databasePath);
 
         var cleanup = scope.ServiceProvider.GetRequiredService<IPhotoCleanupService>();
         await cleanup.CleanupOldPhotosAsync();
