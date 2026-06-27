@@ -23,6 +23,16 @@ public sealed partial class MainViewModel
             ? OperatorStatusMessage
             : StatusMessage ?? string.Empty;
     [ObservableProperty] private double _windowWidth = 1920;
+    [ObservableProperty] private double _windowHeight = 1080;
+
+    public double WorkspaceMaxHeight => OperatorLayoutMetrics.GetWorkspaceMaxHeight(WindowHeight);
+    public double WorkspaceMinHeight => OperatorLayoutMetrics.GetWorkspaceMinHeight(WindowHeight);
+    public double DataGridMinHeight => OperatorLayoutMetrics.GetDataGridMinHeight(WindowHeight);
+    public double LiveWeightViewboxMaxHeight => OperatorLayoutMetrics.GetLiveWeightViewboxMaxHeight(WindowHeight);
+    public double FormFieldHeight => OperatorLayoutMetrics.GetFormFieldHeight(WindowHeight);
+    public double NotesFieldHeight => OperatorLayoutMetrics.GetNotesFieldHeight(WindowHeight);
+    public double SummaryFooterMaxHeight => OperatorLayoutMetrics.SummaryFooterMaxHeight;
+    public double TicketGridRowHeight => OperatorLayoutMetrics.DataGridRowHeight;
 
     public bool IsRetryConnectVisible =>
         ScaleInputMode == ScaleInputMode.Hardware
@@ -55,17 +65,19 @@ public sealed partial class MainViewModel
     public double LiveWeightUnitFontSize =>
         WorkAreaLayoutCalculator.GetLiveWeightUnitFontSize(WindowWidth);
 
-    public void UpdateWindowWidth(double width)
+    public void UpdateWindowSize(double width, double height)
     {
-        if (width <= 0)
-            return;
+        if (width > 0)
+            WindowWidth = width;
 
-        WindowWidth = width;
-        IsCompactMode = CompactLayoutPolicy.ShouldUseCompactMode(width);
+        if (height > 0)
+            WindowHeight = height;
+
+        IsCompactMode = CompactLayoutPolicy.ShouldUseCompactMode(WindowWidth);
         NotifyWorkAreaLayoutChanged();
-        OnPropertyChanged(nameof(LiveWeightFontSize));
-        OnPropertyChanged(nameof(LiveWeightUnitFontSize));
     }
+
+    public void UpdateWindowWidth(double width) => UpdateWindowSize(width, WindowHeight);
 
     public async Task AutoConnectScaleIfNeededAsync()
     {

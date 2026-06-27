@@ -76,7 +76,8 @@ public sealed class WeighTicketService
         var draft = new WeighTicketDraft
         {
             ExistingTicketId = ticket.Id,
-            DisplayNumber = ticket.DisplayNumber,
+            DisplayNumber = TicketNumberFormatter.ResolveDisplayNumber(
+                ticket.SequenceNumber, ticket.TicketMonth, ticket.DisplayNumber),
             InternalCode = ticket.InternalCode,
             TicketDateTime = ticket.TicketDateTime,
             DraftCustomer = ticket.CustomerNameSnapshot,
@@ -278,7 +279,8 @@ public sealed class WeighTicketService
         {
             Id = ticket.Id,
             TicketDateTime = ticket.TicketDateTime,
-            DisplayNumber = ticket.DisplayNumber,
+            DisplayNumber = TicketNumberFormatter.ResolveDisplayNumber(
+                ticket.SequenceNumber, ticket.TicketMonth, ticket.DisplayNumber),
             LicensePlate = ticket.LicensePlateSnapshot,
             CustomerName = ticket.CustomerNameSnapshot,
             CargoTypeName = ticket.CargoTypeNameSnapshot,
@@ -600,7 +602,8 @@ public sealed class WeighTicketService
         {
             Id = ticket.Id,
             TicketDateTime = ticket.TicketDateTime,
-            DisplayNumber = ticket.DisplayNumber,
+            DisplayNumber = TicketNumberFormatter.ResolveDisplayNumber(
+                ticket.SequenceNumber, ticket.TicketMonth, ticket.DisplayNumber),
             LicensePlate = ticket.LicensePlateSnapshot,
             CustomerName = ticket.CustomerNameSnapshot,
             CargoTypeName = ticket.CargoTypeNameSnapshot,

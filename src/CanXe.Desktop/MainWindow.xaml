@@ -46,7 +46,7 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style x:Key="TicketGridRow" TargetType="DataGridRow">
-            <Setter Property="MinHeight" Value="46"/>
+            <Setter Property="MinHeight" Value="42"/>
             <Style.Triggers>
                 <DataTrigger Value="True">
                     <DataTrigger.Binding>
@@ -58,6 +58,10 @@
                     <Setter Property="Background" Value="{StaticResource SelectedRowBrush}"/>
                 </DataTrigger>
             </Style.Triggers>
+        </Style>
+        <Style x:Key="CanXeCompactSummaryCardStyle" TargetType="Border" BasedOn="{StaticResource CanXeSummaryCardStyle}">
+            <Setter Property="MinHeight" Value="62"/>
+            <Setter Property="Padding" Value="10,8"/>
         </Style>
     </Window.Resources>
 
@@ -178,7 +182,7 @@
         <!-- Section: PHIẾU CÂN -->
         <Grid Grid.Row="2" Visibility="{Binding IsWeighTicketSectionVisible, Converter={StaticResource BoolToVis}}">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" MinHeight="300"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -186,7 +190,9 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" Margin="0,0,0,6">
+            <Grid Grid.Row="0" Margin="0,0,0,6"
+                  MinHeight="{Binding WorkspaceMinHeight}"
+                  MaxHeight="{Binding WorkspaceMaxHeight}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="{Binding WeighColumnWidth}" MinWidth="300"/>
                 <ColumnDefinition Width="{Binding InfoColumnWidth}" MinWidth="340"/>
@@ -195,11 +201,12 @@
             </Grid.ColumnDefinitions>
 
             <!-- Left: live weight -->
-            <Border Grid.Column="0" Style="{StaticResource CanXeCardStyle}" Margin="0,0,8,0" Padding="14,12"
-                    Background="{StaticResource PanelBrush}" VerticalAlignment="Stretch">
+            <Border Grid.Column="0" Style="{StaticResource CanXeCardStyle}" Margin="0,0,8,0" Padding="14,10"
+                    Background="{StaticResource PanelBrush}" VerticalAlignment="Top">
                 <StackPanel>
-                    <TextBlock Text="TRỌNG LƯỢNG TRỰC TIẾP" Style="{StaticResource SectionHeaderTextStyle}" FontSize="15" Margin="0,0,0,6"/>
-                    <Viewbox Stretch="Uniform" HorizontalAlignment="Left" MaxHeight="120" Margin="0,0,0,2">
+                    <TextBlock Text="TRỌNG LƯỢNG TRỰC TIẾP" Style="{StaticResource SectionHeaderTextStyle}" FontSize="15" Margin="0,0,0,4"/>
+                    <Viewbox Stretch="Uniform" HorizontalAlignment="Left"
+                             MaxHeight="{Binding LiveWeightViewboxMaxHeight}" Margin="0,0,0,2">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding LiveWeightDisplayText}"
                                        FontSize="{Binding LiveWeightFontSize}" FontWeight="Bold"
@@ -278,7 +285,7 @@
             </Border>
 
             <!-- Middle: ticket info -->
-            <Border Grid.Column="1" Margin="0,0,8,0" Padding="12,10">
+            <Border Grid.Column="1" Margin="0,0,8,0" Padding="12,8" VerticalAlignment="Top">
                 <Border.Style>
                     <Style TargetType="Border" BasedOn="{StaticResource CanXeCardStyle}">
                         <Style.Triggers>
@@ -349,7 +356,7 @@
                         <StackPanel Grid.Column="1" Margin="6,0,0,0">
                             <TextBlock Text="Đơn giá (VNĐ/kg)" Style="{StaticResource CanXeFormFieldLabelStyle}"/>
                             <TextBox x:Name="UnitPriceField" TabIndex="4" Style="{StaticResource CanXeTextBoxStyle}"
-                                     MinHeight="56" FontSize="20"
+                                     MinHeight="{Binding FormFieldHeight}" FontSize="20"
                                      GotFocus="UnitPriceField_OnGotFocus" LostFocus="UnitPriceField_OnLostFocus"
                                      Text="{Binding UnitPriceText, UpdateSourceTrigger=PropertyChanged}"/>
                         </StackPanel>
@@ -357,7 +364,8 @@
 
                     <StackPanel Margin="0,0,0,0">
                         <TextBlock Text="Ghi chú" Style="{StaticResource CanXeFormFieldLabelStyle}"/>
-                        <ctrl:AutoCompleteTextBox x:Name="NotesField" TabIndex="5" MinHeight="56"
+                        <ctrl:AutoCompleteTextBox x:Name="NotesField" TabIndex="5"
+                                                  MinHeight="{Binding NotesFieldHeight}"
                                                   Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
                                                   ItemsSource="{Binding NotesSuggestions}" FontSize="18"
                                                   SuppressDropDown="{Binding SuppressAutocomplete}"/>
@@ -544,13 +552,13 @@
 
         <!-- Operator status bar -->
         <Border Grid.Row="1" Background="#F5F7FA" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
-                CornerRadius="6" Padding="10,6" Margin="0,0,0,4">
+                CornerRadius="6" Padding="10,4" Margin="0,0,0,4" MinHeight="36" MaxHeight="40">
             <TextBlock Text="{Binding OperatorBarText}" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"
-                       TextWrapping="Wrap" VerticalAlignment="Center"/>
+                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
         </Border>
 
         <!-- Action buttons -->
-        <UniformGrid Grid.Row="2" Columns="6" Margin="0,2"
+        <UniformGrid Grid.Row="2" Columns="6" Margin="0,2" MinHeight="58" MaxHeight="64"
                      Visibility="{Binding IsCreateModeActionsVisible, Converter={StaticResource BoolToVis}}">
             <Button x:Name="Weigh1Button" TabIndex="6" Content="{Binding Weigh1ButtonText}" Style="{StaticResource RecordWeightButton}"
                     Command="{Binding CaptureWeight1Command}" IsEnabled="{Binding IsWeigh1Enabled}" Margin="3,0"/>
@@ -562,7 +570,7 @@
             <Button TabIndex="11" Content="🖨 IN" Style="{StaticResource ActionButton}" Command="{Binding PrintTicketCommand}" Margin="3,0"/>
         </UniformGrid>
 
-        <UniformGrid Grid.Row="2" Columns="5" Margin="0,2"
+        <UniformGrid Grid.Row="2" Columns="5" Margin="0,2" MinHeight="58" MaxHeight="64"
                      Visibility="{Binding IsEditModeActionsVisible, Converter={StaticResource BoolToVis}}">
             <Button TabIndex="6" Content="CẬP NHẬT" Style="{StaticResource SaveButton}" Command="{Binding UpdateTicketCommand}" Margin="3,0"/>
             <Button TabIndex="7" Content="THOÁT" Style="{StaticResource CancelButton}" Command="{Binding ExitEditCommand}" Margin="3,0"/>
@@ -573,7 +581,7 @@
         </UniformGrid>
 
         <!-- Filters -->
-        <StackPanel Grid.Row="3" Margin="0,4,0,4">
+        <StackPanel Grid.Row="3" Margin="0,2,0,2">
             <WrapPanel Margin="0,0,0,4">
                 <ToggleButton Content="HÔM NAY" Command="{Binding FilterTodayCommand}" TabIndex="-1">
                     <ToggleButton.Style>
@@ -701,17 +709,19 @@
                   VerticalScrollBarVisibility="Auto"
                   CanUserSortColumns="False"
                   RowStyle="{StaticResource TicketGridRow}"
+                  RowHeight="{Binding TicketGridRowHeight}"
+                  MinHeight="{Binding DataGridMinHeight}"
                   TabIndex="-1"
                   MouseDoubleClick="TicketsGrid_OnMouseDoubleClick">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Ngày giờ" Binding="{Binding TicketDateTime, StringFormat=dd/MM/yyyy HH:mm}" Width="130"/>
-                <DataGridTextColumn Header="Số phiếu" Binding="{Binding DisplayNumber}" Width="85"/>
+                <DataGridTextColumn Header="Số phiếu" Binding="{Binding DisplayNumber}" Width="72"/>
                 <DataGridTextColumn Header="Biển số" Binding="{Binding LicensePlate, TargetNullValue=—}" Width="95"
                                     ElementStyle="{StaticResource GridCellText}"/>
-                <DataGridTextColumn Header="Khách hàng" Binding="{Binding CustomerName, TargetNullValue=—}" Width="180"
-                                    ElementStyle="{StaticResource GridCellText}"/>
-                <DataGridTextColumn Header="Loại hàng" Binding="{Binding CargoTypeName, TargetNullValue=—}" Width="150"
-                                    ElementStyle="{StaticResource GridCellText}"/>
+                <DataGridTextColumn Header="Khách hàng" Binding="{Binding CustomerName, TargetNullValue=—}" Width="*"
+                                    MinWidth="160" ElementStyle="{StaticResource GridCellText}"/>
+                <DataGridTextColumn Header="Loại hàng" Binding="{Binding CargoTypeName, TargetNullValue=—}" Width="*"
+                                    MinWidth="130" ElementStyle="{StaticResource GridCellText}"/>
                 <DataGridTextColumn Header="Tổng" Binding="{Binding GrossWeightKg, StringFormat=N0, TargetNullValue=—}" Width="72"
                                     ElementStyle="{StaticResource RightAlignedCell}"/>
                 <DataGridTextColumn Header="Bì" Binding="{Binding TareWeightKg, StringFormat=N0, TargetNullValue=—}" Width="68"
@@ -730,32 +740,32 @@
         </DataGrid>
 
         <!-- Footer summary -->
-        <UniformGrid Grid.Row="5" Columns="5" Margin="0,6,0,0">
-            <Border Style="{StaticResource CanXeSummaryCardStyle}" Margin="0,0,6,0">
+        <UniformGrid Grid.Row="5" Columns="5" Margin="0,4,0,0" MaxHeight="{Binding SummaryFooterMaxHeight}">
+            <Border Style="{StaticResource CanXeCompactSummaryCardStyle}" Margin="0,0,6,0">
                 <StackPanel>
                     <TextBlock Text="📋 Số phiếu" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
                     <TextBlock Text="{Binding FooterTicketCount, Mode=OneWay}" FontSize="22" FontWeight="Bold"/>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CanXeSummaryCardStyle}" Margin="3,0">
+            <Border Style="{StaticResource CanXeCompactSummaryCardStyle}" Margin="3,0">
                 <StackPanel>
                     <TextBlock Text="⚖ Tổng hàng" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
                     <TextBlock Text="{Binding FooterTotalNet, Mode=OneWay}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentBlueBrush}"/>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CanXeSummaryCardStyle}" Margin="3,0">
+            <Border Style="{StaticResource CanXeCompactSummaryCardStyle}" Margin="3,0">
                 <StackPanel>
                     <TextBlock Text="💰 KL tính tiền" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
                     <TextBlock Text="{Binding FooterTotalBillable, Mode=OneWay}" FontSize="20" FontWeight="Bold"/>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CanXeSummaryCardStyle}" Margin="3,0">
+            <Border Style="{StaticResource CanXeCompactSummaryCardStyle}" Margin="3,0">
                 <StackPanel>
                     <TextBlock Text="💵 Tổng tiền" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
                     <TextBlock Text="{Binding FooterTotalAmount, Mode=OneWay}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource SummaryAccentBrush}"/>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CanXeSummaryCardStyle}" Margin="6,0,0,0">
+            <Border Style="{StaticResource CanXeCompactSummaryCardStyle}" Margin="6,0,0,0">
                 <StackPanel>
                     <TextBlock Text="⚠ Chưa có giá" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
                     <TextBlock FontSize="20" FontWeight="Bold">

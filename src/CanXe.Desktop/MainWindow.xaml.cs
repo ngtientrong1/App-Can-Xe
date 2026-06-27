@@ -31,13 +31,13 @@ public partial class MainWindow : Window
         WireAutocomplete(NotesField, AutocompleteField.Notes);
 
         if (DataContext is MainViewModel vm)
-            vm.UpdateWindowWidth(ActualWidth);
+            vm.UpdateWindowSize(ActualWidth, ActualHeight);
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (DataContext is MainViewModel vm)
-            vm.UpdateWindowWidth(e.NewSize.Width);
+            vm.UpdateWindowSize(e.NewSize.Width, e.NewSize.Height);
     }
 
     private void UnitPriceField_OnGotFocus(object sender, RoutedEventArgs e)

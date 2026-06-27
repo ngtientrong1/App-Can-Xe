@@ -41,7 +41,8 @@ public sealed class TicketUpdateService
         {
             IsEditMode = true,
             ExistingTicketId = ticket.Id,
-            DisplayNumber = ticket.DisplayNumber,
+            DisplayNumber = TicketNumberFormatter.ResolveDisplayNumber(
+                ticket.SequenceNumber, ticket.TicketMonth, ticket.DisplayNumber),
             InternalCode = ticket.InternalCode,
             SequenceNumber = ticket.SequenceNumber,
             TicketDateTime = ticket.TicketDateTime,
@@ -340,7 +341,8 @@ public sealed class TicketUpdateService
         {
             Id = ticket.Id,
             TicketDateTime = ticket.TicketDateTime,
-            DisplayNumber = ticket.DisplayNumber,
+            DisplayNumber = TicketNumberFormatter.ResolveDisplayNumber(
+                ticket.SequenceNumber, ticket.TicketMonth, ticket.DisplayNumber),
             LicensePlate = ticket.LicensePlateSnapshot,
             CustomerName = ticket.CustomerNameSnapshot,
             CargoTypeName = ticket.CargoTypeNameSnapshot,

@@ -66,11 +66,12 @@ public class Phase16InlineTicketEditingTests : IAsyncLifetime
         await SeedTicketDirectAsync(repo, baseTime, 3, "0003/06");
         await SeedTicketDirectAsync(repo, baseTime, 2, "0002/06");
 
-        var items = await repo.GetFilteredAsync(new WeighTicketFilter());
+        var service = _factory.Provider.GetRequiredService<WeighTicketService>();
+        var items = await service.GetFilteredAsync(new WeighTicketFilter());
         Assert.Equal(3, items.Count);
-        Assert.Equal("0003/06", items[0].DisplayNumber);
-        Assert.Equal("0002/06", items[1].DisplayNumber);
-        Assert.Equal("0001/06", items[2].DisplayNumber);
+        Assert.Equal("03/06", items[0].DisplayNumber);
+        Assert.Equal("02/06", items[1].DisplayNumber);
+        Assert.Equal("01/06", items[2].DisplayNumber);
     }
 
     [Fact]

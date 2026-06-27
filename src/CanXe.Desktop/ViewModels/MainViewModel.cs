@@ -214,7 +214,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         new GridLength(WorkAreaLayoutCalculator.GetUtilityRailWidth(IsCompactMode));
 
     public double LiveWeightFontSize =>
-        WorkAreaLayoutCalculator.GetLiveWeightFontSize(WindowWidth);
+        OperatorLayoutMetrics.GetLiveWeightFontSize(WindowWidth, WindowHeight);
 
     public bool IsReturnToAutomaticVisible => ScaleInputMode == ScaleInputMode.SimulationManual;
 
@@ -267,7 +267,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public async Task InitializeAsync()
     {
         ActiveSection = AppNavigationSection.WeighTicket;
-        UpdateWindowWidth(SystemParameters.PrimaryScreenWidth);
+        UpdateWindowSize(SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
         if (IsCompactMode)
         {
             IsCameraDrawerOpen = false;
@@ -667,7 +667,14 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(UtilityRailColumnWidth));
         OnPropertyChanged(nameof(LiveWeightFontSize));
         OnPropertyChanged(nameof(LiveWeightUnitFontSize));
-        OnPropertyChanged(nameof(CameraDrawerColumnWidth));
+        OnPropertyChanged(nameof(WorkspaceMaxHeight));
+        OnPropertyChanged(nameof(WorkspaceMinHeight));
+        OnPropertyChanged(nameof(DataGridMinHeight));
+        OnPropertyChanged(nameof(LiveWeightViewboxMaxHeight));
+        OnPropertyChanged(nameof(FormFieldHeight));
+        OnPropertyChanged(nameof(NotesFieldHeight));
+        OnPropertyChanged(nameof(SummaryFooterMaxHeight));
+        OnPropertyChanged(nameof(TicketGridRowHeight));
     }
 
     [RelayCommand]
