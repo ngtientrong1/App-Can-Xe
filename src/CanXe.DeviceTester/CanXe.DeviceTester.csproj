@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationVersion>2.0.0</ApplicationVersion>
+    <AssemblyName>CanXe.DeviceTester</AssemblyName>
+    <RootNamespace>CanXe.DeviceTester</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CanXe.DeviceTester.Core\CanXe.DeviceTester.Core.csproj" />
+  </ItemGroup>
+
+</Project>
