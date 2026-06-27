@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CanXe.Domain\CanXe.Domain.csproj" />
+    <ProjectReference Include="..\CanXe.ScaleProtocol.Core\CanXe.ScaleProtocol.Core.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

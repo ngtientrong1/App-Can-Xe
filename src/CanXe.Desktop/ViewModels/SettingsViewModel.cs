@@ -3,6 +3,7 @@ using CanXe.Application.Configuration;
 using CanXe.Application.Interfaces;
 using CanXe.Application.Models;
 using CanXe.Application.Services;
+using CanXe.Domain.Models;
 using CanXe.Infrastructure.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -41,12 +42,13 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _deviceMode = "Simulation";
     [ObservableProperty] private string _portName = "COM1";
-    [ObservableProperty] private int _baudRate = 9600;
+    [ObservableProperty] private int _baudRate = 1200;
     [ObservableProperty] private int _dataBits = 8;
     [ObservableProperty] private string _parity = "None";
     [ObservableProperty] private string _stopBits = "One";
     [ObservableProperty] private string _handshake = "None";
     [ObservableProperty] private string? _scaleTestMessage;
+    [ObservableProperty] private ScaleInputMode? _savedScaleInputMode;
 
     [ObservableProperty] private string? _cameraName;
     [ObservableProperty] private bool _cameraEnabled = true;
@@ -75,7 +77,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         DatabasePath = databasePath;
         DeviceModeDisplay = _appSettings.DeviceMode;
-        MigrationStatus = $"{DatabaseUpgrader.Phase16MigrationId}, {DatabaseUpgrader.Phase17MigrationId}";
+        MigrationStatus = $"{DatabaseUpgrader.Phase16MigrationId}, {DatabaseUpgrader.Phase17MigrationId}, {DatabaseUpgrader.Phase2CMigrationId}";
 
         var station = await _settingsService.GetStationAsync();
         StationName = station.StationName;
@@ -88,13 +90,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         TicketFooterText = station.TicketFooterText;
 
         var scale = await _settingsService.GetScaleAsync();
-        DeviceMode = scale.DeviceMode;
+        DeviceMode = !string.IsNullOrWhiteSpace(_appSettings.DeviceMode)
+            ? _appSettings.DeviceMode
+            : scale.DeviceMode;
         PortName = scale.PortName;
         BaudRate = scale.BaudRate;
         DataBits = scale.DataBits;
         Parity = scale.Parity;
         StopBits = scale.StopBits;
         Handshake = scale.Handshake;
+        SavedScaleInputMode = scale.ScaleInputMode;
 
         var camera = await _settingsService.GetCameraAsync();
         CameraName = camera.CameraName;
@@ -136,10 +141,39 @@ public sealed partial class SettingsViewModel : ObservableObject
             DataBits = DataBits,
             Parity = Parity,
             StopBits = StopBits,
-            Handshake = Handshake
+            Handshake = Handshake,
+            ScaleInputMode = SavedScaleInputMode
         });
         SettingsStatusMessage = "Đã lưu cấu hình đầu cân.";
     }
+
+    public async Task SaveScaleInputModeAsync(ScaleInputMode mode)
+    {
+        SavedScaleInputMode = mode;
+        await _settingsService.SaveScaleAsync(new ScaleDeviceSettingsDto
+        {
+            DeviceMode = DeviceMode,
+            PortName = PortName,
+            BaudRate = BaudRate,
+            DataBits = DataBits,
+            Parity = Parity,
+            StopBits = StopBits,
+            Handshake = Handshake,
+            ScaleInputMode = mode
+        });
+    }
+
+    public ScaleDeviceSettingsDto BuildScaleDto() => new()
+    {
+        DeviceMode = DeviceMode,
+        PortName = PortName,
+        BaudRate = BaudRate,
+        DataBits = DataBits,
+        Parity = Parity,
+        StopBits = StopBits,
+        Handshake = Handshake,
+        ScaleInputMode = SavedScaleInputMode
+    };
 
     [RelayCommand]
     private async Task SaveCameraAsync()
@@ -171,16 +205,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private async Task TestScaleAsync()
     {
         ScaleTestMessage = null;
-        var result = await _scaleTester.TestAsync(new ScaleDeviceSettingsDto
-        {
-            DeviceMode = DeviceMode,
-            PortName = PortName,
-            BaudRate = BaudRate,
-            DataBits = DataBits,
-            Parity = Parity,
-            StopBits = StopBits,
-            Handshake = Handshake
-        });
+        var result = await _scaleTester.TestAsync(BuildScaleDto());
         ScaleTestMessage = result.Message;
     }
 

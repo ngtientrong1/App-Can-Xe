@@ -9,7 +9,7 @@ using Microsoft.Win32;
 
 namespace CanXe.DeviceTester.ViewModels;
 
-public sealed class DeviceTesterViewModel : INotifyPropertyChanged, IDisposable
+public partial class DeviceTesterViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly ISerialCaptureService _capture;
     private readonly System.Windows.Threading.DispatcherTimer _uiTimer;
@@ -35,10 +35,14 @@ public sealed class DeviceTesterViewModel : INotifyPropertyChanged, IDisposable
     private string _logDirectory = GetDefaultLogDirectory();
     private string? _lastSavedLogPath;
     private bool _isDisplayPaused;
+    private bool _saveRawBinary = true;
+    private bool _saveSessionJson = true;
 
     public DeviceTesterViewModel(ISerialCaptureService capture)
     {
         _capture = capture;
+        _capture.SaveRawBinary = _saveRawBinary;
+        _capture.SaveSessionJson = _saveSessionJson;
         _capture.StateChanged += (_, _) => System.Windows.Application.Current?.Dispatcher.Invoke(RefreshFromService);
 
         ScanPortsCommand = new RelayCommand(ScanPorts);
@@ -50,6 +54,9 @@ public sealed class DeviceTesterViewModel : INotifyPropertyChanged, IDisposable
         ClearDisplayCommand = new RelayCommand(ClearDisplay);
         TogglePauseDisplayCommand = new RelayCommand(TogglePauseDisplay, () => IsPortOpen);
         ChooseLogFolderCommand = new RelayCommand(ChooseLogFolder);
+
+        InitializeGuidedCapture();
+        InitializeScaleDecode();
 
         _uiTimer = new System.Windows.Threading.DispatcherTimer
         {
@@ -136,6 +143,26 @@ public sealed class DeviceTesterViewModel : INotifyPropertyChanged, IDisposable
     public string LogDirectory { get => _logDirectory; private set => SetField(ref _logDirectory, value); }
     public string? LastSavedLogPath { get => _lastSavedLogPath; private set => SetField(ref _lastSavedLogPath, value); }
 
+    public bool SaveRawBinary
+    {
+        get => _saveRawBinary;
+        set
+        {
+            if (SetField(ref _saveRawBinary, value))
+                _capture.SaveRawBinary = value;
+        }
+    }
+
+    public bool SaveSessionJson
+    {
+        get => _saveSessionJson;
+        set
+        {
+            if (SetField(ref _saveSessionJson, value))
+                _capture.SaveSessionJson = value;
+        }
+    }
+
     public string StatsLine { get; private set; } = string.Empty;
     public string WarningBanner { get; } =
         "Chỉ chạy công cụ này khi phần mềm cân cũ đã được đóng hoàn toàn. Hai ứng dụng thường không thể cùng sử dụng COM1.";
@@ -179,6 +206,7 @@ public sealed class DeviceTesterViewModel : INotifyPropertyChanged, IDisposable
     private async Task ClosePortAsync()
     {
         await _capture.ClosePortAsync();
+        ResetScaleDecode();
         RefreshFromService();
     }
 
@@ -197,13 +225,17 @@ public sealed class DeviceTesterViewModel : INotifyPropertyChanged, IDisposable
 
     private async Task SaveLogAsync()
     {
-        LastSavedLogPath = await _capture.SaveLogAsync(LogDirectory);
+        var result = await _capture.SaveLogAsync(LogDirectory);
+        LastSavedLogPath = result.RawBinaryPath is not null || result.SessionJsonPath is not null
+            ? $"{result.TextLogPath} | raw: {result.RawBinaryPath ?? "—"} | json: {result.SessionJsonPath ?? "—"}"
+            : result.TextLogPath;
         RefreshFromService();
     }
 
     private void ClearDisplay()
     {
         _capture.ClearDisplay();
+        ResetScaleDecode();
         RefreshFromService();
     }
 
@@ -272,6 +304,7 @@ public sealed class DeviceTesterViewModel : INotifyPropertyChanged, IDisposable
         (StopRecordingCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (SaveLogCommand as RelayCommand)?.RaiseCanExecuteChanged();
         (TogglePauseDisplayCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        RefreshGuidedFromService();
     }
 
     private static string FormatStatus(SerialConnectionStatus status, string? detail) => status switch
@@ -301,6 +334,11 @@ public sealed class DeviceTesterViewModel : INotifyPropertyChanged, IDisposable
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
+    partial void InitializeGuidedCapture();
+    partial void InitializeScaleDecode();
+    partial void ResetScaleDecode();
+    partial void RefreshGuidedFromService();
 }
 
 internal sealed class RelayCommand : ICommand

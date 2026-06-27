@@ -5,7 +5,11 @@ public sealed class SerialCaptureSession
     public DateTimeOffset StartedAt { get; set; } = DateTimeOffset.Now;
     public SerialPortSettings PortSettings { get; set; } = SerialPortSettings.CreateDefault();
     public string SessionLabel { get; set; } = SessionLabelPresets.NoVehicle;
+    public GuidedSessionType? SessionType { get; set; }
     public string? ScaleDisplayWeight { get; set; }
+    public decimal? KnownWeightKg { get; set; }
+    public bool KnownWeightIsApproximate { get; set; }
+    public bool? IsStableSession { get; set; }
     public string? VehicleCondition { get; set; }
     public string? SessionStartNote { get; set; }
     public string? AdditionalNotes { get; set; }

@@ -1,5 +1,7 @@
 namespace CanXe.Application.Models;
 
+using CanXe.Domain.Models;
+
 public sealed class StationSettingsDto
 {
     public string StationName { get; set; } = "Trạm cân CanXe";
@@ -21,6 +23,7 @@ public sealed class ScaleDeviceSettingsDto
     public string Parity { get; set; } = "None";
     public string StopBits { get; set; } = "One";
     public string Handshake { get; set; } = "None";
+    public ScaleInputMode? ScaleInputMode { get; set; }
 }
 
 public sealed class CameraDeviceSettingsDto

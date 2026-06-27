@@ -1,6 +1,7 @@
 using CanXe.Application.Interfaces;
 using CanXe.Application.Models;
 using CanXe.Domain.Entities;
+using CanXe.Domain.Models;
 using CanXe.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -64,6 +65,7 @@ public sealed class ScaleDeviceSettingsRepository(CanXeDbContext db) : IScaleDev
         entity.Parity = settings.Parity.Trim();
         entity.StopBits = settings.StopBits.Trim();
         entity.Handshake = settings.Handshake.Trim();
+        entity.ScaleInputMode = settings.ScaleInputMode?.ToString();
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -76,8 +78,12 @@ public sealed class ScaleDeviceSettingsRepository(CanXeDbContext db) : IScaleDev
         DataBits = entity.DataBits,
         Parity = entity.Parity,
         StopBits = entity.StopBits,
-        Handshake = entity.Handshake
+        Handshake = entity.Handshake,
+        ScaleInputMode = ParseScaleInputMode(entity.ScaleInputMode)
     };
+
+    private static ScaleInputMode? ParseScaleInputMode(string? value) =>
+        Enum.TryParse<ScaleInputMode>(value, true, out var parsed) ? parsed : null;
 }
 
 public sealed class CameraDeviceSettingsRepository(CanXeDbContext db, ISecretProtector secretProtector)

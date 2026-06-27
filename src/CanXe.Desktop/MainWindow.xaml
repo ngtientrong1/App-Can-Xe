@@ -460,15 +460,17 @@
                     <StackPanel Margin="0,0,0,12">
                         <ToggleButton Content="TỰ ĐỘNG MÔ PHỎNG" Style="{StaticResource CanXeSegmentButtonStyle}"
                                       IsChecked="{Binding IsSimulationAutomaticMode, Mode=OneWay}"
-                                      Command="{Binding SelectSimulationAutomaticModeCommand}"/>
+                                      Command="{Binding SelectSimulationAutomaticModeAsyncCommand}"/>
                         <ToggleButton Content="NHẬP THỦ CÔNG" Style="{StaticResource CanXeSegmentButtonStyle}"
                                       IsChecked="{Binding IsSimulationManualMode, Mode=OneWay}"
-                                      Command="{Binding SelectSimulationManualModeCommand}"/>
-                        <Button Content="ĐẦU CÂN COM — CHƯA KÍCH HOẠT" Style="{StaticResource CanXeSecondaryButtonStyle}"
-                                IsEnabled="False" Margin="0,0,0,6"/>
+                                      Command="{Binding SelectSimulationManualModeAsyncCommand}"/>
+                        <ToggleButton Content="ĐẦU CÂN COM" Style="{StaticResource CanXeSegmentButtonStyle}"
+                                      IsChecked="{Binding IsHardwareMode, Mode=OneWay}"
+                                      Command="{Binding SelectHardwareModeAsyncCommand}"
+                                      IsEnabled="{Binding IsHardwareModeEnabled}"/>
                     </StackPanel>
 
-                    <Button Content="TRỞ VỀ TỰ ĐỘNG" Command="{Binding ReturnToAutomaticModeCommand}"
+                    <Button Content="TRỞ VỀ TỰ ĐỘNG" Command="{Binding ReturnToAutomaticModeAsyncCommand}"
                             Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,0,0,12"
                             Visibility="{Binding IsReturnToAutomaticVisible, Converter={StaticResource BoolToVis}}"/>
 
@@ -750,9 +752,24 @@
         <!-- Section: THIẾT BỊ -->
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
                       Visibility="{Binding IsDeviceSectionVisible, Converter={StaticResource BoolToVis}}">
-            <StackPanel Margin="8" DataContext="{Binding Settings}">
+            <StackPanel Margin="8">
                 <TextBlock Text="THIẾT BỊ" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
                 <Border Style="{StaticResource CanXeCardStyle}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="Nguồn đầu cân" Style="{StaticResource SectionHeader}"/>
+                        <RadioButton Content="Đầu cân COM" GroupName="ScaleSource"
+                                     IsChecked="{Binding IsHardwareMode, Mode=OneWay}"
+                                     Command="{Binding SelectHardwareModeAsyncCommand}"
+                                     IsEnabled="{Binding IsHardwareModeEnabled}" Margin="0,4,0,0"/>
+                        <RadioButton Content="Tự động mô phỏng" GroupName="ScaleSource"
+                                     IsChecked="{Binding IsSimulationAutomaticMode, Mode=OneWay}"
+                                     Command="{Binding SelectSimulationAutomaticModeAsyncCommand}" Margin="0,4,0,0"/>
+                        <RadioButton Content="Thủ công mô phỏng" GroupName="ScaleSource"
+                                     IsChecked="{Binding IsSimulationManualMode, Mode=OneWay}"
+                                     Command="{Binding SelectSimulationManualModeAsyncCommand}" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource CanXeCardStyle}" Margin="0,0,0,12" DataContext="{Binding Settings}">
                     <StackPanel>
                         <TextBlock Text="Đầu cân" Style="{StaticResource SectionHeader}"/>
                         <Grid Margin="0,4,0,0">
@@ -777,7 +794,23 @@
                         <Button Content="LƯU CẤU HÌNH" Command="{Binding SaveScaleCommand}" Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,10,0,0"/>
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource CanXeCardStyle}">
+                <Border Style="{StaticResource CanXeCardStyle}" Margin="0,0,0,12"
+                        Visibility="{Binding IsHardwareOperationsPanelVisible, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <TextBlock Text="Đầu cân COM — vận hành" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="{Binding HardwareConnectionStatus}" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding HardwareStableText}" Margin="0,4,0,4"/>
+                        <TextBlock Text="{Binding HardwareLastFrameText, StringFormat=Frame gần nhất: {0}}"/>
+                        <TextBlock Text="{Binding HardwareChecksumWarning}" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap"/>
+                        <WrapPanel Margin="0,10,0,0">
+                            <Button Content="KẾT NỐI" Command="{Binding ConnectHardwareCommand}" Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,0,8,0"
+                                    IsEnabled="{Binding IsHardwareConnectEnabled}"/>
+                            <Button Content="NGẮT KẾT NỐI" Command="{Binding DisconnectHardwareCommand}" Style="{StaticResource CanXeSecondaryButtonStyle}"
+                                    IsEnabled="{Binding IsHardwareDisconnectEnabled}"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource CanXeCardStyle}" DataContext="{Binding Settings}">
                     <StackPanel>
                         <TextBlock Text="Camera" Style="{StaticResource SectionHeader}"/>
                         <CheckBox Content="Bật camera" IsChecked="{Binding CameraEnabled}" FontSize="15" Margin="0,4,0,8"/>

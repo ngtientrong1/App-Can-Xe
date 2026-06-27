@@ -120,8 +120,8 @@ public class Phase2ADeviceTesterTests
         });
         service.StartRecording();
         provider.SimulateDataReceived([0x41, 0x0D, 0x0A]);
-        var path = await service.SaveLogAsync(Path.GetTempPath());
-        var text = await File.ReadAllTextAsync(path);
+        var result = await service.SaveLogAsync(Path.GetTempPath());
+        var text = await File.ReadAllTextAsync(result.TextLogPath);
         Assert.Contains("Session started:", text);
         Assert.Contains("Timestamp:", text);
         Assert.Contains("Chunk number:", text);
@@ -129,7 +129,9 @@ public class Phase2ADeviceTesterTests
         Assert.Contains("HEX:", text);
         Assert.Contains("Escaped text:", text);
         Assert.Contains("Session label: Trọng lượng ổn định", text);
-        File.Delete(path);
+        File.Delete(result.TextLogPath);
+        if (result.RawBinaryPath is not null) File.Delete(result.RawBinaryPath);
+        if (result.SessionJsonPath is not null) File.Delete(result.SessionJsonPath);
     }
 
     [Fact]
@@ -166,10 +168,12 @@ public class Phase2ADeviceTesterTests
         provider.SimulateDataReceived([0x10]);
         service.ApplyPendingUiUpdates();
         Assert.Empty(service.DisplayChunks);
-        var path = await service.SaveLogAsync(Path.GetTempPath());
-        var text = await File.ReadAllTextAsync(path);
+        var result = await service.SaveLogAsync(Path.GetTempPath());
+        var text = await File.ReadAllTextAsync(result.TextLogPath);
         Assert.Contains("HEX: 10", text);
-        File.Delete(path);
+        File.Delete(result.TextLogPath);
+        if (result.RawBinaryPath is not null) File.Delete(result.RawBinaryPath);
+        if (result.SessionJsonPath is not null) File.Delete(result.SessionJsonPath);
     }
 
     [Fact]

@@ -7,6 +7,7 @@ using CanXe.Infrastructure.Device;
 using CanXe.Infrastructure.Repositories;
 using CanXe.Infrastructure.Scale;
 using CanXe.Infrastructure.Security;
+using CanXe.ScaleProtocol.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,8 +29,8 @@ public static class DependencyInjection
         services.AddSingleton<ISecretProtector, DpApiSecretProtector>();
         services.AddSingleton<ICameraConnectionTester>(_ =>
             new MockCameraConnectionTester(settings.SimulateCameraFailure));
-        services.AddSingleton<IScaleConnectionTester>(_ =>
-            new MockScaleConnectionTester(settings.SimulateScaleDisconnect));
+        services.AddSingleton<IScaleConnectionTester>(sp =>
+            new ScaleConnectionTester(sp.GetRequiredService<AppSettings>()));
 
         services.AddSingleton<IPhotoStorageService>(_ => new PhotoStorageService(photoRoot));
         services.AddSingleton<ICameraService>(_ =>
@@ -37,10 +38,13 @@ public static class DependencyInjection
         services.AddSingleton<IPhotoCleanupService>(_ =>
             new PhotoCleanupService(photoRoot, TimeSpan.FromDays(settings.PhotoRetentionDays)));
 
-        if (string.Equals(settings.DeviceMode, "Simulation", StringComparison.OrdinalIgnoreCase))
-            services.AddSingleton<IScaleService, SimulatedScaleService>();
-        else
-            services.AddSingleton<IScaleService, SimulatedScaleService>(); // Hardware in phase 2
+        services.AddSingleton<IScaleSerialReader, WindowsScaleSerialReader>();
+        services.AddSingleton<CompositeScaleService>(sp =>
+        {
+            return new CompositeScaleService(sp.GetRequiredService<IScaleSerialReader>());
+        });
+        services.AddSingleton<IScaleService>(sp => sp.GetRequiredService<CompositeScaleService>());
+        services.AddSingleton<IHardwareScaleDiagnostics>(sp => sp.GetRequiredService<CompositeScaleService>());
 
         services.AddScoped<IWeighTicketRepository, WeighTicketRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();

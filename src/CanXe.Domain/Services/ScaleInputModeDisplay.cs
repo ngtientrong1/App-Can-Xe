@@ -4,10 +4,38 @@ namespace CanXe.Domain.Services;
 
 public static class ScaleInputModeDisplay
 {
+    public static bool IsHardwareDeviceMode(string deviceMode) =>
+        string.Equals(deviceMode, "Hardware", StringComparison.OrdinalIgnoreCase);
+
     public static ScaleInputMode GetDefaultMode(string deviceMode) =>
-        string.Equals(deviceMode, "Simulation", StringComparison.OrdinalIgnoreCase)
-            ? ScaleInputMode.SimulationAutomatic
-            : ScaleInputMode.Hardware;
+        IsHardwareDeviceMode(deviceMode)
+            ? ScaleInputMode.Hardware
+            : ScaleInputMode.SimulationAutomatic;
+
+    public static ScaleInputMode ResolveStartupMode(string deviceMode, ScaleInputMode? savedScaleInputMode)
+    {
+        if (!IsHardwareDeviceMode(deviceMode))
+        {
+            if (savedScaleInputMode == ScaleInputMode.SimulationManual)
+                return ScaleInputMode.SimulationManual;
+            return ScaleInputMode.SimulationAutomatic;
+        }
+
+        return savedScaleInputMode switch
+        {
+            ScaleInputMode.Hardware => ScaleInputMode.Hardware,
+            ScaleInputMode.SimulationAutomatic => ScaleInputMode.SimulationAutomatic,
+            ScaleInputMode.SimulationManual => ScaleInputMode.SimulationManual,
+            _ => ScaleInputMode.Hardware
+        };
+    }
+
+    public static bool IsValidModeForDevice(string deviceMode, ScaleInputMode mode)
+    {
+        if (mode == ScaleInputMode.Hardware)
+            return IsHardwareDeviceMode(deviceMode);
+        return mode is ScaleInputMode.SimulationAutomatic or ScaleInputMode.SimulationManual;
+    }
 
     public static string GetWeightSourceText(ScaleInputMode mode) => mode switch
     {
@@ -28,7 +56,7 @@ public static class ScaleInputModeDisplay
                 _ => "● Đầu cân: —"
             };
 
-    public static bool ShouldPersistMode(ScaleInputMode mode) => false;
+    public static bool ShouldPersistMode(ScaleInputMode mode) => true;
 
     public static bool IsManualInputEnabled(ScaleInputMode mode) =>
         mode == ScaleInputMode.SimulationManual;
@@ -37,7 +65,7 @@ public static class ScaleInputModeDisplay
         mode == ScaleInputMode.SimulationManual;
 
     public static bool IsHardwareOptionEnabled(string deviceMode) =>
-        string.Equals(deviceMode, "Hardware", StringComparison.OrdinalIgnoreCase);
+        IsHardwareDeviceMode(deviceMode);
 
     public static bool DevDrawerCloseChangesScaleMode() => false;
 

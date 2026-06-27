@@ -7,6 +7,7 @@ public static class DatabaseUpgrader
 {
     public const string Phase16MigrationId = "202606270001_Phase16_AuditAndWeightOverride";
     public const string Phase17MigrationId = "202606270002_Phase17_StationAndDeviceSettings";
+    public const string Phase2CMigrationId = "202606270003_Phase2C_ScaleInputMode";
 
     public static async Task UpgradeAsync(CanXeDbContext db, string databasePath, CancellationToken cancellationToken = default)
     {
@@ -18,6 +19,7 @@ public static class DatabaseUpgrader
             await db.Database.EnsureCreatedAsync(cancellationToken);
             await RecordMigrationAsync(db, Phase16MigrationId, cancellationToken);
             await RecordMigrationAsync(db, Phase17MigrationId, cancellationToken);
+            await RecordMigrationAsync(db, Phase2CMigrationId, cancellationToken);
             return;
         }
 
@@ -27,6 +29,9 @@ public static class DatabaseUpgrader
 
         await ApplyPhase17SettingsTablesAsync(db, cancellationToken);
         await RecordMigrationAsync(db, Phase17MigrationId, cancellationToken);
+
+        await ApplyPhase2CScaleInputModeAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase2CMigrationId, cancellationToken);
     }
 
     public static void BackupDatabase(string databasePath)
@@ -105,6 +110,14 @@ public static class DatabaseUpgrader
                 """,
                 cancellationToken);
         }
+    }
+
+    private static async Task ApplyPhase2CScaleInputModeAsync(CanXeDbContext db, CancellationToken cancellationToken)
+    {
+        if (!await TableExistsAsync(db, "ScaleDeviceSettings", cancellationToken))
+            return;
+
+        await AddColumnIfMissingAsync(db, "ScaleDeviceSettings", "ScaleInputMode", "TEXT NULL", cancellationToken);
     }
 
     private static async Task ApplyPhase16WeighEventColumnsAsync(

@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CanXe.DeviceTester.Core\CanXe.DeviceTester.Core.csproj" />
+    <ProjectReference Include="..\CanXe.ScaleProtocol.Core\CanXe.ScaleProtocol.Core.csproj" />
   </ItemGroup>
 
 </Project>

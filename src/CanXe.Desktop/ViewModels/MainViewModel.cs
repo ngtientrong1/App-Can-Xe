@@ -16,6 +16,7 @@ namespace CanXe.Desktop.ViewModels;
 
 public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 {
+    private readonly IHardwareScaleDiagnostics? _hardwareScale;
     private readonly WeighTicketService _weighTicketService;
     private readonly FastEntrySearchService _fastEntrySearch;
     private readonly IScaleService _scaleService;
@@ -41,6 +42,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         WeighTicketService weighTicketService,
         FastEntrySearchService fastEntrySearch,
         IScaleService scaleService,
+        IHardwareScaleDiagnostics? hardwareScaleDiagnostics,
         IUiFocusService focusService,
         ITicketDocumentRenderer ticketDocumentRenderer,
         AppSettings settings,
@@ -50,6 +52,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _weighTicketService = weighTicketService;
         _fastEntrySearch = fastEntrySearch;
         _scaleService = scaleService;
+        _hardwareScale = hardwareScaleDiagnostics;
         _focusService = focusService;
         _ticketDocumentRenderer = ticketDocumentRenderer;
         _settings = settings;
@@ -57,12 +60,16 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         Settings = settingsViewModel;
         Settings.StationSettingsSaved += (_, dto) => OnStationSettingsSaved(dto);
         _scaleService.WeightChanged += OnScaleWeightChanged;
+        if (_hardwareScale is not null)
+            _hardwareScale.HardwareDiagnosticsChanged += (_, _) =>
+                System.Windows.Application.Current.Dispatcher.Invoke(UpdateHardwareDiagnostics);
         IsDeveloperPanelAvailable = string.Equals(settings.DeviceMode, "Simulation", StringComparison.OrdinalIgnoreCase)
                                    && settings.ShowDeveloperPanel;
         IsDeveloperWeightUnlockVisible = IsDeveloperPanelAvailable && settings.DeveloperTicketEditEnabled;
         foreach (var (code, label) in WeightOverrideReasons.All)
             WeightOverrideReasonOptions.Add(new WeightOverrideReasonOption(code, label));
     }
+
 
     [ObservableProperty] private decimal _liveWeightKg;
     [ObservableProperty] private string _displayNumber = "—";
@@ -202,7 +209,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public bool IsSimulationManualMode => ScaleInputMode == ScaleInputMode.SimulationManual;
     public bool IsReturnToAutomaticVisible => ScaleInputMode == ScaleInputMode.SimulationManual;
     public bool IsManualWeightInputVisible => ScaleInputMode == ScaleInputMode.SimulationManual;
-    public bool IsHardwareModeEnabled => false;
 
     public string WeightSourceText => ScaleInputModeDisplay.GetWeightSourceText(ScaleInputMode);
 
@@ -252,8 +258,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     public async Task InitializeAsync()
     {
-        await _scaleService.StartAsync();
-        LiveWeightKg = await _scaleService.GetCurrentWeightAsync();
         IsCompactMode = CompactLayoutPolicy.ShouldUseCompactMode(SystemParameters.PrimaryScreenWidth);
         if (IsCompactMode)
         {
@@ -261,8 +265,17 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             IsAdvancedFilterVisible = false;
         }
 
-        ApplyScaleInputMode(ScaleInputModeDisplay.GetDefaultMode(_settings.DeviceMode), userInitiated: false);
         await Settings.LoadAsync(_appPaths.DatabasePath);
+
+        var effectiveDeviceMode = EffectiveDeviceMode;
+        var startupMode = ScaleInputModeDisplay.ResolveStartupMode(
+            effectiveDeviceMode,
+            Settings.SavedScaleInputMode);
+        await ApplyScaleInputModeAsync(startupMode, userInitiated: false);
+
+        if (Settings.SavedScaleInputMode != startupMode)
+            await Settings.SaveScaleInputModeAsync(startupMode);
+
         HeaderClockText = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.CurrentCulture);
         _ = RunClockAsync();
         await RefreshPreviewDisplayNumberAsync();
@@ -277,40 +290,89 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private void ToggleDevDrawer() => IsDevDrawerOpen = !IsDevDrawerOpen;
 
     [RelayCommand]
-    private void SelectSimulationAutomaticMode() =>
-        ApplyScaleInputMode(ScaleInputMode.SimulationAutomatic, userInitiated: true);
+    private async Task SelectSimulationAutomaticModeAsync() =>
+        await ApplyScaleInputModeAsync(ScaleInputMode.SimulationAutomatic, userInitiated: true);
 
     [RelayCommand]
-    private void SelectSimulationManualMode() =>
-        ApplyScaleInputMode(ScaleInputMode.SimulationManual, userInitiated: true);
+    private async Task SelectSimulationManualModeAsync() =>
+        await ApplyScaleInputModeAsync(ScaleInputMode.SimulationManual, userInitiated: true);
 
     [RelayCommand]
-    private void ReturnToAutomaticMode() =>
-        ApplyScaleInputMode(ScaleInputMode.SimulationAutomatic, userInitiated: true);
+    private async Task ReturnToAutomaticModeAsync() =>
+        await ApplyScaleInputModeAsync(ScaleInputMode.SimulationAutomatic, userInitiated: true);
 
-    private void ApplyScaleInputMode(ScaleInputMode mode, bool userInitiated)
+    private async Task ApplyScaleInputModeAsync(ScaleInputMode mode, bool userInitiated)
     {
+        if (!ScaleInputModeDisplay.IsValidModeForDevice(EffectiveDeviceMode, mode))
+            return;
+
+        if (_hardwareScale is not null)
+            await _hardwareScale.SetInputModeAsync(mode);
+        else
+        {
+            switch (mode)
+            {
+                case ScaleInputMode.SimulationAutomatic:
+                    await _scaleService.StartAsync();
+                    _scaleService.ResumeAutomaticSimulation();
+                    _scaleService.SetManualMode(false);
+                    break;
+                case ScaleInputMode.SimulationManual:
+                    await _scaleService.StartAsync();
+                    _scaleService.SetManualMode(true);
+                    break;
+                case ScaleInputMode.Hardware:
+                    await _scaleService.StopAsync();
+                    break;
+            }
+        }
+
         ScaleInputMode = mode;
+
         switch (mode)
         {
             case ScaleInputMode.SimulationAutomatic:
-                _scaleService.ResumeAutomaticSimulation();
-                _scaleService.SetManualMode(false);
                 if (userInitiated)
                     StatusMessage = "Đã chuyển về chế độ tự động mô phỏng.";
+                LiveWeightKg = await _scaleService.GetCurrentWeightAsync();
                 break;
             case ScaleInputMode.SimulationManual:
-                _scaleService.SetManualMode(true);
                 if (userInitiated)
-                    StatusMessage = "Đang dùng nguồn DEV thủ công.";
+                    StatusMessage = "Đang dùng nguồn thủ công mô phỏng.";
+                try
+                {
+                    LiveWeightKg = await _scaleService.GetCurrentWeightAsync();
+                }
+                catch
+                {
+                    LiveWeightKg = 0;
+                }
                 break;
             case ScaleInputMode.Hardware:
+                LiveWeightKg = 0;
+                if (userInitiated)
+                    StatusMessage = "Đang dùng nguồn đầu cân COM — bấm KẾT NỐI trong tab Thiết bị.";
                 break;
         }
 
+        if (userInitiated && ScaleInputModeDisplay.ShouldPersistMode(mode))
+            await Settings.SaveScaleInputModeAsync(mode);
+
+        IsHardwareModeSelected = mode == ScaleInputMode.Hardware;
+
         UpdateScaleStatusDisplay();
+        UpdateHardwareDiagnostics();
+        NotifyScaleInputModeBindings();
+    }
+
+    private void NotifyScaleInputModeBindings()
+    {
         OnPropertyChanged(nameof(IsSimulationAutomaticMode));
         OnPropertyChanged(nameof(IsSimulationManualMode));
+        OnPropertyChanged(nameof(IsHardwareMode));
+        OnPropertyChanged(nameof(IsHardwareModeEnabled));
+        OnPropertyChanged(nameof(IsHardwareOperationsPanelVisible));
+        OnPropertyChanged(nameof(IsScaleSourceSelectionVisible));
         OnPropertyChanged(nameof(IsReturnToAutomaticVisible));
         OnPropertyChanged(nameof(IsManualWeightInputVisible));
         OnPropertyChanged(nameof(WeightSourceText));
@@ -318,6 +380,20 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void UpdateScaleStatusDisplay()
     {
+        if (ScaleInputMode == ScaleInputMode.Hardware && _hardwareScale is not null)
+        {
+            var disconnected = !_hardwareScale.IsConnected || _hardwareScale.IsStale;
+            HeaderScaleStatus = ScaleInputModeDisplay.GetHeaderScaleBadge(ScaleInputMode, disconnected);
+            ScaleStabilityText = !_hardwareScale.IsConnected
+                ? "● MẤT KẾT NỐI"
+                : _hardwareScale.IsStale
+                    ? "● DỮ LIỆU CŨ"
+                    : _hardwareScale.IsStable
+                        ? "● ỔN ĐỊNH"
+                        : "● CHƯA ỔN ĐỊNH";
+            return;
+        }
+
         HeaderScaleStatus = ScaleInputModeDisplay.GetHeaderScaleBadge(ScaleInputMode, SimulateScaleDisconnected);
         ScaleStabilityText = SimulateScaleDisconnected
             ? "● MẤT KẾT NỐI"
@@ -368,6 +444,12 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         if (IsEditingExistingTicket)
         {
             StatusMessage = "Không thể lấy cân khi đang chỉnh sửa phiếu.";
+            return;
+        }
+
+        if (TryBlockHardwareCapture(out var blockReason))
+        {
+            StatusMessage = blockReason;
             return;
         }
 
@@ -1030,7 +1112,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private void SetManualWeight(decimal kg)
     {
         if (ScaleInputMode != ScaleInputMode.SimulationManual)
-            ApplyScaleInputMode(ScaleInputMode.SimulationManual, userInitiated: true);
+            _ = ApplyScaleInputModeAsync(ScaleInputMode.SimulationManual, userInitiated: true);
 
         ManualWeightText = kg.ToString("N0", CultureInfo.CurrentCulture);
         _scaleService.SetManualWeightKg(kg);
@@ -1038,7 +1120,16 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void OnScaleWeightChanged(object? sender, decimal weightKg)
     {
-        System.Windows.Application.Current.Dispatcher.Invoke(() => LiveWeightKg = weightKg);
+        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        {
+            if (ScaleInputMode == ScaleInputMode.Hardware)
+            {
+                if (_hardwareScale is null || !_hardwareScale.IsConnected || _hardwareScale.IsStale)
+                    return;
+            }
+
+            LiveWeightKg = weightKg;
+        });
     }
 
     private async Task RefreshListAsync()
