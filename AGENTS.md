@@ -2,7 +2,7 @@
 
 ## Tổng quan
 
-**Giai đoạn hiện tại:** 1.4 — phiếu cân một lần (Bì=0), khóa Cân lần 1, autocomplete nhanh, bộ lọc hai hàng + chip.
+**Giai đoạn hiện tại:** 1.5 — UI 16:9 responsive, ngữ cảnh xe từ lịch sử phiếu, bộ lọc nhanh/nâng cao.
 
 ## Lệnh
 
@@ -13,36 +13,26 @@ dotnet test CanXe.sln
 build\publish-win10-x64.cmd
 ```
 
-## Quy tắc phiếu một lần cân
+## Ngữ cảnh xe (`VehicleUsageContext`)
 
-- 1 WeighEvent → `Gross = Net = weight`, `Tare = 0`.
-- 2 WeighEvents → `Max/Min/Abs` (thay thế kết quả Bì=0).
-- `IsSingleWeigh` suy diễn trên detail DTO; **không** loại khỏi báo cáo.
-- Danh sách **không** có cột Cân một lần / `SingleRecordedWeightKg`.
+- Truy vấn tối đa **50 phiếu gần nhất** theo `VehicleId` / biển số.
+- Khách gần nhất, loại hàng gần nhất, loại hàng thường dùng (tie-break theo ngày).
+- Thẻ **XE ĐÃ TỪNG CÂN** — không tự điền; xác nhận qua DÙNG CẢ HAI / CHỈ DÙNG KHÁCH / CHỈ DÙNG LOẠI HÀNG.
+- `VehicleUsageContextApplier`, `FrequentCargoTypeResolver`, `WorkAreaLayoutCalculator` — unit-testable.
 
-## Khóa Cân lần 1
+## Bố cục UI (Full HD)
 
-- Sau khi có `DraftWeight2`: khóa cập nhật Cân lần 1 (`DraftWorkflowRules.CanUpdateWeight1`).
-- DEV override: `DeviceMode=Simulation` + `ShowDeveloperPanel=true` + checkbox `DeveloperWeight1OverrideEnabled`.
+- Khu cân **32%** · Thông tin phiếu **50%** · Camera **18%** (thu gọn → info **68%**, camera **0**).
+- Bộ lọc nhanh (HÔM NAY …) + bộ lọc nâng cao (ẩn/hiện).
+- DataGrid stretch; thanh tổng hợp cố định phía dưới.
 
-## Autocomplete
+## Giai đoạn 1.4 (vẫn áp dụng)
 
-- `FastEntrySearchService` + `AutocompleteRanker` + `AutoCompleteTextBox`.
-- Debounce ~200 ms; tối đa 8 gợi ý; xếp hạng prefix/token; không dấu (kể cả Đ→D).
-- Enter/Tab commit + chuyển focus; Escape đóng popup.
-
-## Bộ lọc
-
-- Hàng 1: nút nhanh thời gian + Từ/Đến ngày.
-- Hàng 2: Khách, Loại hàng, Biển số, Số phiếu, Đơn giá (exact hoặc Từ–Đến).
-- Chỉ query khi **ÁP DỤNG LỌC** hoặc Enter; chip xóa từng điều kiện; tổng NetWeight + TotalAmount theo kết quả lọc.
+Phiếu một lần cân (Bì=0), khóa Cân lần 1, autocomplete nhanh, chip lọc.
 
 ## Cấu hình
 
-`appsettings.json`:
-
-- `DeviceMode`: Simulation
-- `ShowDeveloperPanel`: true/false — panel DEV mô phỏng
+`appsettings.json`: `DeviceMode`, `ShowDeveloperPanel`.
 
 ## Tài liệu
 

@@ -182,6 +182,73 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
         return distinct;
     }
 
+    public async Task<VehicleUsageContext?> GetVehicleUsageContextAsync(
+        string normalizedPlate,
+        CancellationToken cancellationToken = default)
+    {
+        var normalized = PlateNormalizer.Normalize(normalizedPlate);
+        if (normalized.Length == 0)
+            return null;
+
+        var vehicle = await _db.Vehicles
+            .FirstOrDefaultAsync(v => v.NormalizedPlateNumber == normalized, cancellationToken);
+
+        if (vehicle is null)
+            return null;
+
+        var tickets = (await _db.WeighTickets
+            .Where(t => t.VehicleId == vehicle.Id ||
+                        (t.LicensePlateSnapshot != null && t.LicensePlateSnapshot == vehicle.PlateNumber))
+            .ToListAsync(cancellationToken))
+            .OrderByDescending(t => t.TicketDateTime)
+            .Take(FrequentCargoTypeResolver.MaxTicketsToAnalyze)
+            .ToList();
+
+        if (tickets.Count == 0)
+            return null;
+
+        var frequent = FrequentCargoTypeResolver.Resolve(
+            tickets.Select(t => new CargoUsageTicketRow(
+                t.CargoTypeId,
+                t.CargoTypeNameSnapshot,
+                t.TicketDateTime)).ToList());
+
+        var recentWithCustomer = tickets.FirstOrDefault(t =>
+            t.CustomerId.HasValue || !string.IsNullOrWhiteSpace(t.CustomerNameSnapshot));
+
+        var recentCustomerId = recentWithCustomer?.CustomerId;
+        var recentCustomerName = recentWithCustomer?.CustomerNameSnapshot;
+
+        if (string.IsNullOrWhiteSpace(recentCustomerName) && vehicle.LastCustomerId.HasValue)
+        {
+            var lastCustomer = await _db.Customers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == vehicle.LastCustomerId.Value, cancellationToken);
+            if (lastCustomer is not null)
+            {
+                recentCustomerId = lastCustomer.Id;
+                recentCustomerName = lastCustomer.Name;
+            }
+        }
+
+        var recentWithCargo = tickets.FirstOrDefault(t =>
+            t.CargoTypeId.HasValue || !string.IsNullOrWhiteSpace(t.CargoTypeNameSnapshot));
+
+        return new VehicleUsageContext
+        {
+            VehicleId = vehicle.Id,
+            PlateNumber = vehicle.PlateNumber,
+            RecentCustomerId = recentCustomerId,
+            RecentCustomerName = recentCustomerName,
+            RecentCargoTypeId = recentWithCargo?.CargoTypeId,
+            RecentCargoTypeName = recentWithCargo?.CargoTypeNameSnapshot,
+            FrequentCargoTypeId = frequent?.CargoTypeId,
+            FrequentCargoTypeName = frequent?.CargoTypeName,
+            FrequentCargoUsageCount = frequent?.UsageCount ?? 0,
+            LastUsedAt = tickets.Max(t => t.TicketDateTime)
+        };
+    }
+
     public async Task<T> ExecuteInTransactionAsync<T>(
         Func<Task<T>> action,
         CancellationToken cancellationToken = default)

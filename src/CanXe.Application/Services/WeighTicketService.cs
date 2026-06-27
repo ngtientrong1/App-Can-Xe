@@ -217,10 +217,12 @@ public sealed class WeighTicketService
         CancellationToken cancellationToken = default) =>
         _cargoTypeRepository.SearchAsync(searchTerm, 10, cancellationToken);
 
-    public Task<VehicleSuggestion?> GetVehicleSuggestionAsync(
+    public Task<VehicleUsageContext?> GetVehicleUsageContextAsync(
         string plateNumber,
         CancellationToken cancellationToken = default) =>
-        _vehicleRepository.GetSuggestionForPlateAsync(plateNumber, cancellationToken);
+        _ticketRepository.GetVehicleUsageContextAsync(
+            PlateNormalizer.Normalize(plateNumber),
+            cancellationToken);
 
     public Task<IReadOnlyList<Vehicle>> SearchVehiclesAsync(
         string searchTerm,

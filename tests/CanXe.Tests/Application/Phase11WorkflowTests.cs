@@ -468,6 +468,9 @@ public class Phase11WorkflowTests : IAsyncLifetime
         public Task<IReadOnlyList<string>> SearchRecentNotesAsync(string searchTerm, int maxResults = 5, CancellationToken cancellationToken = default) =>
             _inner.SearchRecentNotesAsync(searchTerm, maxResults, cancellationToken);
 
+        public Task<VehicleUsageContext?> GetVehicleUsageContextAsync(string normalizedPlate, CancellationToken cancellationToken = default) =>
+            _inner.GetVehicleUsageContextAsync(normalizedPlate, cancellationToken);
+
         public Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken = default) =>
             _inner.ExecuteInTransactionAsync(action, cancellationToken);
     }

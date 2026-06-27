@@ -9,7 +9,9 @@ public sealed class WeighTicketDraft
     public string? InternalCode { get; set; }
     public DateTimeOffset? TicketDateTime { get; set; }
 
+    public int? DraftCustomerId { get; set; }
     public string? DraftCustomer { get; set; }
+    public int? DraftCargoTypeId { get; set; }
     public string? DraftVehicle { get; set; }
     public string? DraftCargoType { get; set; }
     public decimal? DraftUnitPrice { get; set; }

@@ -76,12 +76,30 @@ public sealed class FastEntrySearchService
             .Select(x => x.Vehicle)
             .ToList();
 
-        var items = ranked.Select(v => new AutocompleteSuggestionItem
+        var items = new List<AutocompleteSuggestionItem>();
+        foreach (var vehicle in ranked)
         {
-            PrimaryText = v.PlateNumber,
-            SecondaryText = v.LastCustomer?.Name is { } name ? $"Khách gần nhất: {name}" : null,
-            Tag = v
-        }).ToList();
+            var context = await _ticketRepository.GetVehicleUsageContextAsync(
+                PlateNormalizer.Normalize(vehicle.PlateNumber),
+                cancellationToken);
+
+            string? secondary = null;
+            string? tertiary = null;
+            if (context?.RecentCustomerName is { } customerName)
+                secondary = $"Khách gần nhất: {customerName}";
+
+            var cargoName = context?.FrequentCargoTypeName ?? context?.RecentCargoTypeName;
+            if (cargoName is not null)
+                tertiary = $"Loại hàng thường dùng: {cargoName}";
+
+            items.Add(new AutocompleteSuggestionItem
+            {
+                PrimaryText = vehicle.PlateNumber,
+                SecondaryText = secondary,
+                TertiaryText = tertiary,
+                Tag = vehicle
+            });
+        }
 
         AppendNewEntryOption(items, searchTerm);
         return items;

@@ -51,6 +51,25 @@ public partial class MainWindow : Window
 
     public void FocusNotesField() => NotesField.FocusInput();
 
+    public void FocusVehicleContextCard()
+    {
+        if (VehicleContextCard.Visibility == Visibility.Visible)
+        {
+            VehicleContextCard.Focus();
+            if (ApplyBothButton.IsEnabled)
+                ApplyBothButton.Focus();
+        }
+    }
+
+    private void VehicleContextCard_OnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || DataContext is not MainViewModel vm)
+            return;
+
+        vm.ApplyVehicleContextFromKeyboard();
+        e.Handled = true;
+    }
+
     private async void TicketsGrid_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (DataContext is not MainViewModel vm)

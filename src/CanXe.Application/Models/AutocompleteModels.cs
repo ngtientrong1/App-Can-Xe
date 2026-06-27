@@ -4,6 +4,7 @@ public sealed class AutocompleteSuggestionItem
 {
     public required string PrimaryText { get; init; }
     public string? SecondaryText { get; init; }
+    public string? TertiaryText { get; init; }
     public bool IsNewEntryOption { get; init; }
     public object? Tag { get; init; }
 

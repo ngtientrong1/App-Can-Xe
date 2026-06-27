@@ -17,4 +17,6 @@ public sealed class WpfUiFocusService : IUiFocusService
     public void FocusUnitPriceField() => _window?.FocusUnitPriceField();
 
     public void FocusNotesField() => _window?.FocusNotesField();
+
+    public void FocusVehicleContextCard() => _window?.FocusVehicleContextCard();
 }

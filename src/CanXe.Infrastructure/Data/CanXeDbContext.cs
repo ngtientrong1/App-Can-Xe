@@ -48,6 +48,10 @@ public sealed class CanXeDbContext : DbContext
             entity.Property(e => e.DisplayNumber).IsRequired();
             entity.HasIndex(e => e.InternalCode).IsUnique();
             entity.HasIndex(e => e.TicketDateTime);
+            entity.HasIndex(e => e.VehicleId);
+            entity.HasIndex(e => e.LicensePlateSnapshot);
+            entity.HasIndex(e => e.CustomerId);
+            entity.HasIndex(e => e.CargoTypeId);
             entity.HasIndex(e => new { e.CargoTypeNameSnapshot, e.CustomerNameSnapshot, e.UnitPriceVndPerKg });
             entity.HasOne(e => e.Customer).WithMany().HasForeignKey(e => e.CustomerId);
             entity.HasOne(e => e.Vehicle).WithMany().HasForeignKey(e => e.VehicleId);

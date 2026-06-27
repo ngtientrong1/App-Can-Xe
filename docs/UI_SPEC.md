@@ -1,56 +1,65 @@
-# CanXe — UI Spec (Giai đoạn 1.4)
+# CanXe — UI Spec (Giai đoạn 1.5)
 
-## Bố cục 16:9
+## Bố cục màn hình
 
-| Cột | Tỷ lệ | Nội dung |
-|-----|-------|----------|
-| Trái | 34% | Trọng lượng trực tiếp + kết quả cân |
-| Giữa | 46% | Form phiếu |
-| Phải | 20% | Camera + DEV (thu gọn mặc định) |
-
-## Cột trái — nút cân
-
-- Trước Cân lần 2: **LẤY CÂN LẦN 1** / **CẬP NHẬT CÂN LẦN 1**.
-- Sau Cân lần 2: **CÂN LẦN 1 ĐÃ KHÓA** (disabled).
-- Cân lần 2 vẫn cập nhật được trước LƯU.
-- DEV: checkbox **Cho phép sửa lại Cân lần 1** + cảnh báo nhỏ.
-
-## Autocomplete
-
-Popup tối đa 8 dòng; highlight dòng đầu; phụ đề (xe gần nhất, khách gần nhất, số lần dùng).
-
-Điều khiển: ↑↓ chọn · Enter/Tab commit + focus kế tiếp · Escape đóng · click chọn.
-
-Ghi chú: popup khi gõ (tối đa 5 gợi ý); không auto-fill khi focus trống.
-
-Biển số: banner **Xe này thường thuộc …** + **DÙNG KHÁCH NÀY**.
-
-## DataGrid (12 cột)
-
-Ngày giờ · Số phiếu · Biển số · Khách · Loại hàng · Tổng · Bì · Hàng · KL tính tiền · Đơn giá · Thành tiền · Ghi chú.
-
-**Không** có cột Cân một lần. Phiếu 1 event hiển thị Tổng/Bì(0)/Hàng như cân đủ hai lần.
-
-## Bộ lọc
-
-```
-[Hôm nay] [Hôm qua] [7 ngày] [Tháng này]  Từ: ___  Đến: ___
-Khách: ___  Loại hàng: ___  Biển số: ___  Số phiếu: ___  Giá: ___ – ___
-[ÁP DỤNG LỌC] [XÓA LỌC] [XUẤT EXCEL]
-Chip: Hôm nay ×  Khách hàng: Chị Đức ×  ...
-Đang hiển thị: 24 phiếu · Tổng trọng lượng hàng: … · Tổng thành tiền: …
+```text
+Tiêu đề + trạng thái
+────────────────────
+Cân 32% | Phiếu 50% | Camera 18%
+────────────────────
+[LẤY CÂN 1] [LẤY CÂN 2] [LƯU] [HỦY] [IN]
+────────────────────
+Lọc nhanh + [ẨN/MỞ BỘ LỌC NÂNG CAO]
+(Điều kiện nâng cao khi mở)
+Chip lọc (nếu có)
+────────────────────
+DataGrid — chiếm phần cao còn lại
+────────────────────
+Số phiếu | Tổng hàng | Tổng thành tiền
 ```
 
-Enter trong ô lọc → ÁP DỤNG. XUẤT EXCEL disabled (stub).
+Camera thu gọn: cột 0*, phiếu 68*, nút MỞ CAMERA trên hàng nút.
 
-## TabIndex
+## Thẻ XE ĐÃ TỪNG CÂN
 
-1–5: form · 6–7: cân · 8–10: Lưu/Hủy/In · Filter/DataGrid/DEV: `-1`.
+Xuất hiện dưới hàng Khách/Biển số khi có lịch sử. Không chiếm chỗ khi ẩn.
 
-## Panel DEV
+```text
+XE ĐÃ TỪNG CÂN
+Khách gần nhất: …
+Loại hàng thường dùng: …
+Lần gần nhất: dd/MM/yyyy
+(cảnh báo thay đổi nếu đã nhập khác)
 
-Chỉ khi `DeviceMode = Simulation` và `ShowDeveloperPanel = true`.
+[DÙNG CẢ HAI] [CHỈ DÙNG KHÁCH] [CHỈ DÙNG LOẠI HÀNG]
+```
 
-## Chi tiết phiếu
+DÙNG CẢ HAI nổi bật khi cả hai trường trống.
 
-Double-click danh sách; hiển thị Weight1/Weight2; **TIẾP TỤC CÂN** cho phiếu một lần.
+## Khu cân (trái)
+
+Trọng lượng trực tiếp lớn nhất; Tổng/Bì/Hàng một hàng; Hàng nhấn mạnh; billing gọn.
+
+## Form phiếu
+
+Một hàng: `Số phiếu: 0018/06` · ngày giờ bên phải.
+
+Hai cột: Khách | Biển số · Loại hàng | Đơn giá · Ghi chú full width.
+
+Ô nhập ~46 px; nhãn 17 px; nội dung 19 px.
+
+## Camera & DEV
+
+Preview 16:9 (Viewbox); THU GỌN. DEV drawer thu gọn, MỞ MÔ PHỎNG, không Tab.
+
+## Nút thao tác
+
+Cao ~58 px; cân cam rộng ~220 px; Lưu xanh lá; Hủy xám, margin rộng hơn Lưu.
+
+## DataGrid
+
+Header/row ~42 px; font 16 px; cột số/tiền căn phải; khách/loại hàng rộng hơn; virtualization bật.
+
+## Phong cách
+
+Segoe UI, nền sáng, viền nhẹ, bo góc 4–6 px, không blur/gradient mạnh.

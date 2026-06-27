@@ -69,7 +69,11 @@ Indexes:
 
 - `TicketDateTime DESC`
 - `InternalCode` UNIQUE
-- `CustomerNameSnapshot`, `CargoTypeNameSnapshot`, `LicensePlateSnapshot`
+- `VehicleId`
+- `LicensePlateSnapshot`
+- `CustomerId`
+- `CargoTypeId`
+- `CustomerNameSnapshot`, `CargoTypeNameSnapshot`, `LicensePlateSnapshot` (query filters)
 - `(CargoTypeNameSnapshot, CustomerNameSnapshot, UnitPriceVndPerKg)` — báo cáo
 
 ## WeighEvents

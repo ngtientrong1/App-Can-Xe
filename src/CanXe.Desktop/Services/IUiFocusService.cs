@@ -7,4 +7,5 @@ public interface IUiFocusService
     void FocusCargoTypeField();
     void FocusUnitPriceField();
     void FocusNotesField();
+    void FocusVehicleContextCard();
 }

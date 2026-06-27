@@ -78,8 +78,17 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private bool _developerWeight1OverrideEnabled;
     [ObservableProperty] private bool _isWeight1DevOverrideWarningVisible;
     [ObservableProperty] private string? _manualWeightText;
-    [ObservableProperty] private string? _vehicleSuggestionText;
-    [ObservableProperty] private bool _showApplyVehicleCustomerButton;
+    [ObservableProperty] private bool _isVehicleContextVisible;
+    [ObservableProperty] private string? _vehicleContextCustomerText;
+    [ObservableProperty] private string? _vehicleContextFrequentCargoText;
+    [ObservableProperty] private string? _vehicleContextLastUsedText;
+    [ObservableProperty] private string? _vehicleContextCustomerPreview;
+    [ObservableProperty] private string? _vehicleContextCargoPreview;
+    [ObservableProperty] private bool _isApplyBothPrimary;
+    [ObservableProperty] private bool _isAdvancedFilterVisible = true;
+    [ObservableProperty] private string _footerTicketCount = "0";
+    [ObservableProperty] private string _footerTotalNet = "0 kg";
+    [ObservableProperty] private string _footerTotalAmount = "0 VNĐ";
 
     [ObservableProperty] private string _weigh1ButtonText = "LẤY CÂN LẦN 1";
     [ObservableProperty] private string _weigh2ButtonText = "LẤY CÂN LẦN 2";
@@ -95,9 +104,24 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string _filterResultSummary = string.Empty;
     [ObservableProperty] private string _filterTotalsSummary = string.Empty;
 
-    public GridLength WeighColumnWidth => new(34, GridUnitType.Star);
-    public GridLength InfoColumnWidth => new(IsCameraPanelVisible ? 46 : 66, GridUnitType.Star);
-    public GridLength CameraColumnWidth => new(IsCameraPanelVisible ? 20 : 0, GridUnitType.Star);
+    private VehicleUsageContext? _activeVehicleContext;
+
+    public GridLength WeighColumnWidth =>
+        new(WorkAreaLayoutCalculator.GetColumnStars(IsCameraPanelVisible).WeighStars, GridUnitType.Star);
+
+    public GridLength InfoColumnWidth =>
+        new(WorkAreaLayoutCalculator.GetColumnStars(IsCameraPanelVisible).InfoStars, GridUnitType.Star);
+
+    public GridLength CameraColumnWidth =>
+        new(WorkAreaLayoutCalculator.GetColumnStars(IsCameraPanelVisible).CameraStars, GridUnitType.Star);
+
+    public int CameraColumnMinWidth => IsCameraPanelVisible ? 220 : 0;
+
+    partial void OnIsAdvancedFilterVisibleChanged(bool value) =>
+        OnPropertyChanged(nameof(AdvancedFilterToggleText));
+
+    public string AdvancedFilterToggleText =>
+        IsAdvancedFilterVisible ? "ẨN BỘ LỌC NÂNG CAO" : "MỞ BỘ LỌC NÂNG CAO";
 
     public ObservableCollection<WeighTicketListItem> Tickets { get; } = [];
     public ObservableCollection<AutocompleteSuggestionItem> CustomerSuggestions { get; } = [];
@@ -176,8 +200,35 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private void ToggleCameraPanel()
     {
         IsCameraPanelVisible = !IsCameraPanelVisible;
+        NotifyWorkAreaLayoutChanged();
+    }
+
+    partial void OnIsCameraPanelVisibleChanged(bool value) => NotifyWorkAreaLayoutChanged();
+
+    private void NotifyWorkAreaLayoutChanged()
+    {
+        OnPropertyChanged(nameof(WeighColumnWidth));
         OnPropertyChanged(nameof(InfoColumnWidth));
         OnPropertyChanged(nameof(CameraColumnWidth));
+        OnPropertyChanged(nameof(CameraColumnMinWidth));
+    }
+
+    [RelayCommand]
+    private void ToggleAdvancedFilter() => IsAdvancedFilterVisible = !IsAdvancedFilterVisible;
+
+    [RelayCommand]
+    private void ApplyVehicleContextBoth() => ApplyVehicleContext(VehicleContextApplyMode.Both);
+
+    [RelayCommand]
+    private void ApplyVehicleContextCustomer() => ApplyVehicleContext(VehicleContextApplyMode.CustomerOnly);
+
+    [RelayCommand]
+    private void ApplyVehicleContextCargo() => ApplyVehicleContext(VehicleContextApplyMode.CargoOnly);
+
+    public void ApplyVehicleContextFromKeyboard()
+    {
+        if (IsApplyBothPrimary)
+            ApplyVehicleContext(VehicleContextApplyMode.Both);
     }
 
     [RelayCommand]
@@ -313,19 +364,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     }
 
     [RelayCommand]
-    private void ApplySuggestedVehicleCustomer()
-    {
-        if (string.IsNullOrWhiteSpace(_pendingVehicleCustomerName))
-            return;
-
-        CustomerName = _pendingVehicleCustomerName;
-        ShowApplyVehicleCustomerButton = false;
-        _focusService.FocusCargoTypeField();
-    }
-
-    private string? _pendingVehicleCustomerName;
-
-    [RelayCommand]
     private void SetManualScale8500() => SetManualWeight(8500m);
 
     [RelayCommand]
@@ -364,7 +402,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
 
         _ = DebouncedSearchAsync(() => _vehicleSearchCts, cts => _vehicleSearchCts = cts, SearchVehiclesAsync);
-        _ = UpdateVehicleSuggestionAsync();
+        _ = UpdateVehicleContextAsync();
     }
 
     partial void OnFilterCustomerNameChanged(string? value) =>
@@ -414,8 +452,11 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                 break;
             case AutocompleteField.Vehicle:
                 LicensePlate = text.ToUpperInvariant();
-                _ = UpdateVehicleSuggestionAsync();
-                _focusService.FocusCargoTypeField();
+                _ = UpdateVehicleContextAsync();
+                if (IsVehicleContextVisible)
+                    _focusService.FocusVehicleContextCard();
+                else
+                    _focusService.FocusCargoTypeField();
                 break;
             case AutocompleteField.CargoType:
                 CargoTypeName = text;
@@ -434,28 +475,74 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             return;
 
         LicensePlate = plate.ToUpperInvariant();
-        await UpdateVehicleSuggestionAsync();
+        await UpdateVehicleContextAsync();
     }
 
-    private async Task UpdateVehicleSuggestionAsync()
+    private async Task UpdateVehicleContextAsync()
     {
-        VehicleSuggestionText = null;
-        ShowApplyVehicleCustomerButton = false;
-        _pendingVehicleCustomerName = null;
+        ClearVehicleContextUi();
 
         if (string.IsNullOrWhiteSpace(LicensePlate))
             return;
 
-        var suggestion = await _weighTicketService.GetVehicleSuggestionAsync(LicensePlate);
-        if (suggestion?.LastCustomerName is not { } name)
+        var context = await _weighTicketService.GetVehicleUsageContextAsync(LicensePlate);
+        if (context is null)
             return;
 
-        if (string.Equals(CustomerName, name, StringComparison.OrdinalIgnoreCase))
+        _activeVehicleContext = context;
+        IsVehicleContextVisible = true;
+        VehicleContextCustomerText = context.RecentCustomerName is { } customer
+            ? $"Khách gần nhất: {customer}"
+            : null;
+        VehicleContextFrequentCargoText = context.FrequentCargoTypeName is { } cargo
+            ? $"Loại hàng thường dùng: {cargo}"
+            : null;
+        VehicleContextLastUsedText = context.LastUsedAt?.ToString("dd/MM/yyyy");
+        VehicleContextCustomerPreview = VehicleUsageContextApplier.BuildCustomerChangePreview(context, CustomerName);
+        VehicleContextCargoPreview = VehicleUsageContextApplier.BuildCargoChangePreview(context, CargoTypeName);
+        IsApplyBothPrimary = VehicleUsageContextApplier.ShouldHighlightApplyBoth(CustomerName, CargoTypeName);
+    }
+
+    private void ClearVehicleContextUi()
+    {
+        _activeVehicleContext = null;
+        IsVehicleContextVisible = false;
+        VehicleContextCustomerText = null;
+        VehicleContextFrequentCargoText = null;
+        VehicleContextLastUsedText = null;
+        VehicleContextCustomerPreview = null;
+        VehicleContextCargoPreview = null;
+        IsApplyBothPrimary = false;
+    }
+
+    private void ApplyVehicleContext(VehicleContextApplyMode mode)
+    {
+        if (_activeVehicleContext is not { } context)
             return;
 
-        VehicleSuggestionText = $"Xe này thường thuộc {name}";
-        _pendingVehicleCustomerName = name;
-        ShowApplyVehicleCustomerButton = true;
+        var applied = VehicleUsageContextApplier.Apply(context, mode, CustomerName, CargoTypeName);
+
+        if (applied.CustomerName is not null)
+        {
+            CustomerName = applied.CustomerName;
+            _draft.DraftCustomerId = applied.CustomerId;
+            _draft.DraftCustomer = applied.CustomerName;
+        }
+
+        if (applied.CargoTypeName is not null)
+        {
+            CargoTypeName = applied.CargoTypeName;
+            _draft.DraftCargoTypeId = applied.CargoTypeId;
+            _draft.DraftCargoType = applied.CargoTypeName;
+        }
+
+        ClearVehicleContextUi();
+
+        if (mode is VehicleContextApplyMode.CargoOnly ||
+            (mode is VehicleContextApplyMode.Both && !string.IsNullOrWhiteSpace(CargoTypeName)))
+            _focusService.FocusUnitPriceField();
+        else
+            _focusService.FocusCargoTypeField();
     }
 
     private async Task ApplyQuickRangeAsync(string label, DateTime from, DateTime to)
@@ -563,9 +650,13 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         foreach (var chip in ActiveFilterChipBuilder.Build(filter, _activeQuickRangeLabel))
             ActiveFilterChips.Add(chip);
 
-        FilterResultSummary = $"Đang hiển thị: {result.Count} phiếu";
-        FilterTotalsSummary =
-            $"Tổng trọng lượng hàng: {result.TotalNetWeightKg:N0} kg · Tổng thành tiền: {result.TotalAmountVnd:N0} VNĐ";
+        FilterResultSummary = ActiveFilterChips.Count > 0
+            ? $"Đang hiển thị: {result.Count} phiếu"
+            : string.Empty;
+        FilterTotalsSummary = string.Empty;
+        FooterTicketCount = result.Count.ToString(CultureInfo.CurrentCulture);
+        FooterTotalNet = $"{result.TotalNetWeightKg:N0} kg";
+        FooterTotalAmount = $"{result.TotalAmountVnd:N0} VNĐ";
     }
 
     private WeighTicketFilter BuildCurrentFilter()
