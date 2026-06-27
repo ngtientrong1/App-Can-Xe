@@ -1,6 +1,7 @@
 ## Build artifacts
 bin/
 obj/
+publish/
 *.user
 *.suo
 
@@ -12,6 +13,7 @@ obj/
 *.db
 *.db-shm
 *.db-wal
+Photos/
 
 ## OS
 Thumbs.db

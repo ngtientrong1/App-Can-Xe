@@ -92,8 +92,6 @@ public sealed class WeighTicketListItem
     public string? LicensePlate { get; init; }
     public string? CustomerName { get; init; }
     public string? CargoTypeName { get; init; }
-    public decimal? Weight1Kg { get; init; }
-    public decimal? Weight2Kg { get; init; }
     public decimal? GrossWeightKg { get; init; }
     public decimal? TareWeightKg { get; init; }
     public decimal? NetWeightKg { get; init; }
@@ -102,6 +100,43 @@ public sealed class WeighTicketListItem
     public decimal? TotalAmountVnd { get; init; }
     public string? Notes { get; init; }
     public int EventCount { get; init; }
+}
+
+public sealed class WeighTicketDetailDto
+{
+    public int Id { get; init; }
+    public DateTimeOffset TicketDateTime { get; init; }
+    public required string DisplayNumber { get; init; }
+    public string? LicensePlate { get; init; }
+    public string? CustomerName { get; init; }
+    public string? CargoTypeName { get; init; }
+    public string? Notes { get; init; }
+    public decimal? UnitPriceVndPerKg { get; init; }
+    public bool IsServiceWeigh { get; init; }
+
+    public decimal? Weight1Kg { get; init; }
+    public DateTimeOffset? Weight1RecordedAt { get; init; }
+    public string? Weight1PhotoPath { get; init; }
+    public bool Weight1PhotoAvailable { get; init; }
+    public string? Weight1PhotoStatusText { get; init; }
+
+    public decimal? Weight2Kg { get; init; }
+    public DateTimeOffset? Weight2RecordedAt { get; init; }
+    public string? Weight2PhotoPath { get; init; }
+    public bool Weight2PhotoAvailable { get; init; }
+    public string? Weight2PhotoStatusText { get; init; }
+
+    public decimal? GrossWeightKg { get; init; }
+    public decimal? TareWeightKg { get; init; }
+    public decimal? NetWeightKg { get; init; }
+    public decimal? DeductionWeightKg { get; init; }
+    public decimal? BillableWeightKg { get; init; }
+    public decimal? TotalAmountVnd { get; init; }
+
+    public int EventCount =>
+        (Weight1Kg.HasValue ? 1 : 0) + (Weight2Kg.HasValue ? 1 : 0);
+
+    public bool CanContinue => EventCount > 0 && EventCount < 2;
 }
 
 public sealed class SaveTicketResult

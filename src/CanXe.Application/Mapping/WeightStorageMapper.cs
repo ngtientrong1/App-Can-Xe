@@ -22,7 +22,7 @@ public static class WeightStorageMapper
 
     public static int? ToVndPerKg(decimal? unitPrice)
     {
-        if (unitPrice is null)
+        if (unitPrice is null or <= 0)
             return null;
 
         return (int)Math.Round(unitPrice.Value, 0, MidpointRounding.AwayFromZero);

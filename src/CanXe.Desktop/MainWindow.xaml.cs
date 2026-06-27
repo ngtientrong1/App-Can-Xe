@@ -18,8 +18,7 @@ public partial class MainWindow : Window
 
     public void FocusCustomerField()
     {
-        CustomerField.Focus();
-        CustomerField.SelectAll();
+        CustomerField.FocusInput();
     }
 
     private async void TicketsGrid_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -28,20 +27,6 @@ public partial class MainWindow : Window
             return;
 
         if (sender is DataGrid grid && grid.SelectedItem is WeighTicketListItem item)
-            await vm.ContinueTicketCommand.ExecuteAsync(item);
-    }
-
-    private void SuggestionList_OnMouseUp(object sender, MouseButtonEventArgs e)
-    {
-        if (DataContext is not MainViewModel vm || sender is not ListBox listBox)
-            return;
-
-        if (listBox.SelectedItem is not string selected)
-            return;
-
-        if (listBox.Tag as string == "Customer")
-            vm.CustomerName = selected;
-        else if (listBox.Tag as string == "CargoType")
-            vm.CargoTypeName = selected;
+            await vm.OpenTicketDetailCommand.ExecuteAsync(item);
     }
 }

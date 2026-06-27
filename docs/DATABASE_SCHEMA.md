@@ -54,14 +54,14 @@ Index: `NormalizedPlateNumber`
 | LicensePlateSnapshot | TEXT | Yes | |
 | CargoTypeId | INTEGER FK | Yes | |
 | CargoTypeNameSnapshot | TEXT | Yes | |
-| UnitPriceVndPerKg | INTEGER | Yes | VNĐ/kg |
+| UnitPriceVndPerKg | INTEGER | Yes | VNĐ/kg; NULL = cân dịch vụ |
 | Notes | TEXT | Yes | |
 | GrossWeightGrams | INTEGER | Yes | |
 | TareWeightGrams | INTEGER | Yes | |
 | NetWeightGrams | INTEGER | Yes | |
-| DeductionWeightGrams | INTEGER | Yes | gram, có precision |
-| BillableWeightGrams | INTEGER | Yes | kg nguyên × 1000 |
-| TotalAmountVnd | INTEGER | Yes | |
+| DeductionWeightGrams | INTEGER | Yes | gram; NULL khi cân dịch vụ |
+| BillableWeightGrams | INTEGER | Yes | kg nguyên × 1000; NULL khi cân dịch vụ |
+| TotalAmountVnd | INTEGER | Yes | NULL khi cân dịch vụ |
 | CreatedAt | TEXT | No | |
 | UpdatedAt | TEXT | Yes | |
 

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Windows;
 using CanXe.Application.Interfaces;
 using CanXe.Application.Models;
 using CanXe.Application.Services;
@@ -37,16 +38,19 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string? _cargoTypeName;
     [ObservableProperty] private string? _unitPriceText;
     [ObservableProperty] private string? _notes;
-    [ObservableProperty] private string _weight1Display = "—";
-    [ObservableProperty] private string _weight1TimeDisplay = "—";
-    [ObservableProperty] private string _weight2Display = "—";
-    [ObservableProperty] private string _weight2TimeDisplay = "—";
+    [ObservableProperty] private bool _weight1HasValue;
+    [ObservableProperty] private bool _weight2HasValue;
+    [ObservableProperty] private string _weight1ValueText = "Chưa lấy cân";
+    [ObservableProperty] private string _weight1TimeText = string.Empty;
+    [ObservableProperty] private string _weight2ValueText = "Chưa lấy cân";
+    [ObservableProperty] private string _weight2TimeText = string.Empty;
     [ObservableProperty] private string _grossDisplay = "—";
     [ObservableProperty] private string _tareDisplay = "—";
     [ObservableProperty] private string _netDisplay = "—";
     [ObservableProperty] private string _deductionDisplay = "—";
     [ObservableProperty] private string _billableDisplay = "—";
     [ObservableProperty] private string _totalAmountDisplay = "—";
+    [ObservableProperty] private bool _isServiceWeighVisible;
     [ObservableProperty] private string _statusMessage = "Sẵn sàng";
     [ObservableProperty] private bool _isWeigh1Enabled = true;
     [ObservableProperty] private bool _isWeigh2Enabled = true;
@@ -66,6 +70,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string? _filterLicensePlate;
     [ObservableProperty] private string? _filterDisplayNumber;
     [ObservableProperty] private string? _filterUnitPriceText;
+
+    public GridLength InfoColumnWidth => new(IsCameraPanelVisible ? 53 : 73, GridUnitType.Star);
+    public GridLength CameraColumnWidth => new(IsCameraPanelVisible ? 20 : 0, GridUnitType.Star);
 
     public ObservableCollection<WeighTicketListItem> Tickets { get; } = [];
     public ObservableCollection<string> CustomerSuggestions { get; } = [];
@@ -189,6 +196,25 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     }
 
     [RelayCommand]
+    private async Task OpenTicketDetailAsync(WeighTicketListItem? item)
+    {
+        if (item is null)
+            return;
+
+        try
+        {
+            var detail = await _weighTicketService.GetTicketDetailAsync(item.Id);
+            var owner = System.Windows.Application.Current.MainWindow;
+            if (owner is not null)
+                TicketDetailViewModel.Show(owner, detail);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+    }
+
+    [RelayCommand]
     private async Task ContinueTicketAsync(WeighTicketListItem? item)
     {
         if (item is null || item.EventCount >= 2)
@@ -243,6 +269,18 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     partial void OnCargoTypeNameChanged(string? value) => _ = SearchCargoTypesAsync();
 
+    partial void OnUnitPriceTextChanged(string? value)
+    {
+        _draft.DraftUnitPrice = ParseUnitPrice(value);
+        UpdateDisplaysFromDraft();
+    }
+
+    partial void OnIsCameraPanelVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(InfoColumnWidth));
+        OnPropertyChanged(nameof(CameraColumnWidth));
+    }
+
     partial void OnLicensePlateChanged(string? value) => _ = UpdateVehicleSuggestionAsync();
 
     partial void OnManualWeightTextChanged(string? value)
@@ -281,7 +319,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         decimal? unitPrice = null;
         if (!string.IsNullOrWhiteSpace(FilterUnitPriceText) &&
-            decimal.TryParse(FilterUnitPriceText, NumberStyles.Number, CultureInfo.CurrentCulture, out var parsed))
+            decimal.TryParse(FilterUnitPriceText, NumberStyles.Number, CultureInfo.CurrentCulture, out var parsed) &&
+            parsed > 0)
             unitPrice = parsed;
 
         var filter = new WeighTicketFilter
@@ -321,13 +360,19 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _draft.DraftVehicle = LicensePlate;
         _draft.DraftCargoType = CargoTypeName;
         _draft.DraftNotes = Notes;
+        _draft.DraftUnitPrice = ParseUnitPrice(UnitPriceText);
+    }
 
-        if (string.IsNullOrWhiteSpace(UnitPriceText))
-            _draft.DraftUnitPrice = null;
-        else if (decimal.TryParse(UnitPriceText, NumberStyles.Number, CultureInfo.CurrentCulture, out var price))
-            _draft.DraftUnitPrice = Math.Round(price, 0, MidpointRounding.AwayFromZero);
-        else
-            _draft.DraftUnitPrice = null;
+    private static decimal? ParseUnitPrice(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        if (!decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out var price))
+            return null;
+
+        price = Math.Round(price, 0, MidpointRounding.AwayFromZero);
+        return price > 0 ? price : null;
     }
 
     private void LoadBindingsFromDraft()
@@ -347,18 +392,42 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void UpdateDisplaysFromDraft()
     {
-        Weight1Display = _draft.DraftWeight1?.ToString("N0", CultureInfo.CurrentCulture) ?? "—";
-        Weight1TimeDisplay = _draft.DraftWeight1RecordedAt?.ToString("HH:mm:ss") ?? "—";
-        Weight2Display = _draft.DraftWeight2?.ToString("N0", CultureInfo.CurrentCulture) ?? "—";
-        Weight2TimeDisplay = _draft.DraftWeight2RecordedAt?.ToString("HH:mm:ss") ?? "—";
+        if (_draft.DraftWeight1 is { } w1)
+        {
+            Weight1HasValue = true;
+            Weight1ValueText = $"{w1:N0} kg";
+            Weight1TimeText = _draft.DraftWeight1RecordedAt?.ToString("HH:mm:ss") ?? string.Empty;
+        }
+        else
+        {
+            Weight1HasValue = false;
+            Weight1ValueText = "Chưa lấy cân";
+            Weight1TimeText = string.Empty;
+        }
 
-        var calc = WeightCalculator.Calculate(_draft.DraftWeight1, _draft.DraftWeight2, _draft.DraftUnitPrice);
+        if (_draft.DraftWeight2 is { } w2)
+        {
+            Weight2HasValue = true;
+            Weight2ValueText = $"{w2:N0} kg";
+            Weight2TimeText = _draft.DraftWeight2RecordedAt?.ToString("HH:mm:ss") ?? string.Empty;
+        }
+        else
+        {
+            Weight2HasValue = false;
+            Weight2ValueText = "Chưa lấy cân";
+            Weight2TimeText = string.Empty;
+        }
+
+        var unitPrice = _draft.DraftUnitPrice;
+        var calc = WeightCalculator.Calculate(_draft.DraftWeight1, _draft.DraftWeight2, unitPrice);
         GrossDisplay = FormatKg(calc.GrossWeightKg);
         TareDisplay = FormatKg(calc.TareWeightKg);
         NetDisplay = FormatKg(calc.NetWeightKg);
         DeductionDisplay = calc.DeductionWeightKg?.ToString("N3", CultureInfo.CurrentCulture) ?? "—";
         BillableDisplay = FormatKg(calc.BillableWeightKg);
         TotalAmountDisplay = calc.TotalAmountVnd?.ToString("N0", CultureInfo.CurrentCulture) ?? "—";
+        IsServiceWeighVisible = _draft.DraftWeight1.HasValue && _draft.DraftWeight2.HasValue &&
+                              !WeightCalculator.HasBillableUnitPrice(unitPrice);
     }
 
     private void UpdateButtonStates()

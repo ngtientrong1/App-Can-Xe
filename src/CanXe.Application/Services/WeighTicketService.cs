@@ -210,6 +210,63 @@ public sealed class WeighTicketService
         CancellationToken cancellationToken = default) =>
         _vehicleRepository.GetSuggestionForPlateAsync(plateNumber, cancellationToken);
 
+    public async Task<WeighTicketDetailDto> GetTicketDetailAsync(
+        int ticketId,
+        CancellationToken cancellationToken = default)
+    {
+        var ticket = await _ticketRepository.GetByIdWithEventsAsync(ticketId, cancellationToken)
+            ?? throw new InvalidOperationException($"Không tìm thấy phiếu #{ticketId}.");
+
+        return MapToDetail(ticket);
+    }
+
+    private static WeighTicketDetailDto MapToDetail(WeighTicket ticket)
+    {
+        var w1 = ticket.Events.FirstOrDefault(e => e.Sequence == 1);
+        var w2 = ticket.Events.FirstOrDefault(e => e.Sequence == 2);
+        var unitPrice = WeightStorageMapper.FromVndPerKg(ticket.UnitPriceVndPerKg);
+
+        return new WeighTicketDetailDto
+        {
+            Id = ticket.Id,
+            TicketDateTime = ticket.TicketDateTime,
+            DisplayNumber = ticket.DisplayNumber,
+            LicensePlate = ticket.LicensePlateSnapshot,
+            CustomerName = ticket.CustomerNameSnapshot,
+            CargoTypeName = ticket.CargoTypeNameSnapshot,
+            Notes = ticket.Notes,
+            UnitPriceVndPerKg = unitPrice,
+            IsServiceWeigh = !WeightCalculator.HasBillableUnitPrice(unitPrice),
+            Weight1Kg = WeightStorageMapper.FromGrams(w1?.WeightGrams),
+            Weight1RecordedAt = w1?.RecordedAt,
+            Weight1PhotoPath = w1?.PhotoPath,
+            Weight1PhotoAvailable = IsPhotoAvailable(w1?.PhotoPath, w1?.PhotoCaptureSucceeded),
+            Weight1PhotoStatusText = GetPhotoStatusText(w1?.PhotoPath, w1?.PhotoCaptureSucceeded),
+            Weight2Kg = WeightStorageMapper.FromGrams(w2?.WeightGrams),
+            Weight2RecordedAt = w2?.RecordedAt,
+            Weight2PhotoPath = w2?.PhotoPath,
+            Weight2PhotoAvailable = IsPhotoAvailable(w2?.PhotoPath, w2?.PhotoCaptureSucceeded),
+            Weight2PhotoStatusText = GetPhotoStatusText(w2?.PhotoPath, w2?.PhotoCaptureSucceeded),
+            GrossWeightKg = WeightStorageMapper.FromGrams(ticket.GrossWeightGrams),
+            TareWeightKg = WeightStorageMapper.FromGrams(ticket.TareWeightGrams),
+            NetWeightKg = WeightStorageMapper.FromGrams(ticket.NetWeightGrams),
+            DeductionWeightKg = WeightStorageMapper.FromGrams(ticket.DeductionWeightGrams),
+            BillableWeightKg = WeightStorageMapper.FromGrams(ticket.BillableWeightGrams),
+            TotalAmountVnd = WeightStorageMapper.FromVnd(ticket.TotalAmountVnd)
+        };
+    }
+
+    private static bool IsPhotoAvailable(string? path, bool? captureSucceeded) =>
+        captureSucceeded == true && !string.IsNullOrEmpty(path) && File.Exists(path);
+
+    private static string GetPhotoStatusText(string? path, bool? captureSucceeded)
+    {
+        if (captureSucceeded != true || string.IsNullOrEmpty(path))
+            return "Không có ảnh";
+
+        return File.Exists(path) ? "Có ảnh" : "Ảnh đã hết thời hạn lưu";
+    }
+
     private async Task<WeighTicket> SaveNewTicketAsync(
         WeighTicketDraft draft,
         CancellationToken cancellationToken)
@@ -475,12 +532,8 @@ public sealed class WeighTicketService
         return tickets.Select(MapToListItem).ToList();
     }
 
-    private static WeighTicketListItem MapToListItem(WeighTicket ticket)
-    {
-        var w1 = ticket.Events.FirstOrDefault(e => e.Sequence == 1);
-        var w2 = ticket.Events.FirstOrDefault(e => e.Sequence == 2);
-
-        return new WeighTicketListItem
+    private static WeighTicketListItem MapToListItem(WeighTicket ticket) =>
+        new()
         {
             Id = ticket.Id,
             TicketDateTime = ticket.TicketDateTime,
@@ -488,8 +541,6 @@ public sealed class WeighTicketService
             LicensePlate = ticket.LicensePlateSnapshot,
             CustomerName = ticket.CustomerNameSnapshot,
             CargoTypeName = ticket.CargoTypeNameSnapshot,
-            Weight1Kg = WeightStorageMapper.FromGrams(w1?.WeightGrams),
-            Weight2Kg = WeightStorageMapper.FromGrams(w2?.WeightGrams),
             GrossWeightKg = WeightStorageMapper.FromGrams(ticket.GrossWeightGrams),
             TareWeightKg = WeightStorageMapper.FromGrams(ticket.TareWeightGrams),
             NetWeightKg = WeightStorageMapper.FromGrams(ticket.NetWeightGrams),
@@ -499,7 +550,6 @@ public sealed class WeighTicketService
             Notes = ticket.Notes,
             EventCount = ticket.Events.Count
         };
-    }
 
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

@@ -23,17 +23,36 @@ public class WeightCalculatorTests
         var result = WeightCalculator.Calculate(8500m, null, 500m);
 
         Assert.Null(result.GrossWeightKg);
+        Assert.Null(result.TareWeightKg);
+        Assert.Null(result.NetWeightKg);
+        Assert.Null(result.DeductionWeightKg);
         Assert.Null(result.BillableWeightKg);
         Assert.Null(result.TotalAmountVnd);
     }
 
     [Fact]
-    public void Calculate_WithoutUnitPrice_ComputesWeightsButNotTotal()
+    public void Calculate_WithoutUnitPrice_ComputesGrossTareNetButNotBilling()
     {
         var result = WeightCalculator.Calculate(8500m, 18500m, null);
 
-        Assert.Equal(9970m, result.BillableWeightKg);
+        Assert.Equal(18500m, result.GrossWeightKg);
+        Assert.Equal(8500m, result.TareWeightKg);
+        Assert.Equal(10000m, result.NetWeightKg);
+        Assert.Null(result.DeductionWeightKg);
+        Assert.Null(result.BillableWeightKg);
         Assert.Null(result.TotalAmountVnd);
+    }
+
+    [Fact]
+    public void Calculate_WithZeroUnitPrice_TreatedAsServiceWeigh()
+    {
+        var result = WeightCalculator.Calculate(8500m, 18500m, 0m);
+
+        Assert.Equal(10000m, result.NetWeightKg);
+        Assert.Null(result.DeductionWeightKg);
+        Assert.Null(result.BillableWeightKg);
+        Assert.Null(result.TotalAmountVnd);
+        Assert.False(WeightCalculator.HasBillableUnitPrice(0m));
     }
 
     [Theory]
@@ -46,7 +65,21 @@ public class WeightCalculatorTests
         var raw = net - deduction;
         var expected = Math.Round(raw, 0, MidpointRounding.AwayFromZero);
 
-        var result = WeightCalculator.Calculate(w1, w2, null);
+        var result = WeightCalculator.Calculate(w1, w2, 500m);
         Assert.Equal(expected, result.BillableWeightKg);
+    }
+
+    [Fact]
+    public void Calculate_RemovingUnitPrice_ClearsBillingFields()
+    {
+        var withPrice = WeightCalculator.Calculate(8500m, 18500m, 500m);
+        Assert.NotNull(withPrice.BillableWeightKg);
+
+        var withoutPrice = WeightCalculator.Calculate(8500m, 18500m, null);
+        Assert.Equal(withPrice.GrossWeightKg, withoutPrice.GrossWeightKg);
+        Assert.Equal(withPrice.NetWeightKg, withoutPrice.NetWeightKg);
+        Assert.Null(withoutPrice.DeductionWeightKg);
+        Assert.Null(withoutPrice.BillableWeightKg);
+        Assert.Null(withoutPrice.TotalAmountVnd);
     }
 }

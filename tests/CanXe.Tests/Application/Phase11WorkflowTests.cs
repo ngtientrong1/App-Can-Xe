@@ -46,7 +46,8 @@ public class Phase11WorkflowTests : IAsyncLifetime
 
         var save = await service.SaveAsync(draft);
         Assert.True(save.Success);
-        Assert.Equal(8500m, save.SavedTicket!.Weight1Kg);
+        var detail = await service.GetTicketDetailAsync(save.SavedTicket!.Id);
+        Assert.Equal(8500m, detail.Weight1Kg);
     }
 
     [Fact]
@@ -66,7 +67,8 @@ public class Phase11WorkflowTests : IAsyncLifetime
 
         var save = await service.SaveAsync(draft);
         Assert.True(save.Success);
-        Assert.Equal(18500m, save.SavedTicket!.Weight2Kg);
+        var detail = await service.GetTicketDetailAsync(save.SavedTicket!.Id);
+        Assert.Equal(18500m, detail.Weight2Kg);
     }
 
     [Fact]
@@ -298,8 +300,8 @@ public class Phase11WorkflowTests : IAsyncLifetime
         var net1 = NetForRawBillable(1247.2m);
         var net2 = NetForRawBillable(1247.5m);
 
-        Assert.Equal(1247m, WeightCalculator.Calculate(0m, net1, null).BillableWeightKg);
-        Assert.Equal(1248m, WeightCalculator.Calculate(0m, net2, null).BillableWeightKg);
+        Assert.Equal(1247m, WeightCalculator.Calculate(0m, net1, 500m).BillableWeightKg);
+        Assert.Equal(1248m, WeightCalculator.Calculate(0m, net2, 500m).BillableWeightKg);
     }
 
     [Fact]
