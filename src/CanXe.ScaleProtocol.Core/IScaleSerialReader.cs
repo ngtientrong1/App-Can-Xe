@@ -17,6 +17,8 @@ public interface IScaleSerialReader : IDisposable
 
     void UpdateSettings(ScaleSerialSettings settings);
     void ResetSession();
+    bool IsPortOpen { get; }
+    Task ReconfigureAndConnectAsync(ScaleSerialSettings settings, CancellationToken cancellationToken = default);
     Task ConnectAsync(CancellationToken cancellationToken = default);
     Task DisconnectAsync(CancellationToken cancellationToken = default);
 }

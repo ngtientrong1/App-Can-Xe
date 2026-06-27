@@ -4,6 +4,7 @@ namespace CanXe.Tests.Support;
 
 public sealed class FakeScaleSerialReader : IScaleSerialReader
 {
+    private readonly SemaphoreSlim _connectionGate = new(1, 1);
     private ScaleConnectionState _connectionState = ScaleConnectionState.Disconnected;
     private ScaleReading? _latestReading;
     private DateTimeOffset? _lastValidFrameAt;
@@ -11,6 +12,7 @@ public sealed class FakeScaleSerialReader : IScaleSerialReader
     private string? _lastError;
     private bool _connectShouldFail;
     private bool _disposed;
+    private int _concurrentConnectAttempts;
 
     public bool ConnectShouldFail
     {
@@ -18,10 +20,14 @@ public sealed class FakeScaleSerialReader : IScaleSerialReader
         set => _connectShouldFail = value;
     }
 
+    public TimeSpan ConnectDelay { get; set; } = TimeSpan.Zero;
+
     public int UpdateSettingsCallCount { get; private set; }
     public int ResetSessionCallCount { get; private set; }
     public int ConnectCallCount { get; private set; }
     public int DisconnectCallCount { get; private set; }
+    public int ReconfigureAndConnectCallCount { get; private set; }
+    public int MaxConcurrentConnectAttempts { get; private set; }
     public ScaleSerialSettings LastAppliedSettings { get; private set; } = new();
 
     public ScaleConnectionState ConnectionState => _connectionState;
@@ -32,6 +38,8 @@ public sealed class FakeScaleSerialReader : IScaleSerialReader
     public DateTimeOffset? LastValidFrameAt => _lastValidFrameAt;
     public bool IsStale => _isStale;
     public string? LastError => _lastError;
+    public bool IsPortOpen =>
+        _connectionState is ScaleConnectionState.Connected or ScaleConnectionState.Connecting;
 
     public event EventHandler<ScaleReading>? ValidReadingReceived;
     public event EventHandler<ScaleConnectionState>? ConnectionStateChanged;
@@ -60,7 +68,7 @@ public sealed class FakeScaleSerialReader : IScaleSerialReader
 
     public void UpdateSettings(ScaleSerialSettings settings)
     {
-        if (_connectionState == ScaleConnectionState.Connected)
+        if (IsPortOpen)
             throw new InvalidOperationException("Không thể thay đổi cấu hình khi cổng đang mở.");
 
         UpdateSettingsCallCount++;
@@ -70,7 +78,7 @@ public sealed class FakeScaleSerialReader : IScaleSerialReader
 
     public void ResetSession()
     {
-        if (_connectionState == ScaleConnectionState.Connected)
+        if (IsPortOpen)
             throw new InvalidOperationException("Không thể reset phiên khi cổng đang mở.");
 
         ResetSessionCallCount++;
@@ -81,20 +89,55 @@ public sealed class FakeScaleSerialReader : IScaleSerialReader
         DiagnosticsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public Task ConnectAsync(CancellationToken cancellationToken = default)
+    public async Task ReconfigureAndConnectAsync(
+        ScaleSerialSettings settings,
+        CancellationToken cancellationToken = default)
     {
-        ConnectCallCount++;
-        if (_connectShouldFail)
+        await _connectionGate.WaitAsync(cancellationToken);
+        try
         {
-            _connectionState = ScaleConnectionState.Error;
-            _lastError = "Connect failed";
-            ConnectionStateChanged?.Invoke(this, _connectionState);
-            return Task.CompletedTask;
+            ReconfigureAndConnectCallCount++;
+            await DisconnectAsync(cancellationToken);
+            Settings = settings;
+            LastAppliedSettings = settings;
+            UpdateSettingsCallCount++;
+            ResetSessionCallCount++;
+            await ConnectAsync(cancellationToken);
         }
+        finally
+        {
+            _connectionGate.Release();
+        }
+    }
 
-        _connectionState = ScaleConnectionState.Connected;
-        ConnectionStateChanged?.Invoke(this, _connectionState);
-        return Task.CompletedTask;
+    public async Task ConnectAsync(CancellationToken cancellationToken = default)
+    {
+        var active = Interlocked.Increment(ref _concurrentConnectAttempts);
+        try
+        {
+            MaxConcurrentConnectAttempts = Math.Max(MaxConcurrentConnectAttempts, active);
+            ConnectCallCount++;
+            _connectionState = ScaleConnectionState.Connecting;
+            ConnectionStateChanged?.Invoke(this, _connectionState);
+
+            if (ConnectDelay > TimeSpan.Zero)
+                await Task.Delay(ConnectDelay, cancellationToken);
+
+            if (_connectShouldFail)
+            {
+                _connectionState = ScaleConnectionState.Error;
+                _lastError = "Connect failed";
+                ConnectionStateChanged?.Invoke(this, _connectionState);
+                return;
+            }
+
+            _connectionState = ScaleConnectionState.Connected;
+            ConnectionStateChanged?.Invoke(this, _connectionState);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _concurrentConnectAttempts);
+        }
     }
 
     public Task DisconnectAsync(CancellationToken cancellationToken = default)
@@ -122,5 +165,6 @@ public sealed class FakeScaleSerialReader : IScaleSerialReader
 
         _disposed = true;
         _connectionState = ScaleConnectionState.Disconnected;
+        _connectionGate.Dispose();
     }
 }

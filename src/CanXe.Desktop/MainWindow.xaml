@@ -470,23 +470,34 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel Visibility="{Binding IsDeveloperPanelAvailable, Converter={StaticResource BoolToVis}}">
                     <DockPanel Margin="0,0,0,12">
-                        <TextBlock Text="DEV — Nguồn cân" FontSize="17" FontWeight="Bold" DockPanel.Dock="Left"/>
+                        <TextBlock Text="DEV — Chẩn đoán" FontSize="17" FontWeight="Bold" DockPanel.Dock="Left"/>
                         <Button Content="✕" Command="{Binding ToggleDevDrawerCommand}" DockPanel.Dock="Right"
                                 Style="{StaticResource CanXeSecondaryButtonStyle}" Padding="8,4" MinHeight="36"/>
                     </DockPanel>
 
+                    <TextBlock Text="Trạng thái" Style="{StaticResource SectionHeaderTextStyle}"/>
+                    <TextBlock Margin="0,0,0,4"><Run Text="Nguồn hiện tại: "/><Run Text="{Binding DevWeightSourceDisplay, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+                    <TextBlock Margin="0,0,0,4"><Run Text="Active ScaleInputMode: "/><Run Text="{Binding DevActiveScaleInputModeDisplay, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+                    <TextBlock Margin="0,0,0,4"><Run Text="DeviceMode: "/><Run Text="{Binding DevDeviceModeDisplay, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+                    <TextBlock Margin="0,0,0,4"><Run Text="COM connected: "/><Run Text="{Binding DevComConnectedDisplay, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+                    <TextBlock Margin="0,0,0,4"><Run Text="COM port / baud: "/><Run Text="{Binding DevComPortBaudDisplay, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+                    <TextBlock Margin="0,0,0,4"><Run Text="Frame: "/><Run Text="{Binding DevFrameStatusDisplay, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+                    <TextBlock Margin="0,0,0,4"><Run Text="Stable: "/><Run Text="{Binding DevStableDisplay, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+                    <TextBlock Margin="0,0,0,4"><Run Text="Last frame: "/><Run Text="{Binding DevLastFrameDisplay, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+                    <TextBlock Margin="0,0,0,4"><Run Text="Last valid reading: "/><Run Text="{Binding DevLastValidReadingTimeDisplay, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+                    <TextBlock Margin="0,0,0,12"><Run Text="Simulation running: "/><Run Text="{Binding DevSimulationRunningDisplay, Mode=OneWay}" FontWeight="SemiBold"/></TextBlock>
+
                     <TextBlock Text="Chế độ nguồn trọng lượng" Style="{StaticResource SectionHeaderTextStyle}"/>
                     <StackPanel Margin="0,0,0,12">
-                        <ToggleButton Content="TỰ ĐỘNG MÔ PHỎNG" Style="{StaticResource CanXeSegmentButtonStyle}"
-                                      IsChecked="{Binding IsSimulationAutomaticMode, Mode=OneWay}"
-                                      Command="{Binding SelectSimulationAutomaticModeAsyncCommand}"/>
-                        <ToggleButton Content="NHẬP THỦ CÔNG" Style="{StaticResource CanXeSegmentButtonStyle}"
-                                      IsChecked="{Binding IsSimulationManualMode, Mode=OneWay}"
-                                      Command="{Binding SelectSimulationManualModeAsyncCommand}"/>
-                        <ToggleButton Content="ĐẦU CÂN COM" Style="{StaticResource CanXeSegmentButtonStyle}"
-                                      IsChecked="{Binding IsHardwareMode, Mode=OneWay}"
-                                      Command="{Binding SelectHardwareModeAsyncCommand}"
-                                      IsEnabled="{Binding IsHardwareModeEnabled}"/>
+                        <RadioButton Content="Tự động mô phỏng" GroupName="DevScaleSource"
+                                     IsChecked="{Binding IsAutomaticSimulationMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Margin="0,4,0,0"/>
+                        <RadioButton Content="Thủ công mô phỏng" GroupName="DevScaleSource"
+                                     IsChecked="{Binding IsManualSimulationMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Margin="0,4,0,0"/>
+                        <RadioButton Content="Đầu cân COM" GroupName="DevScaleSource"
+                                     IsChecked="{Binding IsHardwareScaleMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     IsEnabled="{Binding IsHardwareModeEnabled}" Margin="0,4,0,0"/>
                     </StackPanel>
 
                     <Button Content="TRỞ VỀ TỰ ĐỘNG" Command="{Binding ReturnToAutomaticModeAsyncCommand}"
@@ -495,8 +506,17 @@
 
                     <StackPanel Visibility="{Binding IsManualWeightInputVisible, Converter={StaticResource BoolToVis}}" Margin="0,0,0,12">
                         <TextBlock Text="Trọng lượng mô phỏng (kg)" Style="{StaticResource SectionHeaderTextStyle}"/>
-                        <TextBox Text="{Binding SimulatedWeightText, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Button Content="ÁP DỤNG" Command="{Binding ApplySimulatedWeightCommand}" Style="{StaticResource CanXeWeightButtonStyle}" Margin="0,0,0,8"/>
+                        <TextBox Text="{Binding SimulatedWeightText, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource CanXeTextBoxStyle}"/>
+                        <TextBlock Text="{Binding ManualSimulationInputError}" Foreground="{StaticResource DangerBrush}"
+                                   TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Visibility="{Binding ManualSimulationInputError, Converter={StaticResource NullToVis}}"/>
+                        <UniformGrid Columns="2" Margin="0,8,0,8">
+                            <Button Content="ÁP DỤNG" Command="{Binding ApplySimulatedWeightCommand}"
+                                    Style="{StaticResource CanXeWeightButtonStyle}" Margin="0,0,4,0"/>
+                            <Button Content="VỀ 0" Command="{Binding ResetSimulatedWeightToZeroCommand}"
+                                    Style="{StaticResource CanXeSecondaryButtonStyle}" Margin="4,0,0,0"/>
+                        </UniformGrid>
                         <UniformGrid Columns="2" Margin="0,0,0,8">
                             <Button Content="8.500 kg" Command="{Binding ApplyPresetWeight8500Command}" Style="{StaticResource CanXeSecondaryButtonStyle}" Margin="0,0,4,0"/>
                             <Button Content="18.500 kg" Command="{Binding ApplyPresetWeight18500Command}" Style="{StaticResource CanXeSecondaryButtonStyle}" Margin="4,0,0,0"/>
@@ -513,9 +533,11 @@
                     <TextBlock Text="{Binding Weight1ValueText}" FontSize="16" Margin="0,0,0,8"/>
                     <TextBlock Text="Draft Weight2" Style="{StaticResource SectionHeaderTextStyle}"/>
                     <TextBlock Text="{Binding Weight2ValueText}" FontSize="16" Margin="0,0,0,8"/>
-                    <CheckBox IsChecked="{Binding DeveloperWeight1OverrideEnabled}" FontSize="14">
+                    <CheckBox IsChecked="{Binding DeveloperWeight1OverrideEnabled}" FontSize="14" Margin="0,0,0,12">
                         <TextBlock Text="Cho phép cập nhật lại Weight1 sau Weight2" TextWrapping="Wrap"/>
                     </CheckBox>
+
+                    <Button Content="ĐÓNG DEV" Command="{Binding ToggleDevDrawerCommand}" Style="{StaticResource CanXeSecondaryButtonStyle}"/>
                 </StackPanel>
             </ScrollViewer>
         </Border>
@@ -913,10 +935,10 @@
                 <TextBlock Text="HỆ THỐNG" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
                 <Border Style="{StaticResource CardBorder}">
                     <StackPanel>
-                        <TextBlock><Run Text="Phiên bản: "/><Run Text="{Binding ApplicationVersion}"/></TextBlock>
-                        <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"><Run Text="Database: "/><Run Text="{Binding DatabasePath}"/></TextBlock>
-                        <TextBlock Margin="0,4,0,0"><Run Text="Chế độ: "/><Run Text="{Binding DeviceModeDisplay}"/></TextBlock>
-                        <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"><Run Text="Migration: "/><Run Text="{Binding MigrationStatus}"/></TextBlock>
+                        <TextBlock><Run Text="Phiên bản: "/><Run Text="{Binding ApplicationVersion, Mode=OneWay}"/></TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"><Run Text="Database: "/><Run Text="{Binding DatabasePath, Mode=OneWay}"/></TextBlock>
+                        <TextBlock Margin="0,4,0,0"><Run Text="Chế độ: "/><Run Text="{Binding DeviceModeDisplay, Mode=OneWay}"/></TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"><Run Text="Migration: "/><Run Text="{Binding MigrationStatus, Mode=OneWay}"/></TextBlock>
                         <TextBlock Text="{Binding ErrorLogSummary}" Margin="0,8,0,0" Foreground="{StaticResource TextSecondaryBrush}"/>
                         <Button Content="SAO LƯU DATABASE" Command="{Binding BackupDatabaseCommand}" Style="{StaticResource FilterButton}" Margin="0,12,0,0"/>
                     </StackPanel>

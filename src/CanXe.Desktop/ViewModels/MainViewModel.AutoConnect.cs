@@ -1,5 +1,6 @@
 using CanXe.Domain.Models;
 using CanXe.Domain.Services;
+using CanXe.Desktop.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -10,6 +11,9 @@ public sealed partial class MainViewModel
     private bool _disconnectedByUser;
     private bool _hasReceivedHardwareFrame;
     private CancellationTokenSource? _autoConnectCts;
+    private int _autoConnectGeneration;
+    private int _connectionOperationId;
+    private readonly SemaphoreSlim _vmConnectGate = new(1, 1);
 
     [ObservableProperty] private bool _isScaleConnecting;
     [ObservableProperty] private string _operatorStatusMessage = string.Empty;
@@ -71,17 +75,34 @@ public sealed partial class MainViewModel
         _autoConnectCts?.Cancel();
         _autoConnectCts = new CancellationTokenSource();
         var token = _autoConnectCts.Token;
+        var generation = Interlocked.Increment(ref _autoConnectGeneration);
+
+        ScaleConnectionLogger.Write(
+            Interlocked.Increment(ref _connectionOperationId),
+            "AutoConnect:scheduled",
+            _hardwareScale?.IsConnected == true,
+            null,
+            null,
+            null,
+            ScaleInputMode.ToString(),
+            _developerModeEnabled);
 
         for (var attempt = 0; attempt < ScaleAutoConnectPolicy.MaxRetryAttempts; attempt++)
         {
-            if (token.IsCancellationRequested || _disconnectedByUser)
+            if (token.IsCancellationRequested
+                || generation != _autoConnectGeneration
+                || _disconnectedByUser
+                || ScaleInputMode != ScaleInputMode.Hardware)
+                return;
+
+            if (_hardwareScale?.IsConnected == true)
                 return;
 
             var delay = ScaleAutoConnectPolicy.GetRetryDelay(attempt);
             if (delay > TimeSpan.Zero)
                 await Task.Delay(delay, token).ConfigureAwait(false);
 
-            if (await ConnectHardwareInternalAsync(token).ConfigureAwait(false))
+            if (await ConnectHardwareInternalAsync(token, attempt).ConfigureAwait(false))
                 return;
         }
     }
@@ -101,36 +122,87 @@ public sealed partial class MainViewModel
         await ConnectHardwareInternalAsync().ConfigureAwait(false);
     }
 
-    private async Task<bool> ConnectHardwareInternalAsync(CancellationToken cancellationToken = default)
+    private async Task<bool> ConnectHardwareInternalAsync(
+        CancellationToken cancellationToken = default,
+        int? retryNumber = null)
     {
         if (_hardwareScale is null || ScaleInputMode != ScaleInputMode.Hardware)
             return false;
 
-        IsScaleConnecting = true;
-        _hasReceivedHardwareFrame = false;
-        RefreshLiveWeightDisplay();
-        OnPropertyChanged(nameof(IsRetryConnectVisible));
-
+        await _vmConnectGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var operationId = Interlocked.Increment(ref _connectionOperationId);
         try
         {
+            if (_hardwareScale.IsConnected)
+                return true;
+
+            IsScaleConnecting = true;
+            _hasReceivedHardwareFrame = false;
+            RefreshLiveWeightDisplay();
+            OnPropertyChanged(nameof(IsRetryConnectVisible));
+
             IsHardwareConnectEnabled = false;
             var settings = BuildHardwareSerialSettings();
-            await _hardwareScale.PrepareAndConnectHardwareAsync(settings, cancellationToken).ConfigureAwait(false);
-            if (!_hardwareScale.IsConnected)
+            var portOpenBefore = _hardwareScale.IsConnected;
+
+            ScaleConnectionLogger.Write(
+                operationId,
+                "Connect:start",
+                portOpenBefore,
+                $"{settings.PortName} @ {settings.BaudRate}",
+                null,
+                retryNumber,
+                ScaleInputMode.ToString(),
+                _developerModeEnabled);
+
+            try
             {
-                OperatorStatusMessage = $"Không mở được {settings.PortName}";
+                await _hardwareScale.PrepareAndConnectHardwareAsync(settings, cancellationToken).ConfigureAwait(false);
+                if (!_hardwareScale.IsConnected)
+                {
+                    OperatorStatusMessage = $"Không mở được {settings.PortName}";
+                    ScaleConnectionLogger.Write(
+                        operationId,
+                        "Connect:failed",
+                        false,
+                        $"{settings.PortName} @ {settings.BaudRate}",
+                        false,
+                        retryNumber,
+                        ScaleInputMode.ToString(),
+                        _developerModeEnabled,
+                        "Not connected after PrepareAndConnect");
+                    return false;
+                }
+
+                OperatorStatusMessage = $"Đã kết nối {settings.PortName} @ {settings.BaudRate}";
+                ScaleConnectionLogger.Write(
+                    operationId,
+                    "Connect:succeeded",
+                    false,
+                    $"{settings.PortName} @ {settings.BaudRate}",
+                    true,
+                    retryNumber,
+                    ScaleInputMode.ToString(),
+                    _developerModeEnabled);
+                LogScaleModeState("ConnectHardware");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                var port = settings.PortName;
+                OperatorStatusMessage = $"Không mở được {port}: {ex.Message}";
+                ScaleConnectionLogger.Write(
+                    operationId,
+                    "Connect:failed",
+                    portOpenBefore,
+                    $"{settings.PortName} @ {settings.BaudRate}",
+                    false,
+                    retryNumber,
+                    ScaleInputMode.ToString(),
+                    _developerModeEnabled,
+                    ex.Message);
                 return false;
             }
-
-            OperatorStatusMessage = $"Đã kết nối {settings.PortName} @ {settings.BaudRate}";
-            LogScaleModeState("ConnectHardware");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            var port = BuildHardwareSerialSettings().PortName;
-            OperatorStatusMessage = $"Không mở được {port}: {ex.Message}";
-            return false;
         }
         finally
         {
@@ -138,6 +210,7 @@ public sealed partial class MainViewModel
             UpdateHardwareDiagnostics();
             RefreshLiveWeightDisplay();
             OnPropertyChanged(nameof(IsRetryConnectVisible));
+            _vmConnectGate.Release();
         }
     }
 

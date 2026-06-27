@@ -28,12 +28,22 @@ public static class ScaleInputModeDisplay
         && savedScaleInputMode.HasValue
         && savedScaleInputMode.Value != ScaleInputMode.Hardware;
 
-    public static bool IsValidModeForDevice(string deviceMode, ScaleInputMode mode)
+    public static bool IsValidModeForDevice(string deviceMode, ScaleInputMode mode) =>
+        IsValidModeForDevice(deviceMode, mode, developerModeEnabled: false);
+
+    public static bool IsValidModeForDevice(string deviceMode, ScaleInputMode mode, bool developerModeEnabled)
     {
         if (mode == ScaleInputMode.Hardware)
             return IsHardwareDeviceMode(deviceMode);
-        return mode is ScaleInputMode.SimulationAutomatic or ScaleInputMode.SimulationManual;
+
+        if (mode is ScaleInputMode.SimulationAutomatic or ScaleInputMode.SimulationManual)
+            return !IsHardwareDeviceMode(deviceMode) || developerModeEnabled;
+
+        return false;
     }
+
+    public static bool IsSimulationSelectionEnabled(string deviceMode, bool developerModeEnabled) =>
+        !IsHardwareDeviceMode(deviceMode) || developerModeEnabled;
 
     public static string GetWeightSourceText(ScaleInputMode mode) => mode switch
     {
@@ -65,7 +75,21 @@ public static class ScaleInputModeDisplay
             _ => "● Đầu cân: —"
         };
 
-    public static bool ShouldPersistMode(ScaleInputMode mode) => true;
+    public static bool ShouldPersistMode(ScaleInputMode mode) =>
+        ShouldPersistMode("Simulation", mode);
+
+    public static bool ShouldPersistMode(string deviceMode, ScaleInputMode mode)
+    {
+        if (IsHardwareDeviceMode(deviceMode))
+            return mode == ScaleInputMode.Hardware;
+
+        return mode is ScaleInputMode.Hardware or ScaleInputMode.SimulationAutomatic or ScaleInputMode.SimulationManual;
+    }
+
+    public static ScaleInputMode GetPersistedScaleInputMode(string deviceMode, ScaleInputMode activeMode) =>
+        ShouldPersistMode(deviceMode, activeMode)
+            ? activeMode
+            : GetDefaultMode(deviceMode);
 
     public static bool IsManualInputEnabled(ScaleInputMode mode) =>
         mode == ScaleInputMode.SimulationManual;

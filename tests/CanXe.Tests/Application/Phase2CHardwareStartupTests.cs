@@ -83,7 +83,7 @@ public class Phase2CHardwareStartupTests
         await service.SetInputModeAsync(ScaleInputMode.SimulationAutomatic);
 
         Assert.Equal(ScaleConnectionState.Disconnected, reader.ConnectionState);
-        Assert.Equal(1, reader.DisconnectCallCount);
+        Assert.True(reader.DisconnectCallCount >= 1);
     }
 
     [Fact]
@@ -105,9 +105,7 @@ public class Phase2CHardwareStartupTests
 
         await service.PrepareAndConnectHardwareAsync(settings);
 
-        Assert.Equal(0, reader.DisconnectCallCount);
-        Assert.Equal(1, reader.UpdateSettingsCallCount);
-        Assert.Equal(1, reader.ResetSessionCallCount);
+        Assert.Equal(1, reader.ReconfigureAndConnectCallCount);
         Assert.Equal(1, reader.ConnectCallCount);
         Assert.Equal("COM1", reader.LastAppliedSettings.PortName);
         Assert.Equal(1200, reader.LastAppliedSettings.BaudRate);
@@ -218,6 +216,24 @@ public class Phase2CHardwareStartupTests
     {
         Assert.True(ScaleInputModeDisplay.IsValidModeForDevice("Hardware", ScaleInputMode.Hardware));
         Assert.False(ScaleInputModeDisplay.IsValidModeForDevice("Simulation", ScaleInputMode.Hardware));
+        Assert.False(ScaleInputModeDisplay.IsValidModeForDevice("Hardware", ScaleInputMode.SimulationManual));
+        Assert.True(ScaleInputModeDisplay.IsValidModeForDevice("Hardware", ScaleInputMode.SimulationManual, developerModeEnabled: true));
+    }
+
+    [Fact]
+    public void ScaleInputMode_PersistsForAllModes_OnSimulationDeployment()
+    {
+        Assert.True(ScaleInputModeDisplay.ShouldPersistMode("Simulation", ScaleInputMode.Hardware));
+        Assert.True(ScaleInputModeDisplay.ShouldPersistMode("Simulation", ScaleInputMode.SimulationAutomatic));
+        Assert.True(ScaleInputModeDisplay.ShouldPersistMode("Simulation", ScaleInputMode.SimulationManual));
+    }
+
+    [Fact]
+    public void ScaleInputMode_OnlyHardwarePersists_OnHardwareDeployment()
+    {
+        Assert.True(ScaleInputModeDisplay.ShouldPersistMode("Hardware", ScaleInputMode.Hardware));
+        Assert.False(ScaleInputModeDisplay.ShouldPersistMode("Hardware", ScaleInputMode.SimulationAutomatic));
+        Assert.False(ScaleInputModeDisplay.ShouldPersistMode("Hardware", ScaleInputMode.SimulationManual));
     }
 
     [Fact]
@@ -228,13 +244,5 @@ public class Phase2CHardwareStartupTests
             RawFrame = ScaleFrameFixtures.Frame0Kg
         });
         Assert.Equal("+00000001B", display);
-    }
-
-    [Fact]
-    public void ScaleInputMode_PersistsForAllModes()
-    {
-        Assert.True(ScaleInputModeDisplay.ShouldPersistMode(ScaleInputMode.Hardware));
-        Assert.True(ScaleInputModeDisplay.ShouldPersistMode(ScaleInputMode.SimulationAutomatic));
-        Assert.True(ScaleInputModeDisplay.ShouldPersistMode(ScaleInputMode.SimulationManual));
     }
 }

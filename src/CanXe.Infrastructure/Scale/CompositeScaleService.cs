@@ -9,6 +9,8 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
     private readonly SimulatedScaleService _simulated = new();
     private readonly IScaleSerialReader _reader;
     private readonly SemaphoreSlim _modeLock = new(1, 1);
+    private readonly SemaphoreSlim _connectionGate = new(1, 1);
+    private bool _disposed;
     private ScaleInputMode _inputMode = ScaleInputMode.SimulationAutomatic;
     private string? _lastChecksumError;
 
@@ -86,7 +88,13 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
         }
     }
 
-    public void UpdateHardwareSettings(ScaleSerialSettings settings) => _reader.UpdateSettings(settings);
+    public void UpdateHardwareSettings(ScaleSerialSettings settings)
+    {
+        if (_reader.IsPortOpen)
+            throw new InvalidOperationException("Không thể thay đổi cấu hình khi cổng đang mở.");
+
+        _reader.UpdateSettings(settings);
+    }
 
     public Task ConnectHardwareAsync(CancellationToken cancellationToken = default) =>
         PrepareAndConnectHardwareAsync(_reader.Settings, cancellationToken);
@@ -95,22 +103,39 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
         ScaleSerialSettings settings,
         CancellationToken cancellationToken = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (_inputMode != ScaleInputMode.Hardware)
             throw new InvalidOperationException("Chỉ có thể kết nối COM khi nguồn đầu cân là Hardware.");
 
-        if (_reader.ConnectionState == ScaleConnectionState.Connected)
-            await DisconnectHardwareAsync(cancellationToken).ConfigureAwait(false);
+        await _connectionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await _reader.ReconfigureAndConnectAsync(settings, cancellationToken).ConfigureAwait(false);
 
-        _reader.UpdateSettings(settings);
-        _reader.ResetSession();
-        await _reader.ConnectAsync(cancellationToken).ConfigureAwait(false);
-
-        if (_reader.ConnectionState != ScaleConnectionState.Connected)
-            throw new InvalidOperationException(_reader.LastError ?? "Kết nối thất bại.");
+            if (_reader.ConnectionState != ScaleConnectionState.Connected)
+                throw new InvalidOperationException(_reader.LastError ?? "Kết nối thất bại.");
+        }
+        finally
+        {
+            _connectionGate.Release();
+        }
     }
 
-    public Task DisconnectHardwareAsync(CancellationToken cancellationToken = default) =>
-        _reader.DisconnectAsync(cancellationToken);
+    public async Task DisconnectHardwareAsync(CancellationToken cancellationToken = default)
+    {
+        if (_disposed)
+            return;
+
+        await _connectionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await _reader.DisconnectAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _connectionGate.Release();
+        }
+    }
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -181,6 +206,10 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
 
     public async ValueTask DisposeAsync()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
         _reader.ValidReadingReceived -= OnHardwareReading;
         _reader.ConnectionStateChanged -= OnReaderStateChanged;
         _reader.DiagnosticsChanged -= OnReaderDiagnosticsChanged;
@@ -188,6 +217,7 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
         await _simulated.DisposeAsync().ConfigureAwait(false);
         _reader.Dispose();
         _modeLock.Dispose();
+        _connectionGate.Dispose();
     }
 
     internal void WireReaderEvents()

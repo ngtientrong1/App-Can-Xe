@@ -48,5 +48,8 @@ public sealed partial class MainViewModel
     public bool IsSimulationManualMode => IsManualSimulationMode;
 
     public bool IsSimulationScaleSourceSelectionEnabled =>
-        !ScaleInputModeDisplay.IsHardwareDeviceMode(EffectiveDeviceMode);
+        ScaleInputModeDisplay.IsSimulationSelectionEnabled(EffectiveDeviceMode, _developerModeEnabled);
+
+    public bool IsManualWeightInputVisible =>
+        _developerModeEnabled && ScaleInputMode == ScaleInputMode.SimulationManual;
 }

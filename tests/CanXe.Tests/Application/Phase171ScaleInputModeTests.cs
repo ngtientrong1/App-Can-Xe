@@ -22,11 +22,19 @@ public class Phase171ScaleInputModeTests
     }
 
     [Fact]
-    public void ManualMode_PersistsWhenSelected()
+    public void ManualMode_PersistsWhenSelected_OnSimulationDeployment()
     {
-        Assert.True(ScaleInputModeDisplay.ShouldPersistMode(ScaleInputMode.SimulationManual));
-        Assert.True(ScaleInputModeDisplay.ShouldPersistMode(ScaleInputMode.SimulationAutomatic));
-        Assert.True(ScaleInputModeDisplay.ShouldPersistMode(ScaleInputMode.Hardware));
+        Assert.True(ScaleInputModeDisplay.ShouldPersistMode("Simulation", ScaleInputMode.SimulationManual));
+        Assert.True(ScaleInputModeDisplay.ShouldPersistMode("Simulation", ScaleInputMode.SimulationAutomatic));
+        Assert.True(ScaleInputModeDisplay.ShouldPersistMode("Simulation", ScaleInputMode.Hardware));
+    }
+
+    [Fact]
+    public void ManualMode_DoesNotPersistOnHardwareDeployment()
+    {
+        Assert.True(ScaleInputModeDisplay.ShouldPersistMode("Hardware", ScaleInputMode.Hardware));
+        Assert.False(ScaleInputModeDisplay.ShouldPersistMode("Hardware", ScaleInputMode.SimulationManual));
+        Assert.False(ScaleInputModeDisplay.ShouldPersistMode("Hardware", ScaleInputMode.SimulationAutomatic));
     }
 
     [Fact]

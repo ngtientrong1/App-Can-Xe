@@ -1,10 +1,12 @@
 using System.IO.Ports;
+using System.Threading;
 
 namespace CanXe.ScaleProtocol.Core;
 
 public sealed class WindowsScaleSerialReader : IScaleSerialReader
 {
     private readonly object _sync = new();
+    private readonly SemaphoreSlim _connectionGate = new(1, 1);
     private readonly ScaleFrameParser _parser = new();
     private readonly ScaleStabilityDetector _stability = new();
     private readonly Timer _staleTimer;
@@ -50,6 +52,11 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         get { lock (_sync) return _lastError; }
     }
 
+    public bool IsPortOpen
+    {
+        get { lock (_sync) return _port?.IsOpen == true; }
+    }
+
     public event EventHandler<ScaleReading>? ValidReadingReceived;
     public event EventHandler<ScaleConnectionState>? ConnectionStateChanged;
     public event EventHandler? DiagnosticsChanged;
@@ -67,22 +74,44 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         if (_port?.IsOpen == true)
             throw new InvalidOperationException("Không thể reset phiên khi cổng đang mở.");
 
-        _parser.ResetBuffer();
-        _stability.Reset();
-        lock (_sync)
-        {
-            _latestReading = null;
-            _lastValidFrameAt = null;
-            _isStale = true;
-            _lastError = null;
-        }
-
-        RaiseDiagnosticsChanged();
+        ResetSessionCore();
     }
 
-    public Task ConnectAsync(CancellationToken cancellationToken = default)
+    public async Task ReconfigureAndConnectAsync(
+        ScaleSerialSettings settings,
+        CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        await _connectionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await DisconnectUnlockedAsync(cancellationToken).ConfigureAwait(false);
+            Settings = settings;
+            ResetSessionCore();
+            await ConnectCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _connectionGate.Release();
+        }
+    }
+
+    public async Task ConnectAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _connectionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await ConnectCoreAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _connectionGate.Release();
+        }
+    }
+
+    private Task ConnectCoreAsync(CancellationToken cancellationToken = default)
+    {
         if (_port?.IsOpen == true)
             return Task.CompletedTask;
 
@@ -129,7 +158,20 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         }, cancellationToken);
     }
 
-    public Task DisconnectAsync(CancellationToken cancellationToken = default)
+    public async Task DisconnectAsync(CancellationToken cancellationToken = default)
+    {
+        await _connectionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await DisconnectUnlockedAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _connectionGate.Release();
+        }
+    }
+
+    private Task DisconnectUnlockedAsync(CancellationToken cancellationToken = default)
     {
         _staleTimer.Change(Timeout.Infinite, Timeout.Infinite);
         return Task.Run(() =>
@@ -157,6 +199,21 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         }, cancellationToken);
     }
 
+    private void ResetSessionCore()
+    {
+        _parser.ResetBuffer();
+        _stability.Reset();
+        lock (_sync)
+        {
+            _latestReading = null;
+            _lastValidFrameAt = null;
+            _isStale = true;
+            _lastError = null;
+        }
+
+        RaiseDiagnosticsChanged();
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -166,12 +223,14 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         _staleTimer.Dispose();
         try
         {
-            DisconnectAsync().GetAwaiter().GetResult();
+            DisconnectUnlockedAsync().GetAwaiter().GetResult();
         }
         catch
         {
             // Best effort on shutdown.
         }
+
+        _connectionGate.Dispose();
     }
 
     private void OnDataReceived(object sender, SerialDataReceivedEventArgs e)
