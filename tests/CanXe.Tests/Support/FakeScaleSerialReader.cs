@@ -52,13 +52,17 @@ public sealed class FakeScaleSerialReader : IScaleSerialReader
             WeightKg = weightKg,
             RawFrame = rawFrame,
             IsStable = true,
+            StableSource = ScaleStableSource.HardwareFlag,
+            RawStableFlag = true,
             ReceivedAt = DateTimeOffset.Now
         };
         StabilityState = new ScaleStabilityState
         {
             IsStable = true,
-            ConsecutiveMatchingFrames = 8,
-            CurrentWeightKg = weightKg
+            StableSource = ScaleStableSource.HardwareFlag,
+            ConsecutiveMatchingFrames = 2,
+            CurrentWeightKg = weightKg,
+            RawStableFlag = true
         };
         _lastValidFrameAt = DateTimeOffset.Now;
         _isStale = false;

@@ -31,14 +31,11 @@ public partial class App : System.Windows.Application
             Directory.CreateDirectory(photoRoot);
 
             var settings = LoadSettings();
-            var appPaths = new AppPaths { DatabasePath = dbPath, PhotoRoot = photoRoot };
 
             _host = Host.CreateDefaultBuilder()
                 .ConfigureServices(services =>
                 {
                     services.AddCanXeInfrastructure(settings, dbPath, photoRoot);
-                    services.AddSingleton(settings);
-                    services.AddSingleton(appPaths);
                     services.AddSingleton<IUserNotificationService, WpfNotificationService>();
                     services.AddSingleton<IUiFocusService, WpfUiFocusService>();
                     services.AddSingleton<ITicketDocumentRenderer, WpfTicketDocumentRenderer>();

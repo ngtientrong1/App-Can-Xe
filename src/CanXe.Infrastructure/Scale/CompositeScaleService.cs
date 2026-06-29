@@ -36,6 +36,8 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
     public bool IsConnected => _reader.ConnectionState == ScaleConnectionState.Connected;
     public bool IsStale => _reader.IsStale;
     public bool IsStable => _reader.StabilityState.IsStable;
+    public ScaleStableSource StableSource =>
+        _reader.LatestReading?.StableSource ?? ScaleStableSource.Unknown;
     public DateTimeOffset? LastValidFrameAt => _reader.LastValidFrameAt;
     public string? LastChecksumError => _lastChecksumError;
     public ScaleReading? LatestReading => _reader.LatestReading;
@@ -198,7 +200,12 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
         if (_reader.LatestReading is null)
             return "Chưa nhận frame hợp lệ từ đầu cân.";
         if (!IsStable)
-            return "Trọng lượng chưa ổn định — chờ thêm frame giống nhau.";
+        {
+            var source = LatestReading?.StableSource ?? ScaleStableSource.Unknown;
+            return source == ScaleStableSource.HardwareFlag
+                ? "Trọng lượng chưa ổn định — đầu cân báo chưa stable."
+                : "Trọng lượng chưa ổn định — chờ thêm frame giống nhau.";
+        }
         return null;
     }
 

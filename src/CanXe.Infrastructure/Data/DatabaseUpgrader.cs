@@ -9,6 +9,7 @@ public static class DatabaseUpgrader
     public const string Phase17MigrationId = "202606270002_Phase17_StationAndDeviceSettings";
     public const string Phase2CMigrationId = "202606270003_Phase2C_ScaleInputMode";
     public const string Phase2DMigrationId = "202606270004_Phase2D_AutoConnectScale";
+    public const string Phase3AMigrationId = "202606270005_Phase3A_CameraRtspAutoConnect";
 
     public static async Task UpgradeAsync(CanXeDbContext db, string databasePath, CancellationToken cancellationToken = default)
     {
@@ -22,6 +23,8 @@ public static class DatabaseUpgrader
             await RecordMigrationAsync(db, Phase17MigrationId, cancellationToken);
             await RecordMigrationAsync(db, Phase2CMigrationId, cancellationToken);
             await RecordMigrationAsync(db, Phase2DMigrationId, cancellationToken);
+            await ApplyPhase3ACameraRtspFieldsAsync(db, cancellationToken);
+            await RecordMigrationAsync(db, Phase3AMigrationId, cancellationToken);
             return;
         }
 
@@ -37,6 +40,9 @@ public static class DatabaseUpgrader
 
         await ApplyPhase2DAutoConnectScaleAsync(db, cancellationToken);
         await RecordMigrationAsync(db, Phase2DMigrationId, cancellationToken);
+
+        await ApplyPhase3ACameraRtspFieldsAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase3AMigrationId, cancellationToken);
     }
 
     public static void BackupDatabase(string databasePath)
@@ -123,6 +129,18 @@ public static class DatabaseUpgrader
             return;
 
         await AddColumnIfMissingAsync(db, "ScaleDeviceSettings", "ScaleInputMode", "TEXT NULL", cancellationToken);
+    }
+
+    private static async Task ApplyPhase3ACameraRtspFieldsAsync(CanXeDbContext db, CancellationToken cancellationToken)
+    {
+        if (!await TableExistsAsync(db, "CameraDeviceSettings", cancellationToken))
+            return;
+
+        await AddColumnIfMissingAsync(db, "CameraDeviceSettings", "RtspHost", "TEXT NULL", cancellationToken);
+        await AddColumnIfMissingAsync(db, "CameraDeviceSettings", "RtspPort", "INTEGER NOT NULL DEFAULT 554", cancellationToken);
+        await AddColumnIfMissingAsync(db, "CameraDeviceSettings", "RtspPath", "TEXT NULL", cancellationToken);
+        await AddColumnIfMissingAsync(db, "CameraDeviceSettings", "RtspTransport", "TEXT NOT NULL DEFAULT 'TCP'", cancellationToken);
+        await AddColumnIfMissingAsync(db, "CameraDeviceSettings", "ConnectTimeoutSeconds", "INTEGER NOT NULL DEFAULT 5", cancellationToken);
     }
 
     private static async Task ApplyPhase2DAutoConnectScaleAsync(CanXeDbContext db, CancellationToken cancellationToken)

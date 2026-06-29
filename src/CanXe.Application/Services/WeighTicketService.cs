@@ -2,6 +2,7 @@ using CanXe.Application.Interfaces;
 using CanXe.Application.Mapping;
 using CanXe.Application.Models;
 using CanXe.Domain.Entities;
+using CanXe.Domain.Models;
 using CanXe.Domain.Services;
 
 namespace CanXe.Application.Services;
@@ -134,6 +135,18 @@ public sealed class WeighTicketService
 
         var isUpdate = sequence == 1 ? draft.DraftWeight1.HasValue : draft.DraftWeight2.HasValue;
         var previousPhotoPath = sequence == 1 ? draft.DraftWeight1PhotoPath : draft.DraftWeight2PhotoPath;
+
+        if (_scaleService is IHardwareScaleDiagnostics hardware && hardware.InputMode == ScaleInputMode.Hardware)
+        {
+            if (!hardware.CanCaptureWeight())
+            {
+                return new CaptureWeightResult
+                {
+                    Success = false,
+                    ErrorMessage = hardware.GetHardwareCaptureBlockReason() ?? "Trọng lượng chưa ổn định"
+                };
+            }
+        }
 
         if (isUpdate && !string.IsNullOrEmpty(previousPhotoPath) && !IsLockedPhoto(draft, sequence))
             _photoStorage.DeletePhotoIfExists(previousPhotoPath);
@@ -307,15 +320,49 @@ public sealed class WeighTicketService
         };
     }
 
-    private static bool IsPhotoAvailable(string? path, bool? captureSucceeded) =>
-        captureSucceeded == true && !string.IsNullOrEmpty(path) && File.Exists(path);
+    private static bool IsPhotoAvailable(string? path, bool? captureSucceeded)
+    {
+        if (captureSucceeded != true || string.IsNullOrEmpty(path) || !File.Exists(path))
+            return false;
+
+        try
+        {
+            var info = new FileInfo(path);
+            if (!CameraSnapshotPolicy.IsValidFileSize(info.Length))
+                return false;
+
+            Span<byte> header = stackalloc byte[4];
+            using var fs = File.OpenRead(path);
+            return fs.Read(header) >= 2
+                && header[0] == 0xFF
+                && header[1] == 0xD8;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private static string GetPhotoStatusText(string? path, bool? captureSucceeded)
     {
         if (captureSucceeded != true || string.IsNullOrEmpty(path))
             return "Không có ảnh";
 
-        return File.Exists(path) ? "Có ảnh" : "Ảnh đã hết thời hạn lưu";
+        if (!File.Exists(path))
+            return "Ảnh đã hết thời hạn lưu";
+
+        try
+        {
+            var info = new FileInfo(path);
+            if (!CameraSnapshotPolicy.IsValidFileSize(info.Length))
+                return "Ảnh không hợp lệ hoặc chưa có ảnh";
+        }
+        catch
+        {
+            return "Ảnh không hợp lệ hoặc chưa có ảnh";
+        }
+
+        return "Có ảnh";
     }
 
     private async Task<WeighTicket> SaveNewTicketAsync(

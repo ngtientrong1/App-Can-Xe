@@ -199,6 +199,19 @@ public sealed partial class MainViewModel
                 LogScaleModeState("ConnectHardware");
                 return true;
             }
+            catch (OperationCanceledException)
+            {
+                ScaleConnectionLogger.Write(
+                    operationId,
+                    "Connect:cancelled",
+                    portOpenBefore,
+                    $"{settings.PortName} @ {settings.BaudRate}",
+                    null,
+                    retryNumber,
+                    ScaleInputMode.ToString(),
+                    _developerModeEnabled);
+                return false;
+            }
             catch (Exception ex)
             {
                 var port = settings.PortName;

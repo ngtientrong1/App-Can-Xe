@@ -3,6 +3,7 @@ using CanXe.Application.Configuration;
 using CanXe.Application.Interfaces;
 using CanXe.Application.Models;
 using CanXe.Domain.Services;
+using CanXe.Infrastructure.Scale;
 
 namespace CanXe.Infrastructure.Device;
 
@@ -81,11 +82,13 @@ public sealed class ScaleConnectionTester : IScaleConnectionTester
                     RtsEnable = false
                 };
                 port.Open();
+                ScaleConnectionLogger.Write("PortOpened", port: settings.PortName);
                 return ConnectionTestResult.Succeeded(
                     $"Cổng {settings.PortName} @ {settings.BaudRate} mở được — dùng KẾT NỐI để nhận dữ liệu cân.");
             }
             catch (Exception ex)
             {
+                ScaleConnectionLogger.Write("PortOpenFailed", detail: ex.Message, port: settings.PortName);
                 return ConnectionTestResult.Failed($"Không mở được {settings.PortName}: {ex.Message}");
             }
             finally

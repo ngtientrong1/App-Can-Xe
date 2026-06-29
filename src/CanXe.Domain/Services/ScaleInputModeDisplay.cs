@@ -69,6 +69,8 @@ public static class ScaleInputModeDisplay
             ScaleInputMode.SimulationManual => "● Đầu cân: Thủ công",
             ScaleInputMode.Hardware when connectionState == ScaleHeaderConnectionState.Connecting =>
                 "● Đầu cân: Đang kết nối",
+            ScaleInputMode.Hardware when connectionState == ScaleHeaderConnectionState.WaitingForData =>
+                "● Đầu cân: Đang chờ dữ liệu",
             ScaleInputMode.Hardware when connectionState == ScaleHeaderConnectionState.Disconnected =>
                 "● Đầu cân: Mất kết nối",
             ScaleInputMode.Hardware => "● Đầu cân: COM",

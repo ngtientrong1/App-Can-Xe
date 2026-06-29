@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CanXe.Tests.Application;
 
+[Collection("CanXeDatabase")]
 public class Phase14SingleWeighAndFastEntryTests : IAsyncLifetime
 {
     private TestApplicationFactory _factory = null!;
@@ -21,8 +22,17 @@ public class Phase14SingleWeighAndFastEntryTests : IAsyncLifetime
 
     public async Task DisposeAsync() => await _factory.DisposeAsync();
 
-    private WeighTicketService CreateService() =>
-        _factory.Provider.CreateScope().ServiceProvider.GetRequiredService<WeighTicketService>();
+    private async Task<T> WithServiceAsync<T>(Func<WeighTicketService, Task<T>> action)
+    {
+        await using var scope = _factory.Provider.CreateAsyncScope();
+        return await action(scope.ServiceProvider.GetRequiredService<WeighTicketService>());
+    }
+
+    private async Task WithServiceAsync(Func<WeighTicketService, Task> action)
+    {
+        await using var scope = _factory.Provider.CreateAsyncScope();
+        await action(scope.ServiceProvider.GetRequiredService<WeighTicketService>());
+    }
 
     private IScaleService CreateScale() =>
         _factory.Provider.GetRequiredService<IScaleService>();
@@ -30,59 +40,65 @@ public class Phase14SingleWeighAndFastEntryTests : IAsyncLifetime
     [Fact]
     public async Task Save_SingleWeight_StoresGrossTareZeroNet()
     {
-        var service = CreateService();
-        var scale = CreateScale();
-        scale.SetManualMode(true);
-        scale.SetManualWeightKg(11576m);
+        await WithServiceAsync(async service =>
+        {
+            var scale = CreateScale();
+            scale.SetManualMode(true);
+            scale.SetManualWeightKg(11576m);
 
-        var draft = new WeighTicketDraft();
-        await service.CaptureWeightAsync(draft, 1);
-        var save = await service.SaveAsync(draft);
+            var draft = new WeighTicketDraft();
+            await service.CaptureWeightAsync(draft, 1);
+            var save = await service.SaveAsync(draft);
 
-        Assert.True(save.Success);
-        Assert.Equal(11576m, save.SavedTicket!.GrossWeightKg);
-        Assert.Equal(0m, save.SavedTicket.TareWeightKg);
-        Assert.Equal(11576m, save.SavedTicket.NetWeightKg);
+            Assert.True(save.Success);
+            Assert.Equal(11576m, save.SavedTicket!.GrossWeightKg);
+            Assert.Equal(0m, save.SavedTicket.TareWeightKg);
+            Assert.Equal(11576m, save.SavedTicket.NetWeightKg);
+        });
     }
 
     [Fact]
     public async Task Save_SingleWeightWithPrice_ComputesBilling()
     {
-        var service = CreateService();
-        var scale = CreateScale();
-        scale.SetManualMode(true);
-        scale.SetManualWeightKg(11576m);
+        await WithServiceAsync(async service =>
+        {
+            var scale = CreateScale();
+            scale.SetManualMode(true);
+            scale.SetManualWeightKg(11576m);
 
-        var draft = new WeighTicketDraft { DraftUnitPrice = 500m };
-        await service.CaptureWeightAsync(draft, 1);
-        var save = await service.SaveAsync(draft);
+            var draft = new WeighTicketDraft { DraftUnitPrice = 500m };
+            await service.CaptureWeightAsync(draft, 1);
+            var save = await service.SaveAsync(draft);
 
-        Assert.True(save.Success);
-        Assert.NotNull(save.SavedTicket!.BillableWeightKg);
-        Assert.NotNull(save.SavedTicket.TotalAmountVnd);
+            Assert.True(save.Success);
+            Assert.NotNull(save.SavedTicket!.BillableWeightKg);
+            Assert.NotNull(save.SavedTicket.TotalAmountVnd);
+        });
     }
 
     [Fact]
     public async Task ContinueSingleWeigh_AddsSecondWeight_RecalculatesDualFormula()
     {
-        var service = CreateService();
-        var scale = CreateScale();
-        scale.SetManualMode(true);
+        await WithServiceAsync(async service =>
+        {
+            var scale = CreateScale();
+            scale.SetManualMode(true);
 
-        var draft = new WeighTicketDraft();
-        scale.SetManualWeightKg(11576m);
-        await service.CaptureWeightAsync(draft, 1);
-        var first = await service.SaveAsync(draft);
-        Assert.Equal(11576m, first.SavedTicket!.NetWeightKg);
+            var draft = new WeighTicketDraft();
+            scale.SetManualWeightKg(11576m);
+            await service.CaptureWeightAsync(draft, 1);
+            var first = await service.SaveAsync(draft);
+            Assert.Equal(11576m, first.SavedTicket!.NetWeightKg);
 
-        var loaded = await service.LoadTicketForContinuationAsync(first.SavedTicket.Id);
-        scale.SetManualWeightKg(8500m);
-        await service.CaptureWeightAsync(loaded, 2);
-        var second = await service.SaveAsync(loaded);
+            var loaded = await service.LoadTicketForContinuationAsync(first.SavedTicket.Id);
+            scale.SetManualWeightKg(8500m);
+            await service.CaptureWeightAsync(loaded, 2);
+            var second = await service.SaveAsync(loaded);
 
-        Assert.Equal(first.SavedTicket.Id, second.SavedTicket!.Id);
-        Assert.Equal(3076m, second.SavedTicket.NetWeightKg);
-        Assert.Equal(8500m, second.SavedTicket.TareWeightKg);
+            Assert.Equal(first.SavedTicket.Id, second.SavedTicket!.Id);
+            Assert.Equal(3076m, second.SavedTicket.NetWeightKg);
+            Assert.Equal(8500m, second.SavedTicket.TareWeightKg);
+        });
     }
 
     [Fact]
@@ -94,57 +110,63 @@ public class Phase14SingleWeighAndFastEntryTests : IAsyncLifetime
     [Fact]
     public async Task FilterSummary_IncludesSingleWeighNetInTotals()
     {
-        var service = CreateService();
-        var scale = CreateScale();
-        scale.SetManualMode(true);
+        await WithServiceAsync(async service =>
+        {
+            var scale = CreateScale();
+            scale.SetManualMode(true);
 
-        var draft = new WeighTicketDraft();
-        scale.SetManualWeightKg(5000m);
-        await service.CaptureWeightAsync(draft, 1);
-        await service.SaveAsync(draft);
+            var draft = new WeighTicketDraft();
+            scale.SetManualWeightKg(5000m);
+            await service.CaptureWeightAsync(draft, 1);
+            await service.SaveAsync(draft);
 
-        var result = await service.GetFilteredWithSummaryAsync(new WeighTicketFilter());
-        Assert.Equal(5000m, result.TotalNetWeightKg);
+            var result = await service.GetFilteredWithSummaryAsync(new WeighTicketFilter());
+            Assert.Equal(5000m, result.TotalNetWeightKg);
+        });
     }
 
     [Fact]
     public async Task CaptureWeight1_BlockedAfterWeight2_WhenNoDevOverride()
     {
-        var service = CreateService();
-        var scale = CreateScale();
-        scale.SetManualMode(true);
+        await WithServiceAsync(async service =>
+        {
+            var scale = CreateScale();
+            scale.SetManualMode(true);
 
-        var draft = new WeighTicketDraft();
-        scale.SetManualWeightKg(8500m);
-        await service.CaptureWeightAsync(draft, 1);
-        scale.SetManualWeightKg(18500m);
-        await service.CaptureWeightAsync(draft, 2);
+            var draft = new WeighTicketDraft();
+            scale.SetManualWeightKg(8500m);
+            await service.CaptureWeightAsync(draft, 1);
+            scale.SetManualWeightKg(18500m);
+            await service.CaptureWeightAsync(draft, 2);
 
-        scale.SetManualWeightKg(9999m);
-        var attempt = await service.CaptureWeightAsync(draft, 1);
+            scale.SetManualWeightKg(9999m);
+            var attempt = await service.CaptureWeightAsync(draft, 1);
 
-        Assert.False(attempt.Success);
-        Assert.Equal(8500m, draft.DraftWeight1);
+            Assert.False(attempt.Success);
+            Assert.Equal(8500m, draft.DraftWeight1);
+        });
     }
 
     [Fact]
     public async Task CaptureWeight1_AllowedWithDevOverride()
     {
-        var service = CreateService();
-        var scale = CreateScale();
-        scale.SetManualMode(true);
+        await WithServiceAsync(async service =>
+        {
+            var scale = CreateScale();
+            scale.SetManualMode(true);
 
-        var draft = new WeighTicketDraft { DeveloperWeight1OverrideEnabled = true };
-        scale.SetManualWeightKg(8500m);
-        await service.CaptureWeightAsync(draft, 1);
-        scale.SetManualWeightKg(18500m);
-        await service.CaptureWeightAsync(draft, 2);
+            var draft = new WeighTicketDraft { DeveloperWeight1OverrideEnabled = true };
+            scale.SetManualWeightKg(8500m);
+            await service.CaptureWeightAsync(draft, 1);
+            scale.SetManualWeightKg(18500m);
+            await service.CaptureWeightAsync(draft, 2);
 
-        scale.SetManualWeightKg(8600m);
-        var attempt = await service.CaptureWeightAsync(draft, 1);
+            scale.SetManualWeightKg(8600m);
+            var attempt = await service.CaptureWeightAsync(draft, 1);
 
-        Assert.True(attempt.Success);
-        Assert.Equal(8600m, draft.DraftWeight1);
+            Assert.True(attempt.Success);
+            Assert.Equal(8600m, draft.DraftWeight1);
+        });
     }
 
     [Fact]
@@ -157,7 +179,7 @@ public class Phase14SingleWeighAndFastEntryTests : IAsyncLifetime
     [Fact]
     public async Task VehicleSearch_NormalizedPlate_FindsFormattedPlate()
     {
-        var scope = _factory.Provider.CreateScope();
+        await using var scope = _factory.Provider.CreateAsyncScope();
         var vehicles = scope.ServiceProvider.GetRequiredService<IVehicleRepository>();
         await vehicles.UpsertAsync("81C-123.45", null);
 
@@ -168,23 +190,25 @@ public class Phase14SingleWeighAndFastEntryTests : IAsyncLifetime
     [Fact]
     public async Task Filter_DateRange_IncludesFullEndDay()
     {
-        var service = CreateService();
-        var scale = CreateScale();
-        scale.SetManualMode(true);
-
-        var draft = new WeighTicketDraft();
-        scale.SetManualWeightKg(8500m);
-        await service.CaptureWeightAsync(draft, 1);
-        await service.SaveAsync(draft);
-
-        var today = DateTimeOffset.Now.Date;
-        var result = await service.GetFilteredWithSummaryAsync(new WeighTicketFilter
+        await WithServiceAsync(async service =>
         {
-            FromDate = today,
-            ToDate = today.AddDays(1).AddTicks(-1)
-        });
+            var scale = CreateScale();
+            scale.SetManualMode(true);
 
-        Assert.Single(result.Items);
+            var draft = new WeighTicketDraft();
+            scale.SetManualWeightKg(8500m);
+            await service.CaptureWeightAsync(draft, 1);
+            await service.SaveAsync(draft);
+
+            var today = DateTimeOffset.Now.Date;
+            var result = await service.GetFilteredWithSummaryAsync(new WeighTicketFilter
+            {
+                FromDate = today,
+                ToDate = today.AddDays(1).AddTicks(-1)
+            });
+
+            Assert.Single(result.Items);
+        });
     }
 
     [Fact]

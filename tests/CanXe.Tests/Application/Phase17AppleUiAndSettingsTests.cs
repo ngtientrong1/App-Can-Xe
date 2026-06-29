@@ -1,7 +1,9 @@
+using CanXe.Application.Configuration;
 using CanXe.Application.Interfaces;
 using CanXe.Application.Models;
 using CanXe.Application.Services;
 using CanXe.Domain.Services;
+using CanXe.Infrastructure.Camera;
 using CanXe.Infrastructure.Device;
 using CanXe.Infrastructure.Security;
 using CanXe.Tests.Support;
@@ -158,18 +160,17 @@ public class Phase17AppleUiAndSettingsTests
     }
 
     [Theory]
-    [InlineData("http://bad", true)]
-    [InlineData("rtsp://cam/live", false)]
-    [InlineData("", false)]
-    public void CameraValidation_RtspUrlMustStartWithRtspWhenSet(string url, bool expectError)
+    [InlineData("", true)]
+    [InlineData("192.168.1.50", false)]
+    public void CameraValidation_RtspHostRequiredWhenEnabled(string host, bool expectError)
     {
         var result = SettingsValidationService.ValidateCamera(new CameraDeviceSettingsDto
         {
             IsEnabled = true,
-            RtspUrl = url,
+            RtspHost = host,
             PhotoRetentionDays = 3
         });
-        Assert.Equal(expectError, result.Errors.ContainsKey(nameof(CameraDeviceSettingsDto.RtspUrl)));
+        Assert.Equal(expectError, result.Errors.ContainsKey(nameof(CameraDeviceSettingsDto.RtspHost)));
     }
 
     [Theory]
@@ -189,11 +190,13 @@ public class Phase17AppleUiAndSettingsTests
     [Fact]
     public async Task MockRtspTest_Success()
     {
-        var tester = new MockCameraConnectionTester(simulateFailure: false);
+        var tester = new CameraConnectionTester(TestCameraStreamFactory.Create(new AppSettings(), new CameraDecoderFactory(new AppSettings())));
         var result = await tester.TestAsync(new CameraDeviceSettingsDto
         {
             IsEnabled = true,
-            RtspUrl = "rtsp://127.0.0.1/stream"
+            RtspHost = "192.168.1.50",
+            RtspPort = 554,
+            RtspPath = "/stream"
         });
         Assert.True(result.Success);
     }
@@ -201,11 +204,14 @@ public class Phase17AppleUiAndSettingsTests
     [Fact]
     public async Task MockRtspTest_Failure()
     {
-        var tester = new MockCameraConnectionTester(simulateFailure: true);
+        var settings = new AppSettings { SimulateCameraFailure = true };
+        var tester = new CameraConnectionTester(TestCameraStreamFactory.Create(settings, new CameraDecoderFactory(settings)));
         var result = await tester.TestAsync(new CameraDeviceSettingsDto
         {
             IsEnabled = true,
-            RtspUrl = "rtsp://127.0.0.1/stream"
+            RtspHost = "192.168.1.50",
+            RtspPort = 554,
+            RtspPath = "/stream"
         });
         Assert.False(result.Success);
     }

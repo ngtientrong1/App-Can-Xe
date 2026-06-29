@@ -8,7 +8,7 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
     private readonly object _sync = new();
     private readonly SemaphoreSlim _connectionGate = new(1, 1);
     private readonly ScaleFrameParser _parser = new();
-    private readonly ScaleStabilityDetector _stability = new();
+    private ScaleStabilityDetector _stability;
     private readonly Timer _staleTimer;
     private SerialPort? _port;
     private ScaleConnectionState _connectionState = ScaleConnectionState.Disconnected;
@@ -21,8 +21,13 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
     public WindowsScaleSerialReader(ScaleSerialSettings? settings = null)
     {
         Settings = settings ?? new ScaleSerialSettings();
+        _stability = CreateStabilityDetector();
+        ScaleDiagnosticsLogger.VerboseFramesEnabled = Settings.VerboseFrameLogging;
         _staleTimer = new Timer(_ => CheckStale(), null, Timeout.Infinite, Timeout.Infinite);
     }
+
+    private ScaleStabilityDetector CreateStabilityDetector() =>
+        new(new ScaleStabilityOptions { ScaleDivisionKg = Settings.ScaleDivisionKg });
 
     public ScaleConnectionState ConnectionState
     {
@@ -67,6 +72,7 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
             throw new InvalidOperationException("Không thể thay đổi cấu hình khi cổng đang mở.");
 
         Settings = settings;
+        ScaleDiagnosticsLogger.VerboseFramesEnabled = settings.VerboseFrameLogging;
     }
 
     public void ResetSession()
@@ -202,7 +208,7 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
     private void ResetSessionCore()
     {
         _parser.ResetBuffer();
-        _stability.Reset();
+        _stability = CreateStabilityDetector();
         lock (_sync)
         {
             _latestReading = null;
@@ -278,6 +284,8 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
 
     private void PublishReading(ScaleReading reading)
     {
+        ScaleDiagnosticsLogger.LogFrame(reading, reading.FrameInterval);
+
         lock (_sync)
         {
             _latestReading = reading;

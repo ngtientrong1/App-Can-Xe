@@ -9,6 +9,7 @@ using CanXe.Application.Services;
 using CanXe.Domain.Models;
 using CanXe.Domain.Services;
 using CanXe.Desktop.Services;
+using CanXe.ScaleProtocol.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -17,6 +18,10 @@ namespace CanXe.Desktop.ViewModels;
 public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 {
     private readonly IHardwareScaleDiagnostics? _hardwareScale;
+    private readonly ICameraStreamService _cameraStream;
+    private readonly ICameraConnectionSupervisor _cameraSupervisor;
+    private readonly ILatestCameraFrameProvider _latestCameraFrameProvider;
+    private readonly StationSettingsService _stationSettings;
     private readonly WeighTicketService _weighTicketService;
     private readonly FastEntrySearchService _fastEntrySearch;
     private readonly IScaleService _scaleService;
@@ -45,6 +50,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         FastEntrySearchService fastEntrySearch,
         IScaleService scaleService,
         IHardwareScaleDiagnostics? hardwareScaleDiagnostics,
+        ICameraStreamService cameraStreamService,
+        ICameraConnectionSupervisor cameraSupervisor,
+        ILatestCameraFrameProvider latestCameraFrameProvider,
+        StationSettingsService stationSettingsService,
         IUiFocusService focusService,
         ITicketDocumentRenderer ticketDocumentRenderer,
         AppSettings settings,
@@ -55,6 +64,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _fastEntrySearch = fastEntrySearch;
         _scaleService = scaleService;
         _hardwareScale = hardwareScaleDiagnostics;
+        _cameraStream = cameraStreamService;
+        _cameraSupervisor = cameraSupervisor;
+        _latestCameraFrameProvider = latestCameraFrameProvider;
+        _stationSettings = stationSettingsService;
         _focusService = focusService;
         _ticketDocumentRenderer = ticketDocumentRenderer;
         _settings = settings;
@@ -62,7 +75,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _appPaths = appPaths;
         Settings = settingsViewModel;
         Settings.StationSettingsSaved += (_, dto) => OnStationSettingsSaved(dto);
+        Settings.CameraSettingsSaved += (_, _) => _ = ApplySavedCameraSettingsAsync();
         _scaleService.WeightChanged += OnScaleWeightChanged;
+        WireCameraSupervisor(_cameraSupervisor);
+        WireOperatorActionCorrelation();
         if (_hardwareScale is not null)
             _hardwareScale.HardwareDiagnosticsChanged += (_, _) =>
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
@@ -162,7 +178,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private WeighTicketDetailDto? _previewTicketDetail;
     [ObservableProperty] private bool _isPreviewFrontSide = true;
     [ObservableProperty] private string _headerScaleStatus = "● Đầu cân: Ổn định";
-    [ObservableProperty] private string _headerCameraStatus = "● Camera: Đã kết nối";
+    [ObservableProperty] private string _headerCameraStatus = "● Camera: Đang kết nối";
     [ObservableProperty] private string _headerClockText = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
     [ObservableProperty] private string? _lastSavedTicketDisplayNumber;
 
@@ -297,6 +313,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         _focusService.FocusCustomerField();
         _ = AutoConnectScaleIfNeededAsync();
+        await StartCameraSupervisorAsync(_cameraSupervisor);
     }
 
     [RelayCommand]
@@ -458,10 +475,14 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private ScaleHeaderConnectionState GetHardwareHeaderConnectionState()
     {
-        if (IsScaleConnecting)
+        if (IsScaleConnecting || _hardwareScale?.ConnectionState == ScaleConnectionState.Connecting)
             return ScaleHeaderConnectionState.Connecting;
-        if (_hardwareScale is null || !_hardwareScale.IsConnected || _hardwareScale.IsStale || !_hasReceivedHardwareFrame)
+        if (_hardwareScale is null || !_hardwareScale.IsConnected)
             return ScaleHeaderConnectionState.Disconnected;
+        if (_hardwareScale.IsStale)
+            return ScaleHeaderConnectionState.Disconnected;
+        if (!_hasReceivedHardwareFrame || _hardwareScale.LatestReading is null)
+            return ScaleHeaderConnectionState.WaitingForData;
         return ScaleHeaderConnectionState.Connected;
     }
 
@@ -565,42 +586,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             await Task.Delay(TimeSpan.FromSeconds(1));
             HeaderClockText = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.CurrentCulture);
         }
-    }
-
-    [RelayCommand]
-    private async Task CaptureWeight1Async() => await CaptureWeightAsync(1);
-
-    [RelayCommand]
-    private async Task CaptureWeight2Async() => await CaptureWeightAsync(2);
-
-    private async Task CaptureWeightAsync(int sequence)
-    {
-        if (IsEditingExistingTicket)
-        {
-            StatusMessage = "Không thể lấy cân khi đang chỉnh sửa phiếu.";
-            return;
-        }
-
-        if (TryBlockHardwareCapture(out var blockReason))
-        {
-            StatusMessage = blockReason;
-            return;
-        }
-
-        _draft.DeveloperWeight1OverrideEnabled = DeveloperWeight1OverrideEnabled;
-        var result = await _weighTicketService.CaptureWeightAsync(_draft, sequence);
-        if (!result.Success)
-        {
-            StatusMessage = result.ErrorMessage ?? "Không thể lấy cân.";
-            return;
-        }
-
-        UpdateDisplaysFromDraft();
-        UpdateButtonStates();
-        UpdateButtonLabels();
-        StatusMessage = result.IsUpdate
-            ? $"Đã cập nhật cân lần {sequence}: {result.WeightKg:N0} kg"
-            : $"Đã lấy cân lần {sequence}: {result.WeightKg:N0} kg";
     }
 
     [RelayCommand]
@@ -1490,23 +1475,28 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
 
         _draft.DeveloperWeight1OverrideEnabled = DeveloperWeight1OverrideEnabled;
-        IsWeigh1Enabled = DraftWorkflowRules.CanUpdateWeight1(
+        IsWeigh1Enabled = !IsTakingWeight && DraftWorkflowRules.CanUpdateWeight1(
             _draft.IsWeight1LockedFromSavedTicket,
             _draft.DraftWeight2.HasValue,
             DeveloperWeight1OverrideEnabled);
-        IsWeigh2Enabled = DraftWorkflowRules.CanUpdateWeight2(_draft.IsWeight2LockedFromSavedTicket);
+        IsWeigh2Enabled = !IsTakingWeight && DraftWorkflowRules.CanUpdateWeight2(_draft.IsWeight2LockedFromSavedTicket);
     }
 
     private void UpdateButtonLabels()
     {
-        if (_draft.IsWeight1LockedFromSavedTicket)
+        if (IsTakingWeight && ActiveTakeWeightAction == TakeWeightAction.First)
+            Weigh1ButtonText = TakeWeightStatusText ?? "ĐANG LẤY CÂN...";
+        else if (_draft.IsWeight1LockedFromSavedTicket)
             Weigh1ButtonText = "CÂN LẦN 1 (ĐÃ LƯU)";
         else if (!IsWeigh1Enabled && _draft.DraftWeight2.HasValue)
             Weigh1ButtonText = "CÂN LẦN 1 ĐÃ KHÓA";
         else
             Weigh1ButtonText = _draft.DraftWeight1.HasValue ? "CẬP NHẬT CÂN LẦN 1" : "LẤY CÂN LẦN 1";
 
-        Weigh2ButtonText = _draft.DraftWeight2.HasValue && !_draft.IsWeight2LockedFromSavedTicket
+        if (IsTakingWeight && ActiveTakeWeightAction == TakeWeightAction.Second)
+            Weigh2ButtonText = TakeWeightStatusText ?? "ĐANG LẤY CÂN...";
+        else
+            Weigh2ButtonText = _draft.DraftWeight2.HasValue && !_draft.IsWeight2LockedFromSavedTicket
             ? "CẬP NHẬT CÂN LẦN 2"
             : _draft.IsWeight2LockedFromSavedTicket ? "CÂN LẦN 2 (ĐÃ LƯU)" : "LẤY CÂN LẦN 2";
     }
@@ -1554,6 +1544,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _scaleService.WeightChanged -= OnScaleWeightChanged;
         if (_scaleService is IAsyncDisposable disposable)
             await disposable.DisposeAsync();
+        await _cameraSupervisor.DisposeAsync();
+        await _cameraStream.DisposeAsync();
+        _takeWeightGate.Dispose();
         _vmConnectGate.Dispose();
     }
 }

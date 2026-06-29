@@ -4,6 +4,7 @@ public sealed class ScaleFrameParser
 {
     private readonly byte[] _buffer = new byte[ScaleProtocolConstants.MaxParserBufferBytes];
     private int _length;
+    private DateTimeOffset? _lastFrameAt;
 
     public ScaleParserStatistics Statistics { get; } = new();
 
@@ -104,10 +105,13 @@ public sealed class ScaleFrameParser
 
         Statistics.ValidFrames++;
         var stability = stabilityDetector.NotifyValidReading(validation.Frame, receivedAt);
+        var interval = _lastFrameAt.HasValue ? receivedAt - _lastFrameAt.Value : (TimeSpan?)null;
+        _lastFrameAt = receivedAt;
         readings.Add(ScaleReading.FromValidatedFrame(
             validation.Frame,
             receivedAt,
-            stability.IsStable,
-            stability.ConsecutiveMatchingFrames));
+            stability,
+            Statistics.ValidFrames,
+            interval));
     }
 }

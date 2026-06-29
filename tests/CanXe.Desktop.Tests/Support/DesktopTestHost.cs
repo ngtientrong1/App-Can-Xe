@@ -14,11 +14,19 @@ public sealed class DesktopTestHost : IAsyncDisposable
     private readonly string _dbPath;
     private readonly string _photoRoot;
 
-    public DesktopTestHost(AppSettings settings)
+    private readonly bool _deleteOnDispose;
+
+    public DesktopTestHost(
+        AppSettings settings,
+        ICameraStreamService? cameraStreamOverride = null,
+        string? databasePath = null,
+        string? photoRootPath = null,
+        bool deleteOnDispose = true)
     {
         Settings = settings;
-        _dbPath = Path.Combine(Path.GetTempPath(), $"canxe-desktop-test-{Guid.NewGuid():N}.db");
-        _photoRoot = Path.Combine(Path.GetTempPath(), $"canxe-desktop-photos-{Guid.NewGuid():N}");
+        _deleteOnDispose = deleteOnDispose;
+        _dbPath = databasePath ?? Path.Combine(Path.GetTempPath(), $"canxe-desktop-test-{Guid.NewGuid():N}.db");
+        _photoRoot = photoRootPath ?? Path.Combine(Path.GetTempPath(), $"canxe-desktop-photos-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_photoRoot);
 
         AppPaths = new AppPaths
@@ -29,7 +37,13 @@ public sealed class DesktopTestHost : IAsyncDisposable
 
         var services = new ServiceCollection();
         services.AddCanXeInfrastructure(settings, _dbPath, _photoRoot);
-        services.AddSingleton(AppPaths);
+        if (cameraStreamOverride is not null)
+        {
+            var existing = services.FirstOrDefault(d => d.ServiceType == typeof(ICameraStreamService));
+            if (existing is not null)
+                services.Remove(existing);
+            services.AddSingleton<ICameraStreamService>(cameraStreamOverride);
+        }
         services.AddSingleton<IUiFocusService, NoOpUiFocusService>();
         services.AddSingleton<ITicketDocumentRenderer, WpfTicketDocumentRenderer>();
         services.AddScoped<SettingsViewModel>();
@@ -58,6 +72,10 @@ public sealed class DesktopTestHost : IAsyncDisposable
             scope.GetRequiredService<FastEntrySearchService>(),
             scope.GetRequiredService<IScaleService>(),
             scope.GetRequiredService<IHardwareScaleDiagnostics>(),
+            scope.GetRequiredService<ICameraStreamService>(),
+            Provider.GetRequiredService<ICameraConnectionSupervisor>(),
+            Provider.GetRequiredService<ILatestCameraFrameProvider>(),
+            scope.GetRequiredService<StationSettingsService>(),
             Provider.GetRequiredService<IUiFocusService>(),
             Provider.GetRequiredService<ITicketDocumentRenderer>(),
             Settings,
@@ -77,8 +95,11 @@ public sealed class DesktopTestHost : IAsyncDisposable
         _viewModelScope?.Dispose();
         _viewModelScope = null;
         await Provider.DisposeAsync();
-        TryDelete(_dbPath);
-        TryDeleteDirectory(_photoRoot);
+        if (_deleteOnDispose)
+        {
+            TryDelete(_dbPath);
+            TryDeleteDirectory(_photoRoot);
+        }
     }
 
     private static void TryDelete(string path)

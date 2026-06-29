@@ -239,17 +239,42 @@ public class ScaleFrameParserTests
     }
 
     [Fact]
-    public void Stability_EightMatchingFramesBecomesStable()
+    public void Stability_HardwareStableFlagBecomesStableAfterTwoFrames()
     {
         var parser = new ScaleFrameParser();
         var stability = new ScaleStabilityDetector();
         var at = DateTimeOffset.UtcNow;
         ScaleReading? last = null;
-        for (var i = 0; i < 8; i++)
+        for (var i = 0; i < 2; i++)
             last = parser.Append(ScaleFrameFixtures.Frame50Kg, at, stability).Single();
         Assert.NotNull(last);
         Assert.True(last.IsStable);
-        Assert.Equal(8, last.ConsecutiveMatchingFrames);
+        Assert.Equal(ScaleStableSource.HardwareFlag, last.StableSource);
+        Assert.True(last.RawStableFlag);
+        Assert.Equal(2, last.ConsecutiveMatchingFrames);
+    }
+
+    [Fact]
+    public void Stability_SoftwareWindowUsesDivisionThreshold()
+    {
+        var parser = new ScaleFrameParser();
+        var stability = new ScaleStabilityDetector(new ScaleStabilityOptions
+        {
+            ScaleDivisionKg = 20,
+            SoftwareRequiredMatchingFrames = 3,
+            SoftwareStableRequiredDurationMs = 300
+        });
+        var start = DateTimeOffset.UtcNow;
+        ScaleReading? last = null;
+        for (var i = 0; i < 3; i++)
+        {
+            var frame = ScaleFrameFixtures.BuildFrame('+', 200 + (i % 2) * 10, "02");
+            last = parser.Append(frame, start.AddMilliseconds(i * 150), stability).Single();
+        }
+
+        Assert.NotNull(last);
+        Assert.True(last.IsStable);
+        Assert.Equal(ScaleStableSource.SoftwareWindow, last.StableSource);
     }
 
     [Fact]
@@ -258,7 +283,7 @@ public class ScaleFrameParserTests
         var parser = new ScaleFrameParser();
         var stability = new ScaleStabilityDetector();
         var at = DateTimeOffset.UtcNow;
-        for (var i = 0; i < 8; i++)
+        for (var i = 0; i < 2; i++)
             parser.Append(ScaleFrameFixtures.Frame50Kg, at, stability);
         var changed = parser.Append(ScaleFrameFixtures.Frame10Kg, at, stability).Single();
         Assert.False(changed.IsStable);
@@ -271,7 +296,7 @@ public class ScaleFrameParserTests
         var parser = new ScaleFrameParser();
         var stability = new ScaleStabilityDetector();
         var at = DateTimeOffset.UtcNow;
-        for (var i = 0; i < 8; i++)
+        for (var i = 0; i < 2; i++)
             parser.Append(ScaleFrameFixtures.Frame50Kg, at, stability);
         var bad = (byte[])ScaleFrameFixtures.Frame50Kg.Clone();
         bad[10] = (byte)'0';
@@ -286,7 +311,7 @@ public class ScaleFrameParserTests
     {
         var parser = new ScaleFrameParser();
         var stability = new ScaleStabilityDetector();
-        for (var i = 0; i < 8; i++)
+        for (var i = 0; i < 2; i++)
             parser.Append(ScaleFrameFixtures.Frame50Kg, DateTimeOffset.UtcNow, stability);
         var afterGap = parser.Append(
             ScaleFrameFixtures.Frame50Kg,
@@ -301,7 +326,7 @@ public class ScaleFrameParserTests
     {
         var stability = new ScaleStabilityDetector();
         var parser = new ScaleFrameParser();
-        for (var i = 0; i < 8; i++)
+        for (var i = 0; i < 2; i++)
             parser.Append(ScaleFrameFixtures.Frame50Kg, DateTimeOffset.UtcNow, stability);
         stability.Reset();
         var reading = parser.Append(ScaleFrameFixtures.Frame50Kg, DateTimeOffset.UtcNow, stability).Single();

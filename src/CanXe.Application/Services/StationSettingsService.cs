@@ -40,6 +40,12 @@ public sealed class StationSettingsService
         return existing ?? new CameraDeviceSettingsDto();
     }
 
+    public async Task<CameraRuntimeSettings> GetCameraRuntimeAsync(CancellationToken cancellationToken = default)
+    {
+        var runtime = await _cameraRepository.GetRuntimeAsync(cancellationToken);
+        return runtime ?? new CameraRuntimeSettings();
+    }
+
     public async Task<(bool Success, SettingsValidationResult Validation)> SaveStationAsync(
         StationSettingsDto dto,
         CancellationToken cancellationToken = default)

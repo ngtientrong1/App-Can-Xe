@@ -2,7 +2,6 @@ using CanXe.Application.Configuration;
 using CanXe.Application.Interfaces;
 using CanXe.Infrastructure;
 using CanXe.Infrastructure.Camera;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CanXe.Tests.Support;
@@ -12,10 +11,17 @@ public sealed class TestApplicationFactory : IAsyncDisposable
     private readonly string _dbPath;
     private readonly string _photoRoot;
 
-    public TestApplicationFactory(bool simulateCameraFailure = false)
+    private readonly bool _deleteOnDispose;
+
+    public TestApplicationFactory(
+        bool simulateCameraFailure = false,
+        string? databasePath = null,
+        string? photoRootPath = null,
+        bool deleteOnDispose = true)
     {
-        _dbPath = Path.Combine(Path.GetTempPath(), $"canxe-test-{Guid.NewGuid():N}.db");
-        _photoRoot = Path.Combine(Path.GetTempPath(), $"canxe-photos-{Guid.NewGuid():N}");
+        _deleteOnDispose = deleteOnDispose;
+        _dbPath = databasePath ?? Path.Combine(Path.GetTempPath(), $"canxe-test-{Guid.NewGuid():N}.db");
+        _photoRoot = photoRootPath ?? Path.Combine(Path.GetTempPath(), $"canxe-photos-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_photoRoot);
 
         var settings = new AppSettings { SimulateCameraFailure = simulateCameraFailure };
@@ -23,6 +29,10 @@ public sealed class TestApplicationFactory : IAsyncDisposable
         services.AddCanXeInfrastructure(settings, _dbPath, _photoRoot);
         Provider = services.BuildServiceProvider();
     }
+
+    public string DatabasePath => _dbPath;
+
+    public string PhotoRoot => _photoRoot;
 
     public ServiceProvider Provider { get; }
 
@@ -32,9 +42,11 @@ public sealed class TestApplicationFactory : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await Provider.DisposeAsync();
-        SqliteConnection.ClearAllPools();
-        TryDelete(_dbPath);
-        TryDeleteDirectory(_photoRoot);
+        if (_deleteOnDispose)
+        {
+            TryDelete(_dbPath);
+            TryDeleteDirectory(_photoRoot);
+        }
     }
 
     private static void TryDelete(string path)

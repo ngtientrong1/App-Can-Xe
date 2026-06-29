@@ -17,6 +17,7 @@ public interface IScaleDeviceSettingsRepository
 public interface ICameraDeviceSettingsRepository
 {
     Task<CameraDeviceSettingsDto?> GetAsync(CancellationToken cancellationToken = default);
+    Task<CameraRuntimeSettings?> GetRuntimeAsync(CancellationToken cancellationToken = default);
     Task SaveAsync(CameraDeviceSettingsDto settings, CancellationToken cancellationToken = default);
 }
 

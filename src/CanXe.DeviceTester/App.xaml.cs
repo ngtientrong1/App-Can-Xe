@@ -78,7 +78,7 @@ public partial class App : Application
             MessageBoxImage.Error);
 
 #if DEBUG
-        throw;
+        throw ex;
 #else
         Current?.Shutdown(-1);
 #endif

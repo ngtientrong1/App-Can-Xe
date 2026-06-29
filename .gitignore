@@ -25,6 +25,14 @@ logs/
 Logs/
 TestResults/
 
+## Release packages (local acceptance)
+*.zip
+
+## Accidental shell artifacts
+/A
+/cd
+/dir
+
 ## OS
 Thumbs.db
 .DS_Store

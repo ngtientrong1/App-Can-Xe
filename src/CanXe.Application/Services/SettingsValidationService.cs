@@ -23,14 +23,22 @@ public static partial class SettingsValidationService
     public static SettingsValidationResult ValidateCamera(CameraDeviceSettingsDto settings)
     {
         var result = new SettingsValidationResult();
+        var normalized = CameraSettingsMapper.NormalizeLoaded(settings);
 
-        if (settings.IsEnabled &&
-            !string.IsNullOrWhiteSpace(settings.RtspUrl) &&
-            !settings.RtspUrl.Trim().StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase))
-            result.AddError(nameof(CameraDeviceSettingsDto.RtspUrl), "RTSP URL phải bắt đầu bằng rtsp://.");
+        if (settings.IsEnabled)
+        {
+            if (string.IsNullOrWhiteSpace(normalized.RtspHost))
+                result.AddError(nameof(CameraDeviceSettingsDto.RtspHost), "Host/IP camera là bắt buộc.");
+
+            if (normalized.RtspPort is < 1 or > 65535)
+                result.AddError(nameof(CameraDeviceSettingsDto.RtspPort), "Port RTSP phải từ 1 đến 65535.");
+        }
 
         if (settings.PhotoRetentionDays is < 1 or > 30)
             result.AddError(nameof(CameraDeviceSettingsDto.PhotoRetentionDays), "Giữ ảnh từ 1 đến 30 ngày.");
+
+        if (settings.ConnectTimeoutSeconds is < 1 or > 120)
+            result.AddError(nameof(CameraDeviceSettingsDto.ConnectTimeoutSeconds), "Timeout kết nối từ 1 đến 120 giây.");
 
         if (settings.SnapshotTimeoutSeconds is < 1 or > 120)
             result.AddError(nameof(CameraDeviceSettingsDto.SnapshotTimeoutSeconds), "Timeout chụp ảnh từ 1 đến 120 giây.");

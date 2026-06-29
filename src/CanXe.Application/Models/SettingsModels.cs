@@ -31,13 +31,29 @@ public sealed class CameraDeviceSettingsDto
 {
     public string? CameraName { get; set; }
     public bool IsEnabled { get; set; } = true;
-    public string? RtspUrl { get; set; }
+    public string? RtspHost { get; set; }
+    public int RtspPort { get; set; } = 554;
+    public string? RtspPath { get; set; }
     public string? Username { get; set; }
     public string? Password { get; set; }
+    public bool HasStoredPassword { get; set; }
+    public bool ClearStoredPassword { get; set; }
+    public string RtspTransport { get; set; } = "TCP";
     public bool PreviewEnabled { get; set; } = true;
-    public bool AutoConnectionCheck { get; set; } = true;
+    public bool AutoConnectCameraOnStartup { get; set; } = true;
+    public int ConnectTimeoutSeconds { get; set; } = 5;
     public int SnapshotTimeoutSeconds { get; set; } = 5;
     public int PhotoRetentionDays { get; set; } = 3;
+
+    [Obsolete("Use RtspHost/RtspPort/RtspPath. Kept for legacy migration input.")]
+    public string? RtspUrl { get; set; }
+
+    [Obsolete("Use AutoConnectCameraOnStartup.")]
+    public bool AutoConnectionCheck
+    {
+        get => AutoConnectCameraOnStartup;
+        set => AutoConnectCameraOnStartup = value;
+    }
 }
 
 public sealed class SettingsValidationResult

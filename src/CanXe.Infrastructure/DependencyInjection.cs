@@ -1,9 +1,12 @@
 using CanXe.Application.Configuration;
 using CanXe.Application.Interfaces;
+using CanXe.Application.Models;
 using CanXe.Application.Services;
+using CanXe.Domain.Services;
 using CanXe.Infrastructure.Camera;
 using CanXe.Infrastructure.Data;
 using CanXe.Infrastructure.Device;
+using CanXe.Infrastructure.Diagnostics;
 using CanXe.Infrastructure.Repositories;
 using CanXe.Infrastructure.Scale;
 using CanXe.Infrastructure.Security;
@@ -27,14 +30,24 @@ public static class DependencyInjection
             options.UseSqlite($"Data Source={databasePath}"));
 
         services.AddSingleton<ISecretProtector, DpApiSecretProtector>();
-        services.AddSingleton<ICameraConnectionTester>(_ =>
-            new MockCameraConnectionTester(settings.SimulateCameraFailure));
+        services.AddSingleton<ICameraDecoderFactory, CameraDecoderFactory>();
+        services.AddSingleton<IBuildInfoProvider, BuildInfoProvider>();
+        services.AddSingleton<ISystemDiagnosticsService, SystemDiagnosticsService>();
+        services.AddScoped<DiagnosticsPhaseRunner>();
+        services.AddSingleton<AppPaths>(_ => new AppPaths { DatabasePath = databasePath, PhotoRoot = photoRoot });
+        services.AddSingleton<LatestCameraFrameCache>();
+        services.AddSingleton<ILatestCameraFrameProvider>(sp => sp.GetRequiredService<LatestCameraFrameCache>());
+        services.AddSingleton<ICameraSnapshotService, CameraSnapshotService>();
+        services.AddSingleton<CameraSupervisorOptions>(_ => CameraSupervisorOptions.Default);
+        services.AddSingleton<ICameraStreamService, CameraStreamService>();
+        services.AddSingleton<ICameraConnectionSupervisor, CameraConnectionSupervisor>();
+        services.AddSingleton<ICameraConnectionTester, CameraConnectionTester>();
         services.AddSingleton<IScaleConnectionTester>(sp =>
             new ScaleConnectionTester(sp.GetRequiredService<AppSettings>()));
 
         services.AddSingleton<IPhotoStorageService>(_ => new PhotoStorageService(photoRoot));
-        services.AddSingleton<ICameraService>(_ =>
-            new SimulatedCameraService(settings.SimulateCameraFailure));
+        services.AddSingleton<ICameraService>(sp =>
+            new StreamBackedCameraService(sp.GetRequiredService<ICameraSnapshotService>()));
         services.AddSingleton<IPhotoCleanupService>(_ =>
             new PhotoCleanupService(photoRoot, TimeSpan.FromDays(settings.PhotoRetentionDays)));
 

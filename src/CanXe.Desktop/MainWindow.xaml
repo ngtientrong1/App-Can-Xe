@@ -434,8 +434,28 @@
                     </DockPanel>
                     <Border Background="#263238" CornerRadius="8" Margin="0,0,0,8">
                         <Grid Width="280" Height="158">
+                            <Image Source="{Binding CameraPreviewFrame, Mode=OneWay}"
+                                   Stretch="Uniform"/>
                             <TextBlock Text="Preview 16:9" Foreground="White" HorizontalAlignment="Center"
-                                       VerticalAlignment="Center" FontSize="14"/>
+                                       VerticalAlignment="Center" FontSize="14">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding CameraPreviewAvailable}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="Đang phát RTSP" Foreground="#81C784" HorizontalAlignment="Center"
+                                       VerticalAlignment="Bottom" Margin="0,0,0,8" FontSize="12" FontWeight="SemiBold"
+                                       Visibility="{Binding CameraPreviewAvailable, Converter={StaticResource BoolToVis}}"/>
+                            <Border Background="#80000000" Visibility="{Binding IsCameraReconnectOverlayVisible, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Đang kết nối lại..." Foreground="White" FontSize="14" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
                         </Grid>
                     </Border>
                     <Border Style="{StaticResource CanXeStatusBadgeStyle}" Background="#E3F2FD" BorderBrush="#BBDEFB" Margin="0,0,0,8">
@@ -869,14 +889,30 @@
                         </WrapPanel>
                     </StackPanel>
                 </Border>
-                <Border Style="{StaticResource CanXeCardStyle}" DataContext="{Binding Settings}">
+                <Border Style="{StaticResource CanXeCardStyle}" Margin="0,0,0,12" DataContext="{Binding Settings}">
                     <StackPanel>
-                        <TextBlock Text="Camera" Style="{StaticResource SectionHeaderTextStyle}"/>
+                        <TextBlock Text="Camera RTSP" Style="{StaticResource SectionHeaderTextStyle}"/>
                         <CheckBox Content="Bật camera" IsChecked="{Binding CameraEnabled}" FontSize="15" Margin="0,4,0,8"/>
-                        <TextBlock Text="RTSP URL" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
-                        <TextBox Text="{Binding RtspUrl}" Style="{StaticResource CanXeTextBoxStyle}"/>
-                        <TextBlock Text="{Binding RtspUrlError}" Foreground="{StaticResource DangerBrush}"/>
-                        <TextBlock Text="Mật khẩu RTSP" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,4"/>
+                        <Grid Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Host/IP" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding RtspHost, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource CanXeTextBoxStyle}"/>
+                                <TextBlock Text="{Binding RtspHostError}" Foreground="{StaticResource DangerBrush}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Port" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding RtspPort, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource CanXeTextBoxStyle}"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="Stream path" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding RtspPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource CanXeTextBoxStyle}"/>
+                        <TextBlock Text="Username" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,4"/>
+                        <TextBox Text="{Binding CameraUsername, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource CanXeTextBoxStyle}"/>
+                        <TextBlock Text="Password" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,4"/>
                         <DockPanel LastChildFill="True">
                             <ToggleButton DockPanel.Dock="Right" Content="👁" Margin="8,0,0,0" MinWidth="48" MinHeight="48"
                                           IsChecked="{Binding ShowCameraPassword, Mode=TwoWay}"
@@ -884,9 +920,44 @@
                             <TextBox Text="{Binding CameraPassword, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource CanXeTextBoxStyle}"/>
                         </DockPanel>
-                        <Button Content="KIỂM TRA KẾT NỐI" Command="{Binding TestRtspCommand}" Style="{StaticResource CanXeSecondaryButtonStyle}" Margin="0,12,0,0"/>
-                        <TextBlock Text="{Binding CameraTestMessage}" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,6,0,0"/>
+                        <TextBlock Text="{Binding CameraPasswordPlaceholder}" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,4,0,0"/>
+                        <Button Content="Xóa mật khẩu đã lưu" Command="{Binding ClearStoredCameraPasswordCommand}"
+                                Style="{StaticResource CanXeSecondaryButtonStyle}" Margin="0,6,0,0"
+                                Visibility="{Binding HasStoredCameraPassword, Converter={StaticResource BoolToVis}}"/>
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Transport" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding RtspTransport, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource CanXeTextBoxStyle}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Connect timeout (s)" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding ConnectTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource CanXeTextBoxStyle}"/>
+                            </StackPanel>
+                        </Grid>
+                        <CheckBox Content="Tự động kết nối khi mở ứng dụng" IsChecked="{Binding AutoConnectCameraOnStartup}"
+                                  FontSize="15" Margin="0,10,0,0"/>
+                        <Button Content="KIỂM TRA CAMERA" Command="{Binding TestRtspCommand}" Style="{StaticResource CanXeSecondaryButtonStyle}" Margin="0,12,0,0"/>
+                        <TextBlock Text="{Binding CameraTestMessage}" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,6,0,0" TextWrapping="Wrap"/>
                         <Button Content="LƯU CẤU HÌNH" Command="{Binding SaveCameraCommand}" Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,10,0,0"/>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource CanXeCardStyle}" Margin="0,0,0,12"
+                        Visibility="{Binding Settings.CameraEnabled, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <TextBlock Text="Camera — vận hành" Style="{StaticResource SectionHeaderTextStyle}"/>
+                        <TextBlock Text="{Binding CameraConnectionStatus}" FontWeight="SemiBold"/>
+                        <WrapPanel Margin="0,10,0,0">
+                            <Button Content="KẾT NỐI" Command="{Binding ConnectCameraCommand}" Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,0,8,0"
+                                    IsEnabled="{Binding IsCameraConnectEnabled}"/>
+                            <Button Content="NGẮT KẾT NỐI" Command="{Binding DisconnectCameraCommand}" Style="{StaticResource CanXeSecondaryButtonStyle}" Margin="0,0,8,0"
+                                    IsEnabled="{Binding IsCameraDisconnectEnabled}"/>
+                            <Button Content="THỬ KẾT NỐI LẠI" Command="{Binding RetryConnectCameraCommand}" Style="{StaticResource CanXeSecondaryButtonStyle}"
+                                    Visibility="{Binding IsRetryCameraConnectVisible, Converter={StaticResource BoolToVis}}"/>
+                        </WrapPanel>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -943,10 +1014,46 @@
                       Visibility="{Binding IsSystemSectionVisible, Converter={StaticResource BoolToVis}}">
             <StackPanel Margin="8" DataContext="{Binding Settings}">
                 <TextBlock Text="HỆ THỐNG" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
+
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="THÔNG TIN CAMERA" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock Text="{Binding CameraHealthText, Mode=OneWay}" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="THÔNG TIN PHIÊN BẢN" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock Text="{Binding BuildInfoText, Mode=OneWay}" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12"/>
+                        <Button Content="SAO CHÉP THÔNG TIN" Command="{Binding CopyBuildInfoCommand}" Style="{StaticResource FilterButton}" Margin="0,12,0,0" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="KIỂM TRA HỆ THỐNG" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Content="CHẠY KIỂM TRA TOÀN BỘ" Command="{Binding RunFullDiagnosticsCommand}" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
+                            <Button Content="XUẤT BÁO CÁO" Command="{Binding ExportDiagnosticsReportCommand}" Style="{StaticResource FilterButton}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding DiagnosticsStatusMessage}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                        <DataGrid ItemsSource="{Binding DiagnosticRows}" AutoGenerateColumns="False" IsReadOnly="True"
+                                  HeadersVisibility="Column" CanUserAddRows="False" CanUserDeleteRows="False"
+                                  MinHeight="120" MaxHeight="320">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Hạng mục" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Trạng thái" Binding="{Binding Status}" Width="80"/>
+                                <DataGridTextColumn Header="Chi tiết" Binding="{Binding Detail}" Width="2*"/>
+                                <DataGridTextColumn Header="Thời gian" Binding="{Binding DurationText}" Width="80"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </Border>
+
                 <Border Style="{StaticResource CardBorder}">
                     <StackPanel>
-                        <TextBlock><Run Text="Phiên bản: "/><Run Text="{Binding ApplicationVersion, Mode=OneWay}"/></TextBlock>
-                        <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"><Run Text="Database: "/><Run Text="{Binding DatabasePath, Mode=OneWay}"/></TextBlock>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"><Run Text="Database: "/><Run Text="{Binding DatabasePath, Mode=OneWay}"/></TextBlock>
                         <TextBlock Margin="0,4,0,0"><Run Text="Chế độ: "/><Run Text="{Binding DeviceModeDisplay, Mode=OneWay}"/></TextBlock>
                         <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"><Run Text="Migration: "/><Run Text="{Binding MigrationStatus, Mode=OneWay}"/></TextBlock>
                         <TextBlock Text="{Binding ErrorLogSummary}" Margin="0,8,0,0" Foreground="{StaticResource TextSecondaryBrush}"/>

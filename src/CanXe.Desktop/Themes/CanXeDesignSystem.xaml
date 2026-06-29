@@ -109,11 +109,27 @@
                     <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9"
                             BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
                             Padding="{TemplateBinding Padding}" MinHeight="{TemplateBinding MinHeight}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border.Effect>
+                            <DropShadowEffect ShadowDepth="1" BlurRadius="4" Opacity="0.18" Color="#000000"/>
+                        </Border.Effect>
+                        <ContentPresenter x:Name="Content" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.92"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Opacity" Value="0.82"/>
+                            <Setter TargetName="Content" Property="Margin" Value="0,2,0,0"/>
+                            <Setter TargetName="Bd" Property="Effect">
+                                <Setter.Value>
+                                    <DropShadowEffect ShadowDepth="0" BlurRadius="2" Opacity="0.1" Color="#000000"/>
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                            <Setter Property="Cursor" Value="Arrow"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -179,6 +195,14 @@
         <Setter Property="Padding" Value="14,10"/>
     </Style>
 
+    <Style x:Key="WeighActionButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeWeightButtonStyle}"/>
+    <Style x:Key="PrimaryActionButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXePrimaryButtonStyle}"/>
+    <Style x:Key="SecondaryActionButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeSecondaryButtonStyle}"/>
+    <Style x:Key="DangerActionButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeSecondaryButtonStyle}">
+        <Setter Property="Background" Value="{StaticResource DangerBrush}"/>
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+
     <Style x:Key="CanXeSecondaryToggleButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource CanXeToggleButtonBase}">
         <Setter Property="Background" Value="#ECEFF1"/>
         <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
@@ -190,7 +214,7 @@
     </Style>
 
     <!-- Legacy action buttons -->
-    <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource CanXeSecondaryButtonStyle}">
+    <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource SecondaryActionButtonStyle}">
         <Setter Property="Background" Value="#546E7A"/>
         <Setter Property="Foreground" Value="White"/>
         <Setter Property="BorderThickness" Value="0"/>
@@ -198,7 +222,7 @@
         <Setter Property="FontSize" Value="18"/>
         <Setter Property="Margin" Value="3,0"/>
     </Style>
-    <Style x:Key="SaveButton" TargetType="Button" BasedOn="{StaticResource CanXeSuccessButtonStyle}">
+    <Style x:Key="SaveButton" TargetType="Button" BasedOn="{StaticResource PrimaryActionButtonStyle}">
         <Setter Property="Margin" Value="3,0"/>
         <Setter Property="MinWidth" Value="110"/>
         <Setter Property="MinHeight" Value="60"/>
@@ -211,7 +235,7 @@
         <Setter Property="MinHeight" Value="60"/>
         <Setter Property="Margin" Value="3,0"/>
     </Style>
-    <Style x:Key="RecordWeightButton" TargetType="Button" BasedOn="{StaticResource CanXeWeightButtonStyle}">
+    <Style x:Key="RecordWeightButton" TargetType="Button" BasedOn="{StaticResource WeighActionButtonStyle}">
         <Setter Property="Margin" Value="4,0"/>
     </Style>
 

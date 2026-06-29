@@ -181,7 +181,7 @@ public sealed partial class MainViewModel
 
                     : _hardwareScale.IsStable
 
-                        ? "● ỔN ĐỊNH"
+                        ? $"● ỔN ĐỊNH ({FormatStableSource(_hardwareScale.LatestReading?.StableSource)})"
 
                         : "● CHƯA ỔN ĐỊNH";
 
@@ -218,6 +218,40 @@ public sealed partial class MainViewModel
     }
 
 
+
+    private static string FormatStableSource(ScaleStableSource? source) => source switch
+    {
+        ScaleStableSource.HardwareFlag => "HW",
+        ScaleStableSource.SoftwareWindow => "SW",
+        _ => "?"
+    };
+
+    private bool TryBlockHardwareConnection(out string message)
+    {
+        message = string.Empty;
+        if (ScaleInputMode != ScaleInputMode.Hardware || _hardwareScale is null)
+            return false;
+
+        if (!_hardwareScale.IsConnected)
+        {
+            message = "Chưa kết nối đầu cân COM.";
+            return true;
+        }
+
+        if (_hardwareScale.IsStale)
+        {
+            message = "Dữ liệu đầu cân đã cũ — không có frame hợp lệ gần đây.";
+            return true;
+        }
+
+        if (_hardwareScale.LatestReading is null)
+        {
+            message = "Chưa nhận frame hợp lệ từ đầu cân.";
+            return true;
+        }
+
+        return false;
+    }
 
     private bool TryBlockHardwareCapture(out string message)
 
