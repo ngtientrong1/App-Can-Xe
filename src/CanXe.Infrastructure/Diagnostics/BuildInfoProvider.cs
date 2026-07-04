@@ -1,16 +1,12 @@
 using System.Diagnostics;
 using System.Reflection;
-using System.Text;
 using CanXe.Application.Configuration;
 using CanXe.Application.Interfaces;
 using CanXe.Application.Models;
-using CanXe.Infrastructure.Camera;
 
 namespace CanXe.Infrastructure.Diagnostics;
 
-public sealed class BuildInfoProvider(
-    AppSettings appSettings,
-    ICameraDecoderFactory decoderFactory) : IBuildInfoProvider
+public sealed class BuildInfoProvider(AppSettings appSettings) : IBuildInfoProvider
 {
     public BuildInfo GetBuildInfo()
     {
@@ -19,24 +15,14 @@ public sealed class BuildInfoProvider(
             ?? assembly.GetName().Version?.ToString()
             ?? "0.0.0";
 
-        var buildTime = GetBuildTimestamp(assembly);
-        var gitCommit = GetGitCommit();
-        var ffmpegPath = FfmpegPathResolver.ResolveFfmpegExecutable();
-        var decoder = decoderFactory.CreateDecoder();
-
         return new BuildInfo
         {
             Version = version,
-            BuildTimestamp = buildTime,
-            GitCommit = gitCommit,
+            BuildTimestamp = GetBuildTimestamp(assembly),
+            GitCommit = GetGitCommit(),
             Configuration = GetConfiguration(),
             DeviceMode = appSettings.DeviceMode,
-            AppBaseDirectory = AppContext.BaseDirectory,
-            CameraDecoderName = decoder.GetType().Name,
-            FfmpegPath = ffmpegPath ?? "—",
-            FfmpegStatus = ffmpegPath is not null && File.Exists(ffmpegPath)
-                ? DescribeFfmpegVersion(ffmpegPath)
-                : "Not found"
+            AppBaseDirectory = AppContext.BaseDirectory
         };
     }
 
@@ -83,18 +69,5 @@ public sealed class BuildInfoProvider(
 #else
         return "Release";
 #endif
-    }
-
-    private static string DescribeFfmpegVersion(string ffmpegPath)
-    {
-        try
-        {
-            var version = FfmpegCapabilityProbe.GetVersion(ffmpegPath);
-            return string.IsNullOrWhiteSpace(version) ? "Found" : version;
-        }
-        catch
-        {
-            return "Found";
-        }
     }
 }

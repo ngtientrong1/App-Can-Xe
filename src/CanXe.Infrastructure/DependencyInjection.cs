@@ -1,20 +1,19 @@
+namespace CanXe.Infrastructure;
+
 using CanXe.Application.Configuration;
 using CanXe.Application.Interfaces;
 using CanXe.Application.Models;
 using CanXe.Application.Services;
-using CanXe.Domain.Services;
-using CanXe.Infrastructure.Camera;
 using CanXe.Infrastructure.Data;
-using CanXe.Infrastructure.Device;
 using CanXe.Infrastructure.Diagnostics;
 using CanXe.Infrastructure.Repositories;
+using CanXe.Infrastructure.Device;
 using CanXe.Infrastructure.Scale;
 using CanXe.Infrastructure.Security;
+using CanXe.Infrastructure.Services;
 using CanXe.ScaleProtocol.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-
-namespace CanXe.Infrastructure;
 
 public static class DependencyInjection
 {
@@ -30,32 +29,16 @@ public static class DependencyInjection
             options.UseSqlite($"Data Source={databasePath}"));
 
         services.AddSingleton<ISecretProtector, DpApiSecretProtector>();
-        services.AddSingleton<ICameraDecoderFactory, CameraDecoderFactory>();
         services.AddSingleton<IBuildInfoProvider, BuildInfoProvider>();
         services.AddSingleton<ISystemDiagnosticsService, SystemDiagnosticsService>();
         services.AddScoped<DiagnosticsPhaseRunner>();
         services.AddSingleton<AppPaths>(_ => new AppPaths { DatabasePath = databasePath, PhotoRoot = photoRoot });
-        services.AddSingleton<LatestCameraFrameCache>();
-        services.AddSingleton<ILatestCameraFrameProvider>(sp => sp.GetRequiredService<LatestCameraFrameCache>());
-        services.AddSingleton<ICameraSnapshotService, CameraSnapshotService>();
-        services.AddSingleton<CameraSupervisorOptions>(_ => CameraSupervisorOptions.Default);
-        services.AddSingleton<ICameraStreamService, CameraStreamService>();
-        services.AddSingleton<ICameraConnectionSupervisor, CameraConnectionSupervisor>();
-        services.AddSingleton<ICameraConnectionTester, CameraConnectionTester>();
         services.AddSingleton<IScaleConnectionTester>(sp =>
             new ScaleConnectionTester(sp.GetRequiredService<AppSettings>()));
 
-        services.AddSingleton<IPhotoStorageService>(_ => new PhotoStorageService(photoRoot));
-        services.AddSingleton<ICameraService>(sp =>
-            new StreamBackedCameraService(sp.GetRequiredService<ICameraSnapshotService>()));
-        services.AddSingleton<IPhotoCleanupService>(_ =>
-            new PhotoCleanupService(photoRoot, TimeSpan.FromDays(settings.PhotoRetentionDays)));
-
         services.AddSingleton<IScaleSerialReader, WindowsScaleSerialReader>();
         services.AddSingleton<CompositeScaleService>(sp =>
-        {
-            return new CompositeScaleService(sp.GetRequiredService<IScaleSerialReader>());
-        });
+            new CompositeScaleService(sp.GetRequiredService<IScaleSerialReader>()));
         services.AddSingleton<IScaleService>(sp => sp.GetRequiredService<CompositeScaleService>());
         services.AddSingleton<IHardwareScaleDiagnostics>(sp => sp.GetRequiredService<CompositeScaleService>());
 
@@ -66,10 +49,17 @@ public static class DependencyInjection
         services.AddScoped<IStationSettingsRepository, StationSettingsRepository>();
         services.AddScoped<IScaleDeviceSettingsRepository, ScaleDeviceSettingsRepository>();
         services.AddScoped<ICameraDeviceSettingsRepository, CameraDeviceSettingsRepository>();
+        services.AddScoped<IPrintSettingsRepository, PrintSettingsRepository>();
+        services.AddScoped<IPrintJobHistoryRepository, PrintJobHistoryRepository>();
+        services.AddSingleton<IPrinterCapabilityService, MockPrinterCapabilityService>();
         services.AddScoped<WeighTicketService>();
         services.AddScoped<FastEntrySearchService>();
         services.AddScoped<TicketUpdateService>();
+        services.AddScoped<TicketDeleteService>();
+        services.AddScoped<ITicketDeleteService>(sp => sp.GetRequiredService<TicketDeleteService>());
+        services.AddSingleton<IDeveloperAuthorizationService, DeveloperAuthorizationService>();
         services.AddScoped<StationSettingsService>();
+        services.AddScoped<PrintSettingsService>();
 
         return services;
     }
@@ -79,8 +69,5 @@ public static class DependencyInjection
         using var scope = services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CanXeDbContext>();
         await DatabaseUpgrader.UpgradeAsync(db, databasePath);
-
-        var cleanup = scope.ServiceProvider.GetRequiredService<IPhotoCleanupService>();
-        await cleanup.CleanupOldPhotosAsync();
     }
 }

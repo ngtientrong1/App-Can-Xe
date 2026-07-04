@@ -36,3 +36,16 @@ public interface IScaleConnectionTester
 {
     Task<ConnectionTestResult> TestAsync(ScaleDeviceSettingsDto settings, CancellationToken cancellationToken = default);
 }
+
+public interface IPrintSettingsRepository
+{
+    Task<PrintSettingsDto?> GetAsync(CancellationToken cancellationToken = default);
+    Task SaveAsync(PrintSettingsDto settings, CancellationToken cancellationToken = default);
+}
+
+public interface IPrintJobHistoryRepository
+{
+    Task<long> AddAsync(PrintJobHistoryDto job, CancellationToken cancellationToken = default);
+    Task UpdateStatusAsync(long id, string status, string? errorMessage, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PrintJobHistoryDto>> GetForTicketAsync(int ticketId, CancellationToken cancellationToken = default);
+}

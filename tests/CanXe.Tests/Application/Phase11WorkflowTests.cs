@@ -103,95 +103,6 @@ public class Phase11WorkflowTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CaptureWeight_CallsCameraEachUpdate()
-    {
-        await using var factory = new TestApplicationFactory();
-        await factory.InitializeAsync();
-
-        var camera = new FailingThenSucceedingCameraService();
-        var scope = factory.Provider.CreateScope();
-        var repo = scope.ServiceProvider.GetRequiredService<IWeighTicketRepository>();
-        var customers = scope.ServiceProvider.GetRequiredService<ICustomerRepository>();
-        var cargo = scope.ServiceProvider.GetRequiredService<ICargoTypeRepository>();
-        var vehicles = scope.ServiceProvider.GetRequiredService<IVehicleRepository>();
-        var scale = scope.ServiceProvider.GetRequiredService<IScaleService>();
-        var photos = scope.ServiceProvider.GetRequiredService<IPhotoStorageService>();
-
-        var service = new WeighTicketService(repo, customers, cargo, vehicles, scale, camera, photos,
-            scope.ServiceProvider.GetRequiredService<TicketUpdateService>());
-        scale.SetManualMode(true);
-        scale.SetManualWeightKg(8500m);
-
-        var draft = new WeighTicketDraft();
-        await service.CaptureWeightAsync(draft, 1);
-        await service.WaitForPendingPhotosAsync();
-        await service.CaptureWeightAsync(draft, 1);
-        await service.WaitForPendingPhotosAsync();
-
-        Assert.Equal(2, camera.CallCount);
-    }
-
-    [Fact]
-    public async Task CameraFailure_DoesNotLoseWeight()
-    {
-        await using var factory = new TestApplicationFactory(simulateCameraFailure: true);
-        await factory.InitializeAsync();
-
-        var service = factory.Provider.CreateScope().ServiceProvider.GetRequiredService<WeighTicketService>();
-        var scale = factory.Provider.GetRequiredService<IScaleService>();
-        scale.SetManualMode(true);
-        scale.SetManualWeightKg(8500m);
-
-        var draft = new WeighTicketDraft();
-        await service.CaptureWeightAsync(draft, 1);
-        await service.WaitForPendingPhotosAsync();
-
-        Assert.Equal(8500m, draft.DraftWeight1);
-        Assert.Equal(DraftPhotoStatus.Failed, draft.DraftWeight1PhotoStatus);
-        Assert.Null(draft.DraftWeight1PhotoPath);
-    }
-
-    [Fact]
-    public async Task CameraFailureAfterUpdate_InvalidatesOldPhoto()
-    {
-        await using var factory = new TestApplicationFactory();
-        await factory.InitializeAsync();
-
-        var camera = new SucceedThenFailCameraService();
-        var scope = factory.Provider.CreateScope();
-        var sp = scope.ServiceProvider;
-        var service = new WeighTicketService(
-            sp.GetRequiredService<IWeighTicketRepository>(),
-            sp.GetRequiredService<ICustomerRepository>(),
-            sp.GetRequiredService<ICargoTypeRepository>(),
-            sp.GetRequiredService<IVehicleRepository>(),
-            sp.GetRequiredService<IScaleService>(),
-            camera,
-            sp.GetRequiredService<IPhotoStorageService>(),
-            sp.GetRequiredService<TicketUpdateService>());
-
-        var scale = sp.GetRequiredService<IScaleService>();
-        scale.SetManualMode(true);
-
-        var draft = new WeighTicketDraft();
-        scale.SetManualWeightKg(8500m);
-        await service.CaptureWeightAsync(draft, 1);
-        await service.WaitForPendingPhotosAsync();
-        Assert.Equal(DraftPhotoStatus.Valid, draft.DraftWeight1PhotoStatus);
-        var firstPhoto = draft.DraftWeight1PhotoPath;
-
-        scale.SetManualWeightKg(8600m);
-        await service.CaptureWeightAsync(draft, 1);
-        await service.WaitForPendingPhotosAsync();
-
-        Assert.Equal(8600m, draft.DraftWeight1);
-        Assert.Equal(DraftPhotoStatus.Failed, draft.DraftWeight1PhotoStatus);
-        Assert.Null(draft.DraftWeight1PhotoPath);
-        if (!string.IsNullOrEmpty(firstPhoto))
-            Assert.False(File.Exists(firstPhoto));
-    }
-
-    [Fact]
     public async Task Cancel_RemovesDraft_ButNotDatabase()
     {
         var service = CreateService();
@@ -336,8 +247,6 @@ public class Phase11WorkflowTests : IAsyncLifetime
             sp.GetRequiredService<ICargoTypeRepository>(),
             sp.GetRequiredService<IVehicleRepository>(),
             sp.GetRequiredService<IScaleService>(),
-            sp.GetRequiredService<ICameraService>(),
-            sp.GetRequiredService<IPhotoStorageService>(),
             sp.GetRequiredService<TicketUpdateService>());
 
         var scale = sp.GetRequiredService<IScaleService>();
@@ -443,6 +352,9 @@ public class Phase11WorkflowTests : IAsyncLifetime
 
         public Task<WeighTicket?> GetByIdWithEventsAsync(int id, CancellationToken cancellationToken = default) =>
             _inner.GetByIdWithEventsAsync(id, cancellationToken);
+
+        public Task<WeighTicket?> GetByIdIncludingDeletedAsync(int id, CancellationToken cancellationToken = default) =>
+            _inner.GetByIdIncludingDeletedAsync(id, cancellationToken);
 
         public Task<IReadOnlyList<WeighTicket>> GetFilteredAsync(WeighTicketFilter filter, CancellationToken cancellationToken = default) =>
             _inner.GetFilteredAsync(filter, cancellationToken);

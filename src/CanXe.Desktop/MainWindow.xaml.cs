@@ -57,11 +57,28 @@ public partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Escape && DataContext is MainViewModel { IsTicketPreviewVisible: true } vm)
+    }
+
+    private void MainPrintButton_OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || sender is not Button button)
+            return;
+
+        var command = button.Command;
+        vm.RecordMainPrintButtonClick(new MainPrintButtonTelemetry
         {
-            vm.CloseTicketPreviewCommand.Execute(null);
-            e.Handled = true;
-        }
+            ButtonName = button.Name,
+            IsEnabled = button.IsEnabled,
+            IsHitTestVisible = button.IsHitTestVisible,
+            DataContextType = button.DataContext?.GetType().Name ?? "null",
+            CommandType = command?.GetType().Name ?? "null",
+            CanExecute = command?.CanExecute(button.CommandParameter) ?? false,
+            ActiveTicketId = vm.ActiveTicketId,
+            SelectedTicketId = vm.SelectedTicket?.Id,
+            FormMode = vm.FormMode,
+            IsDirty = vm.IsTicketDirty,
+            IsPrinting = vm.IsPrinting
+        });
     }
 
     private void WireAutocomplete(Controls.AutoCompleteTextBox box, AutocompleteField field)
@@ -113,13 +130,28 @@ public partial class MainWindow : Window
 
     private async void TicketsGrid_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
+        if (e.OriginalSource is DependencyObject source &&
+            FindAncestor<Button>(source) is not null)
+            return;
+
         if (DataContext is not MainViewModel vm)
             return;
 
-        if (!vm.CanLoadTicketIntoForm)
-            return;
+        if (sender is DataGrid { SelectedItem: WeighTicketListItem item })
+            await vm.OpenTicketFromListCommand.ExecuteAsync(item);
+    }
 
-        if (sender is DataGrid grid && grid.SelectedItem is WeighTicketListItem item)
-            await vm.BeginEditTicketCommand.ExecuteAsync(item);
+    private void DeleteTicketButton_OnPreviewMouseDoubleClick(object sender, MouseButtonEventArgs e) =>
+        e.Handled = true;
+
+    private static DependencyObject? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
+    {
+        while (current is not null)
+        {
+            if (current is T match)
+                return match;
+            current = System.Windows.Media.VisualTreeHelper.GetParent(current);
+        }
+        return null;
     }
 }

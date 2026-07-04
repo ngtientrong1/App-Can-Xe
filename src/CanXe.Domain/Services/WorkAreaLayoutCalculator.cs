@@ -2,61 +2,60 @@ namespace CanXe.Domain.Services;
 
 public static class WorkAreaLayoutCalculator
 {
-    public const int UtilityRailWidthPixels = 56;
-    public const int CompactUtilityRailWidthPixels = 52;
+    public const int MinWeighColumnPercent = 42;
 
-    public const int CameraDrawerWidthWidePixels = 340;
-    public const int CameraDrawerWidthMediumPixels = 280;
-    public const int CameraDrawerWidthCompactPixels = 260;
-
-    public const int CameraDrawerMaxWidthPixels = 360;
-    public const int CameraDrawerMinWidthPixels = 260;
-
-    public static (int WeighStars, int InfoStars) GetMainColumnStars(bool isCameraDrawerOpen) =>
-        isCameraDrawerOpen ? (35, 45) : (38, 62);
-
-    public static int GetUtilityRailWidth(bool isCompact) =>
-        isCompact ? CompactUtilityRailWidthPixels : UtilityRailWidthPixels;
-
-    public static int GetCameraDrawerWidth(bool isOpen, double windowWidth = 1920)
-    {
-        if (!isOpen)
-            return 0;
-
-        if (windowWidth >= 1500)
-            return CameraDrawerWidthWidePixels;
-        if (windowWidth >= 1200)
-            return CameraDrawerWidthMediumPixels;
-        return CameraDrawerWidthCompactPixels;
-    }
+    public static (int WeighStars, int InfoStars) GetMainColumnStars(double windowWidth = 1920) =>
+        windowWidth switch
+        {
+            >= 1900 => (44, 56),
+            >= 1366 => (46, 54),
+            _ => (50, 50)
+        };
 
     public static double GetLiveWeightFontSize(double windowWidth) =>
         windowWidth switch
         {
-            >= 1900 => 96,
-            >= 1580 => 84,
-            >= 1366 => 72,
+            >= 1900 => 84,
+            >= 1580 => 76,
+            >= 1366 => 68,
             _ => 64
         };
 
     public static double GetLiveWeightUnitFontSize(double windowWidth) =>
         windowWidth switch
         {
-            >= 1900 => 32,
-            >= 1580 => 28,
-            >= 1366 => 24,
+            >= 1900 => 26,
+            >= 1580 => 24,
+            >= 1366 => 22,
             _ => 20
         };
 
-    public static bool ShouldUseCameraOverlay(double windowWidth) => windowWidth < 1200;
+    public static double GetWeighPanelValueFontSize(double windowWidth) =>
+        windowWidth switch
+        {
+            >= 1900 => 28,
+            >= 1366 => 24,
+            _ => 22
+        };
 
-    [Obsolete("Use GetMainColumnStars + fixed rail/drawer columns")]
-    public static (int WeighStars, int InfoStars, int CameraStars) GetColumnStars(bool isCameraPanelVisible) =>
-        isCameraPanelVisible ? (32, 50, 18) : (34, 66, 0);
+    public static double GetSummaryValueFontSize(double windowWidth) =>
+        windowWidth switch
+        {
+            >= 1900 => 32,
+            >= 1366 => 28,
+            _ => 24
+        };
 
-    [Obsolete("Use GetUtilityRailWidth")]
-    public const int CollapsedCameraColumnPixels = 40;
+    [Obsolete("Camera drawer removed in Phase 4.")]
+    public static (int WeighStars, int InfoStars) GetMainColumnStars(bool isCameraDrawerOpen) =>
+        GetMainColumnStars();
 
-    public static bool HasUnusedCameraColumnGap(bool isCameraPanelVisible, int cameraColumnMinWidth) =>
-        !isCameraPanelVisible && cameraColumnMinWidth > 0;
+    [Obsolete("Utility rail removed in Phase 4.")]
+    public const int UtilityRailWidthPixels = 0;
+
+    [Obsolete("Camera drawer removed in Phase 4.")]
+    public static int GetCameraDrawerWidth(bool isOpen, double windowWidth = 1920) => 0;
+
+    [Obsolete("Utility rail removed in Phase 4.")]
+    public static int GetUtilityRailWidth(bool isCompact) => 0;
 }

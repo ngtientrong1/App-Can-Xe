@@ -1,6 +1,6 @@
 # Creates acceptance ZIP from publish output (flat contents, no TestAssets)
 param(
-    [string]$ZipName = "CanXe-0.3.0-rc10-Phase3C-DiagnosticsAllOrchestrationFix.zip"
+    [string]$ZipName = "CanXe-0.4.0-rc12-Phase4-PrintSafe-TwoStageWorkflow.zip"
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot

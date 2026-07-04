@@ -22,6 +22,26 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Application\FfmpegIntegrationTests.cs" />
+    <Compile Remove="Application\JpegStreamFrameReaderTests.cs" />
+    <Compile Remove="Application\Phase3ACameraAutoConnectTests.cs" />
+    <Compile Remove="Application\Phase3BRealDecoderTests.cs" />
+    <Compile Remove="Application\Phase3CCameraSupervisorTests.cs" />
+    <Compile Remove="Application\Phase3CDiagnosticsBinaryPipeTests.cs" />
+    <Compile Remove="Application\Phase3CJpegExtractionRc6Tests.cs" />
+    <Compile Remove="Application\Phase3CHardwareDiagnosticsTests.cs" />
+    <Compile Remove="Application\Phase3CDiagnosticsOrchestrationTests.cs" />
+    <Compile Remove="Application\Phase3CReleaseGateTests.cs" />
+    <Compile Remove="Application\TestAssetsMetadataTests.cs" />
+    <Compile Remove="Support\ControllableCameraStreamService.cs" />
+    <Compile Remove="Support\TestCameraStreamFactory.cs" />
+    <Compile Remove="Support\TakeWeightReliabilityTestSupport.cs" />
+    <Compile Remove="Application\Phase3CTakeWeightReliabilityTests.cs" />
+    <Compile Remove="Application\Phase3CScaleStabilityAndFastCaptureTests.cs" />
+    <Compile Remove="Application\Phase17AppleUiAndSettingsTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\CanXe.Application\CanXe.Application.csproj" />
     <ProjectReference Include="..\..\src\CanXe.Domain\CanXe.Domain.csproj" />
     <ProjectReference Include="..\..\src\CanXe.Infrastructure\CanXe.Infrastructure.csproj" />

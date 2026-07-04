@@ -15,35 +15,24 @@ public class Phase2DOperatorUiAutoConnectTests
     }
 
     [Fact]
-    public void CameraClosedLayout_Uses38And62Stars()
+    public void Phase4Layout_UsesResponsiveStars()
     {
-        var (weigh, info) = WorkAreaLayoutCalculator.GetMainColumnStars(isCameraDrawerOpen: false);
-        Assert.Equal(38, weigh);
-        Assert.Equal(62, info);
+        var (weigh, info) = WorkAreaLayoutCalculator.GetMainColumnStars(1920);
+        Assert.Equal(44, weigh);
+        Assert.Equal(56, info);
     }
 
     [Fact]
-    public void CameraOpenLayout_Uses35And45Stars()
+    public void Phase4Layout_CameraDrawerAlwaysZero()
     {
-        var (weigh, info) = WorkAreaLayoutCalculator.GetMainColumnStars(isCameraDrawerOpen: true);
-        Assert.Equal(35, weigh);
-        Assert.Equal(45, info);
+        Assert.Equal(0, WorkAreaLayoutCalculator.GetCameraDrawerWidth(true, 1920));
+        Assert.Equal(0, WorkAreaLayoutCalculator.GetCameraDrawerWidth(false, 1366));
     }
 
     [Theory]
-    [InlineData(1920, 340)]
-    [InlineData(1600, 340)]
-    [InlineData(1366, 280)]
-    [InlineData(1100, 260)]
-    public void CameraDrawerWidth_IsResponsive(double windowWidth, int expectedWidth)
-    {
-        Assert.Equal(expectedWidth, WorkAreaLayoutCalculator.GetCameraDrawerWidth(true, windowWidth));
-    }
-
-    [Theory]
-    [InlineData(1366, 72)]
-    [InlineData(1600, 84)]
-    [InlineData(1920, 96)]
+    [InlineData(1366, 68)]
+    [InlineData(1600, 76)]
+    [InlineData(1920, 84)]
     public void LiveWeightFontSize_ScalesWithWindow(double windowWidth, double expectedFontSize)
     {
         Assert.Equal(expectedFontSize, WorkAreaLayoutCalculator.GetLiveWeightFontSize(windowWidth));
@@ -154,12 +143,5 @@ public class Phase2DOperatorUiAutoConnectTests
         var loaded = await service.GetScaleAsync();
         Assert.False(loaded.AutoConnectScaleOnStartup);
         Assert.Equal(1200, loaded.BaudRate);
-    }
-
-    [Fact]
-    public void NarrowWindow_UsesCameraOverlayBreakpoint()
-    {
-        Assert.True(WorkAreaLayoutCalculator.ShouldUseCameraOverlay(1199));
-        Assert.False(WorkAreaLayoutCalculator.ShouldUseCameraOverlay(1200));
     }
 }

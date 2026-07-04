@@ -62,9 +62,6 @@ public sealed partial class MainViewModel
         }
     }
 
-    public double LiveWeightUnitFontSize =>
-        WorkAreaLayoutCalculator.GetLiveWeightUnitFontSize(WindowWidth);
-
     public void UpdateWindowSize(double width, double height)
     {
         if (width > 0)

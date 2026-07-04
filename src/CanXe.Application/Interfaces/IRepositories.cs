@@ -6,6 +6,7 @@ namespace CanXe.Application.Interfaces;
 public interface IWeighTicketRepository
 {
     Task<WeighTicket?> GetByIdWithEventsAsync(int id, CancellationToken cancellationToken = default);
+    Task<WeighTicket?> GetByIdIncludingDeletedAsync(int id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WeighTicket>> GetFilteredAsync(WeighTicketFilter filter, CancellationToken cancellationToken = default);
     Task<WeighTicket> AddAsync(WeighTicket ticket, CancellationToken cancellationToken = default);
     Task UpdateAsync(WeighTicket ticket, CancellationToken cancellationToken = default);

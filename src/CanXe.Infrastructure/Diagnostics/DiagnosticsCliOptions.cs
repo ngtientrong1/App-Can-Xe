@@ -5,23 +5,23 @@ namespace CanXe.Infrastructure.Diagnostics;
 public sealed class DiagnosticsCliOptions
 {
     public bool All { get; set; }
-    public bool CameraOnly { get; set; }
     public bool ScaleOnly { get; set; }
     public bool DatabaseOnly { get; set; }
     public bool PublishCheck { get; set; }
     public bool JsonOutput { get; set; }
     public bool Verbose { get; set; }
     public bool ShowHelp { get; set; }
-    public bool RequireCamera { get; set; }
-    public bool SkipCamera { get; set; }
     public bool RequireScale { get; set; }
     public bool SkipScale { get; set; }
-    public bool CaptureCameraPipe { get; set; }
-    public int? CameraStabilitySeconds { get; set; }
     public int? ScaleLiveSeconds { get; set; }
     public int? TakeWeightPerformanceCycles { get; set; }
     public bool VerboseScaleFrames { get; set; }
-    public bool HasCameraFlagConflict => RequireCamera && SkipCamera;
+    public bool PrintRenderTest { get; set; }
+    public bool PrintRenderSendToPrinter { get; set; }
+    public bool PrintLayoutGeometryTest { get; set; }
+    public bool PrintA5FitTest { get; set; }
+    public bool PrintA5FitSendToPrinter { get; set; }
+    public bool PrintA4TwoUpTest { get; set; }
     public bool HasScaleFlagConflict => RequireScale && SkipScale;
 }
 
@@ -33,12 +33,6 @@ public static class DiagnosticsArgumentParser
 
         foreach (var arg in args)
         {
-            if (arg.StartsWith("--camera-stability", StringComparison.OrdinalIgnoreCase))
-            {
-                options.CameraStabilitySeconds = ParseTrailingInt(arg, args, "--camera-stability", 120);
-                continue;
-            }
-
             if (arg.StartsWith("--scale-live", StringComparison.OrdinalIgnoreCase))
             {
                 options.ScaleLiveSeconds = ParseTrailingInt(arg, args, "--scale-live", 60);
@@ -59,9 +53,6 @@ public static class DiagnosticsArgumentParser
                 case "--all":
                     options.All = true;
                     break;
-                case "--camera":
-                    options.CameraOnly = true;
-                    break;
                 case "--scale":
                     options.ScaleOnly = true;
                     break;
@@ -77,30 +68,34 @@ public static class DiagnosticsArgumentParser
                 case "--verbose":
                     options.Verbose = true;
                     break;
-                case "--require-camera":
-                    options.RequireCamera = true;
-                    break;
-                case "--skip-camera":
-                    options.SkipCamera = true;
-                    break;
                 case "--require-scale":
                     options.RequireScale = true;
                     break;
                 case "--skip-scale":
                     options.SkipScale = true;
                     break;
-                case "--capture-camera-pipe":
-                    options.CaptureCameraPipe = true;
+                case "--print-layout-geometry-test":
+                    options.PrintLayoutGeometryTest = true;
                     break;
-                case "--parse-camera-capture":
-                    // Handled in Program.Main before host startup.
+                case "--print-a5-fit-test":
+                    options.PrintA5FitTest = true;
+                    break;
+                case "--print-a4-two-up-test":
+                    options.PrintA4TwoUpTest = true;
+                    break;
+                case "--print-render-test":
+                    options.PrintRenderTest = true;
+                    break;
+                case "--send-to-printer":
+                    options.PrintRenderSendToPrinter = true;
                     break;
             }
         }
 
-        if (!options.All && !options.CameraOnly && !options.ScaleOnly && !options.DatabaseOnly && !options.PublishCheck
-            && !options.CameraStabilitySeconds.HasValue && !options.ScaleLiveSeconds.HasValue
-            && !options.TakeWeightPerformanceCycles.HasValue)
+        if (!options.All && !options.ScaleOnly && !options.DatabaseOnly && !options.PublishCheck
+            && !options.ScaleLiveSeconds.HasValue && !options.TakeWeightPerformanceCycles.HasValue
+            && !options.PrintRenderTest && !options.PrintLayoutGeometryTest && !options.PrintA5FitTest
+            && !options.PrintA4TwoUpTest)
             options.All = true;
 
         return options;
@@ -122,36 +117,22 @@ public static class DiagnosticsArgumentParser
         return defaultValue;
     }
 
-    private static int ParseCameraStabilitySeconds(string arg, IReadOnlyList<string> args) =>
-        ParseTrailingInt(arg, args, "--camera-stability", 120);
-
-    public static DiagnosticsRunOptions BuildRunOptions(DiagnosticsCliOptions cli, string? testMediaPath)
+    public static DiagnosticsRunOptions BuildRunOptions(DiagnosticsCliOptions cli)
     {
-        var skipCamera = cli.SkipCamera;
         var skipScale = cli.SkipScale;
-        var requireCamera = cli.RequireCamera && !skipCamera;
         var requireScale = cli.RequireScale && !skipScale;
-        var includeCamera = !skipCamera && (cli.All || cli.CameraOnly || cli.PublishCheck);
-        var includeScale = !skipScale && (cli.All || cli.ScaleOnly);
-        var useTestMedia = cli.PublishCheck
-            || (!requireCamera && !skipCamera && !string.IsNullOrWhiteSpace(testMediaPath));
+        var includeScale = !skipScale && (cli.All || cli.ScaleOnly || cli.PublishCheck);
 
         return new DiagnosticsRunOptions
         {
-            IncludeApplication = cli.All,
+            IncludeApplication = cli.All || cli.PublishCheck,
             IncludeDatabase = cli.All || cli.DatabaseOnly,
-            IncludeFfmpeg = cli.All || cli.CameraOnly || cli.PublishCheck,
-            IncludeCameraConfig = includeCamera && requireCamera,
-            IncludeCameraConnection = includeCamera,
+            IncludeFilesystem = cli.All || cli.PublishCheck,
+            IncludePrinter = cli.All || cli.PublishCheck,
             IncludeScale = includeScale,
             PublishCheck = cli.PublishCheck,
-            RequireCamera = requireCamera,
             RequireScale = requireScale,
-            SkipCamera = skipCamera,
-            SkipScale = skipScale,
-            UseTestMedia = useTestMedia,
-            CaptureCameraPipe = cli.CaptureCameraPipe,
-            TestMediaPath = useTestMedia ? testMediaPath : null
+            SkipScale = skipScale
         };
     }
 }

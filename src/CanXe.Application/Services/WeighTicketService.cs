@@ -14,19 +14,10 @@ public sealed class WeighTicketService
     private readonly ICargoTypeRepository _cargoTypeRepository;
     private readonly IVehicleRepository _vehicleRepository;
     private readonly IScaleService _scaleService;
-    private readonly ICameraService _cameraService;
-    private readonly IPhotoStorageService _photoStorage;
     private readonly IUserNotificationService? _notificationService;
     private readonly TicketUpdateService _ticketUpdateService;
-    private readonly List<Task> _pendingPhotoTasks = [];
 
-    public Task WaitForPendingPhotosAsync() => Task.WhenAll(_photoTasksSnapshot());
-
-    private Task[] _photoTasksSnapshot()
-    {
-        lock (_pendingPhotoTasks)
-            return _pendingPhotoTasks.ToArray();
-    }
+    public Task WaitForPendingPhotosAsync() => Task.CompletedTask;
 
     public WeighTicketService(
         IWeighTicketRepository ticketRepository,
@@ -34,8 +25,6 @@ public sealed class WeighTicketService
         ICargoTypeRepository cargoTypeRepository,
         IVehicleRepository vehicleRepository,
         IScaleService scaleService,
-        ICameraService cameraService,
-        IPhotoStorageService photoStorage,
         TicketUpdateService ticketUpdateService,
         IUserNotificationService? notificationService = null)
     {
@@ -44,8 +33,6 @@ public sealed class WeighTicketService
         _cargoTypeRepository = cargoTypeRepository;
         _vehicleRepository = vehicleRepository;
         _scaleService = scaleService;
-        _cameraService = cameraService;
-        _photoStorage = photoStorage;
         _ticketUpdateService = ticketUpdateService;
         _notificationService = notificationService;
     }
@@ -54,6 +41,11 @@ public sealed class WeighTicketService
         int ticketId,
         CancellationToken cancellationToken = default) =>
         _ticketUpdateService.LoadForEditAsync(ticketId, cancellationToken);
+
+    public Task<WeighTicketDraft> LoadTicketForViewAsync(
+        int ticketId,
+        CancellationToken cancellationToken = default) =>
+        _ticketUpdateService.LoadForViewAsync(ticketId, cancellationToken);
 
     public Task<UpdateTicketResult> UpdateTicketAsync(
         WeighTicketDraft draft,
@@ -113,75 +105,70 @@ public sealed class WeighTicketService
         return draft;
     }
 
-    public async Task<CaptureWeightResult> CaptureWeightAsync(
+    public Task<CaptureWeightResult> CaptureWeightAsync(
         WeighTicketDraft draft,
         int sequence,
         CancellationToken cancellationToken = default)
     {
         if (sequence is not (1 or 2))
-            return new CaptureWeightResult { Success = false, ErrorMessage = "Lần cân không hợp lệ." };
+            return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Lần cân không hợp lệ." });
 
         if (sequence == 1 && !DraftWorkflowRules.CanUpdateWeight1(
                 draft.IsWeight1LockedFromSavedTicket,
                 draft.DraftWeight2.HasValue,
                 draft.DeveloperWeight1OverrideEnabled))
-            return new CaptureWeightResult { Success = false, ErrorMessage = "Cân lần 1 đã khóa sau khi có cân lần 2." };
+            return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Cân lần 1 đã khóa sau khi có cân lần 2." });
 
         if (sequence == 1 && draft.IsWeight1LockedFromSavedTicket)
-            return new CaptureWeightResult { Success = false, ErrorMessage = "Không thể sửa cân lần 1 đã lưu." };
+            return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Không thể sửa cân lần 1 đã lưu." });
 
         if (sequence == 2 && draft.IsWeight2LockedFromSavedTicket)
-            return new CaptureWeightResult { Success = false, ErrorMessage = "Không thể sửa cân lần 2 đã lưu." };
+            return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Không thể sửa cân lần 2 đã lưu." });
 
         var isUpdate = sequence == 1 ? draft.DraftWeight1.HasValue : draft.DraftWeight2.HasValue;
-        var previousPhotoPath = sequence == 1 ? draft.DraftWeight1PhotoPath : draft.DraftWeight2PhotoPath;
 
         if (_scaleService is IHardwareScaleDiagnostics hardware && hardware.InputMode == ScaleInputMode.Hardware)
         {
             if (!hardware.CanCaptureWeight())
             {
-                return new CaptureWeightResult
+                return Task.FromResult(new CaptureWeightResult
                 {
                     Success = false,
                     ErrorMessage = hardware.GetHardwareCaptureBlockReason() ?? "Trọng lượng chưa ổn định"
-                };
+                });
             }
         }
 
-        if (isUpdate && !string.IsNullOrEmpty(previousPhotoPath) && !IsLockedPhoto(draft, sequence))
-            _photoStorage.DeletePhotoIfExists(previousPhotoPath);
-
-        var weightKg = Math.Round(await _scaleService.GetCurrentWeightAsync(cancellationToken), 0, MidpointRounding.AwayFromZero);
-        var recordedAt = DateTimeOffset.Now;
-
-        draft.SetWeightDraft(sequence, weightKg, recordedAt);
-        draft.SetPhotoPending(sequence);
-
-        if (sequence == 1)
+        try
         {
-            draft.DraftWeight1PhotoPath = null;
-            draft.DraftWeight1PhotoError = null;
+            var weightKg = ReadCurrentWeightKg();
+            var recordedAt = DateTimeOffset.Now;
+            draft.SetWeightDraft(sequence, weightKg, recordedAt);
+            return Task.FromResult(new CaptureWeightResult
+            {
+                Success = true,
+                Sequence = sequence,
+                WeightKg = weightKg,
+                IsUpdate = isUpdate
+            });
         }
-        else
+        catch (Exception ex)
         {
-            draft.DraftWeight2PhotoPath = null;
-            draft.DraftWeight2PhotoError = null;
+            return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = ex.Message });
+        }
+    }
+
+    private decimal ReadCurrentWeightKg()
+    {
+        if (_scaleService is IHardwareScaleDiagnostics hardware && hardware.InputMode == ScaleInputMode.Hardware)
+        {
+            var reading = hardware.LatestReading;
+            if (reading is null)
+                throw new InvalidOperationException("Đầu cân COM chưa sẵn sàng.");
+            return Math.Round((decimal)reading.WeightKg, 0, MidpointRounding.AwayFromZero);
         }
 
-        if (!IsLockedPhoto(draft, sequence))
-        {
-            var photoTask = CapturePhotoInBackgroundAsync(draft, sequence, previousPhotoPath);
-            lock (_pendingPhotoTasks)
-                _pendingPhotoTasks.Add(photoTask);
-        }
-
-        return new CaptureWeightResult
-        {
-            Success = true,
-            Sequence = sequence,
-            WeightKg = weightKg,
-            IsUpdate = isUpdate
-        };
+        return Math.Round(_scaleService.GetCurrentWeightAsync().GetAwaiter().GetResult(), 0, MidpointRounding.AwayFromZero);
     }
 
     public async Task<SaveTicketResult> SaveAsync(
@@ -200,12 +187,11 @@ public sealed class WeighTicketService
                 ? await SaveContinuationAsync(existingId, draft, cancellationToken)
                 : await SaveNewTicketAsync(draft, cancellationToken);
 
-            _photoStorage.CleanupDraftSession(draft.DraftSessionId.ToString("N"));
-
             return new SaveTicketResult
             {
                 Success = true,
                 SavedTicket = MapToListItem(ticket),
+                WorkflowState = WeighTicketWorkflow.FromEventCount(ticket.Events.Count),
                 SimilarCustomerWarnings = similarWarnings,
                 IsVisibleInCurrentFilter = visibilityFilter is null ||
                     TicketUpdateService.TicketMatchesFilter(ticket, visibilityFilter)
@@ -219,13 +205,7 @@ public sealed class WeighTicketService
 
     public void CancelDraft(WeighTicketDraft draft)
     {
-        if (!draft.IsWeight1LockedFromSavedTicket)
-            _photoStorage.DeletePhotoIfExists(draft.DraftWeight1PhotoPath);
-
-        if (!draft.IsWeight2LockedFromSavedTicket)
-            _photoStorage.DeletePhotoIfExists(draft.DraftWeight2PhotoPath);
-
-        _photoStorage.CleanupDraftSession(draft.DraftSessionId.ToString("N"));
+        // Draft session cleanup only — legacy photo files are not managed in Phase 4.
     }
 
     public Task<IReadOnlyList<WeighTicketListItem>> GetFilteredAsync(
@@ -303,13 +283,13 @@ public sealed class WeighTicketService
             Weight1Kg = weight1,
             Weight1RecordedAt = w1?.RecordedAt,
             Weight1PhotoPath = w1?.PhotoPath,
-            Weight1PhotoAvailable = IsPhotoAvailable(w1?.PhotoPath, w1?.PhotoCaptureSucceeded),
-            Weight1PhotoStatusText = GetPhotoStatusText(w1?.PhotoPath, w1?.PhotoCaptureSucceeded),
+            Weight1PhotoAvailable = false,
+            Weight1PhotoStatusText = null,
             Weight2Kg = weight2,
             Weight2RecordedAt = w2?.RecordedAt,
             Weight2PhotoPath = w2?.PhotoPath,
-            Weight2PhotoAvailable = IsPhotoAvailable(w2?.PhotoPath, w2?.PhotoCaptureSucceeded),
-            Weight2PhotoStatusText = GetPhotoStatusText(w2?.PhotoPath, w2?.PhotoCaptureSucceeded),
+            Weight2PhotoAvailable = false,
+            Weight2PhotoStatusText = null,
             GrossWeightKg = WeightStorageMapper.FromGrams(ticket.GrossWeightGrams),
             TareWeightKg = WeightStorageMapper.FromGrams(ticket.TareWeightGrams),
             NetWeightKg = WeightStorageMapper.FromGrams(ticket.NetWeightGrams),
@@ -318,51 +298,6 @@ public sealed class WeighTicketService
             TotalAmountVnd = WeightStorageMapper.FromVnd(ticket.TotalAmountVnd),
             IsSingleWeigh = WeightCalculator.IsSingleWeigh(weight1, weight2)
         };
-    }
-
-    private static bool IsPhotoAvailable(string? path, bool? captureSucceeded)
-    {
-        if (captureSucceeded != true || string.IsNullOrEmpty(path) || !File.Exists(path))
-            return false;
-
-        try
-        {
-            var info = new FileInfo(path);
-            if (!CameraSnapshotPolicy.IsValidFileSize(info.Length))
-                return false;
-
-            Span<byte> header = stackalloc byte[4];
-            using var fs = File.OpenRead(path);
-            return fs.Read(header) >= 2
-                && header[0] == 0xFF
-                && header[1] == 0xD8;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static string GetPhotoStatusText(string? path, bool? captureSucceeded)
-    {
-        if (captureSucceeded != true || string.IsNullOrEmpty(path))
-            return "Không có ảnh";
-
-        if (!File.Exists(path))
-            return "Ảnh đã hết thời hạn lưu";
-
-        try
-        {
-            var info = new FileInfo(path);
-            if (!CameraSnapshotPolicy.IsValidFileSize(info.Length))
-                return "Ảnh không hợp lệ hoặc chưa có ảnh";
-        }
-        catch
-        {
-            return "Ảnh không hợp lệ hoặc chưa có ảnh";
-        }
-
-        return "Có ảnh";
     }
 
     private async Task<WeighTicket> SaveNewTicketAsync(
@@ -415,9 +350,9 @@ public sealed class WeighTicketService
                     Sequence = 1,
                     OriginalWeightGrams = WeightStorageMapper.ToGrams(draft.DraftWeight1)!.Value,
                     RecordedAt = draft.DraftWeight1RecordedAt!.Value,
-                    PhotoPath = ResolveOfficialPhotoPath(draft, 1, ticket.InternalCode),
-                    PhotoCaptureSucceeded = draft.DraftWeight1PhotoStatus == DraftPhotoStatus.Valid,
-                    PhotoErrorMessage = draft.DraftWeight1PhotoError
+                    PhotoPath = draft.IsWeight1LockedFromSavedTicket ? draft.DraftWeight1PhotoPath : null,
+                    PhotoCaptureSucceeded = false,
+                    PhotoErrorMessage = null
                 }, cancellationToken);
             }
 
@@ -430,9 +365,9 @@ public sealed class WeighTicketService
                     Sequence = 2,
                     OriginalWeightGrams = WeightStorageMapper.ToGrams(draft.DraftWeight2)!.Value,
                     RecordedAt = draft.DraftWeight2RecordedAt!.Value,
-                    PhotoPath = ResolveOfficialPhotoPath(draft, 2, ticket.InternalCode),
-                    PhotoCaptureSucceeded = draft.DraftWeight2PhotoStatus == DraftPhotoStatus.Valid,
-                    PhotoErrorMessage = draft.DraftWeight2PhotoError
+                    PhotoPath = draft.IsWeight2LockedFromSavedTicket ? draft.DraftWeight2PhotoPath : null,
+                    PhotoCaptureSucceeded = false,
+                    PhotoErrorMessage = null
                 }, cancellationToken);
             }
 
@@ -462,8 +397,6 @@ public sealed class WeighTicketService
     {
         var weight = draft.GetWeightKg(sequence)!.Value;
         var recordedAt = sequence == 1 ? draft.DraftWeight1RecordedAt!.Value : draft.DraftWeight2RecordedAt!.Value;
-        var photoStatus = sequence == 1 ? draft.DraftWeight1PhotoStatus : draft.DraftWeight2PhotoStatus;
-        var photoError = sequence == 1 ? draft.DraftWeight1PhotoError : draft.DraftWeight2PhotoError;
 
         return new WeighEvent
         {
@@ -471,36 +404,12 @@ public sealed class WeighTicketService
             Sequence = sequence,
             OriginalWeightGrams = WeightStorageMapper.ToGrams(weight)!.Value,
             RecordedAt = recordedAt,
-            PhotoPath = ResolveOfficialPhotoPath(draft, sequence, internalCode),
-            PhotoCaptureSucceeded = photoStatus == DraftPhotoStatus.Valid,
-            PhotoErrorMessage = photoError
+            PhotoPath = IsLockedPhoto(draft, sequence)
+                ? (sequence == 1 ? draft.DraftWeight1PhotoPath : draft.DraftWeight2PhotoPath)
+                : null,
+            PhotoCaptureSucceeded = false,
+            PhotoErrorMessage = null
         };
-    }
-
-    private string? ResolveOfficialPhotoPath(WeighTicketDraft draft, int sequence, string internalCode)
-    {
-        var status = sequence == 1 ? draft.DraftWeight1PhotoStatus : draft.DraftWeight2PhotoStatus;
-        if (status != DraftPhotoStatus.Valid)
-            return null;
-
-        var draftPath = sequence == 1 ? draft.DraftWeight1PhotoPath : draft.DraftWeight2PhotoPath;
-        var recordedAt = sequence == 1 ? draft.DraftWeight1RecordedAt : draft.DraftWeight2RecordedAt;
-
-        if (IsLockedPhoto(draft, sequence))
-            return draftPath;
-
-        if (string.IsNullOrEmpty(draftPath) || recordedAt is null)
-            return null;
-
-        var officialPath = _photoStorage.GetOfficialPhotoPath(internalCode, sequence, recordedAt.Value);
-        if (File.Exists(draftPath))
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(officialPath)!);
-            File.Copy(draftPath, officialPath, overwrite: true);
-            _photoStorage.DeletePhotoIfExists(draftPath);
-        }
-
-        return officialPath;
     }
 
     private static bool IsLockedPhoto(WeighTicketDraft draft, int sequence) =>
@@ -558,68 +467,6 @@ public sealed class WeighTicketService
             draft.DraftWeight1,
             draft.DraftWeight2,
             draft.DraftUnitPrice);
-    }
-
-    private async Task CapturePhotoInBackgroundAsync(
-        WeighTicketDraft draft,
-        int sequence,
-        string? previousPhotoPath)
-    {
-        try
-        {
-            var sessionId = draft.DraftSessionId.ToString("N");
-            var targetPath = _photoStorage.GetDraftPhotoPath(sessionId, sequence);
-            var request = new PhotoCaptureRequest
-            {
-                StorageKind = PhotoStorageKind.Draft,
-                ReferenceCode = sessionId,
-                WeighSequence = sequence
-            };
-
-            var result = await _cameraService.CaptureAsync(request, targetPath);
-
-            if (result.Success)
-            {
-                if (sequence == 1)
-                {
-                    draft.DraftWeight1PhotoPath = result.FilePath;
-                    draft.DraftWeight1PhotoStatus = DraftPhotoStatus.Valid;
-                    draft.DraftWeight1PhotoError = null;
-                }
-                else
-                {
-                    draft.DraftWeight2PhotoPath = result.FilePath;
-                    draft.DraftWeight2PhotoStatus = DraftPhotoStatus.Valid;
-                    draft.DraftWeight2PhotoError = null;
-                }
-
-                if (!string.IsNullOrEmpty(previousPhotoPath) &&
-                    !string.Equals(previousPhotoPath, result.FilePath, StringComparison.OrdinalIgnoreCase))
-                    _photoStorage.DeletePhotoIfExists(previousPhotoPath);
-            }
-            else
-            {
-                draft.InvalidatePhotoDraft(sequence);
-                if (sequence == 1)
-                    draft.DraftWeight1PhotoError = result.ErrorMessage;
-                else
-                    draft.DraftWeight2PhotoError = result.ErrorMessage;
-
-                _photoStorage.DeletePhotoIfExists(previousPhotoPath);
-                _notificationService?.Notify($"Camera lỗi: {result.ErrorMessage}");
-            }
-        }
-        catch (Exception ex)
-        {
-            draft.InvalidatePhotoDraft(sequence);
-            if (sequence == 1)
-                draft.DraftWeight1PhotoError = ex.Message;
-            else
-                draft.DraftWeight2PhotoError = ex.Message;
-
-            _photoStorage.DeletePhotoIfExists(previousPhotoPath);
-            _notificationService?.Notify($"Camera lỗi: {ex.Message}");
-        }
     }
 
     private async Task<IReadOnlyList<string>> GetSimilarCustomerWarningsAsync(

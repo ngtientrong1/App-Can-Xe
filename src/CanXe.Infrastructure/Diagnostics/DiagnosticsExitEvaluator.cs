@@ -3,9 +3,7 @@ using CanXe.Application.Models;
 namespace CanXe.Infrastructure.Diagnostics;
 
 public sealed record DiagnosticsExitSummary(
-    bool RequiredCamera,
     bool RequiredScale,
-    string CameraResult,
     string ScaleResult,
     int ExitCode);
 
@@ -13,25 +11,18 @@ public static class DiagnosticsExitEvaluator
 {
     public static DiagnosticsExitSummary Evaluate(SystemDiagnosticsResult result, DiagnosticsRunOptions options)
     {
-        var cameraResult = EvaluateCategory(result, "Camera", options.RequireCamera, options.SkipCamera);
         var scaleResult = EvaluateCategory(result, "Scale", options.RequireScale, options.SkipScale);
 
         var requiredFailed =
-            (options.RequireCamera && cameraResult != "PASS")
-            || (options.RequireScale && scaleResult != "PASS")
+            (options.RequireScale && scaleResult != "PASS")
             || result.Failed > 0
-            || (options.RequireCamera && result.Checks.Any(c =>
-                c.Category == "Camera" && c.Status is DiagnosticStatus.Warning))
             || (options.RequireScale && result.Checks.Any(c =>
                 c.Category == "Scale" && c.Status is DiagnosticStatus.Warning));
 
         if (requiredFailed)
-            return new DiagnosticsExitSummary(options.RequireCamera, options.RequireScale, cameraResult, scaleResult, 1);
+            return new DiagnosticsExitSummary(options.RequireScale, scaleResult, 1);
 
-        if (HasMissingDependencyFailure(result))
-            return new DiagnosticsExitSummary(options.RequireCamera, options.RequireScale, cameraResult, scaleResult, 3);
-
-        return new DiagnosticsExitSummary(options.RequireCamera, options.RequireScale, cameraResult, scaleResult, 0);
+        return new DiagnosticsExitSummary(options.RequireScale, scaleResult, 0);
     }
 
     private static string EvaluateCategory(
@@ -62,10 +53,4 @@ public static class DiagnosticsExitEvaluator
 
         return checks.All(c => c.Status == DiagnosticStatus.Pass) ? "PASS" : "FAIL";
     }
-
-    private static bool HasMissingDependencyFailure(SystemDiagnosticsResult result) =>
-        result.Checks.Any(c =>
-            c.Status == DiagnosticStatus.Fail
-            && (c.Name.Contains("ffmpeg", StringComparison.OrdinalIgnoreCase)
-                || c.Name.Contains("Bundled FFmpeg", StringComparison.OrdinalIgnoreCase)));
 }

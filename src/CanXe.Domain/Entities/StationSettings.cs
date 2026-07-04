@@ -4,6 +4,7 @@ public sealed class StationSettings
 {
     public int Id { get; set; } = 1;
     public string StationName { get; set; } = "Trạm cân CanXe";
+    public string? StationSubtitle { get; set; }
     public string? OwnerName { get; set; }
     public string? Address { get; set; }
     public string? Phone { get; set; }
@@ -11,5 +12,6 @@ public sealed class StationSettings
     public string? TaxCode { get; set; }
     public string? LogoPath { get; set; }
     public string? TicketFooterText { get; set; }
+    public string? SignLocationName { get; set; }
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

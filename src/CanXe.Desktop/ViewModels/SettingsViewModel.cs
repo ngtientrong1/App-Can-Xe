@@ -16,8 +16,8 @@ namespace CanXe.Desktop.ViewModels;
 public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly StationSettingsService _settingsService;
-    private readonly ICameraConnectionTester _cameraTester;
     private readonly IScaleConnectionTester _scaleTester;
+    private readonly IPrinterCapabilityService _printerCapability;
     private readonly AppSettings _appSettings;
     private readonly IHardwareScaleDiagnostics? _hardwareScale;
     private readonly IBuildInfoProvider _buildInfoProvider;
@@ -25,16 +25,16 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public SettingsViewModel(
         StationSettingsService settingsService,
-        ICameraConnectionTester cameraTester,
         IScaleConnectionTester scaleTester,
+        IPrinterCapabilityService printerCapability,
         AppSettings appSettings,
         IBuildInfoProvider buildInfoProvider,
         ISystemDiagnosticsService diagnosticsService,
         IHardwareScaleDiagnostics? hardwareScaleDiagnostics = null)
     {
         _settingsService = settingsService;
-        _cameraTester = cameraTester;
         _scaleTester = scaleTester;
+        _printerCapability = printerCapability;
         _appSettings = appSettings;
         _buildInfoProvider = buildInfoProvider;
         _diagnosticsService = diagnosticsService;
@@ -62,26 +62,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private ScaleInputMode? _savedScaleInputMode;
     [ObservableProperty] private bool _autoConnectScaleOnStartup = true;
 
-    [ObservableProperty] private string? _cameraName;
-    [ObservableProperty] private bool _cameraEnabled = true;
-    [ObservableProperty] private string? _rtspHost;
-    [ObservableProperty] private int _rtspPort = 554;
-    [ObservableProperty] private string? _rtspPath = "/";
-    [ObservableProperty] private string? _cameraUsername;
-    [ObservableProperty] private string? _cameraPassword;
-    [ObservableProperty] private bool _hasStoredCameraPassword;
-    [ObservableProperty] private bool _showCameraPassword;
-    private bool _clearStoredPasswordPending;
-    [ObservableProperty] private string _rtspTransport = "TCP";
-    [ObservableProperty] private bool _cameraPreviewEnabled = true;
-    [ObservableProperty] private bool _autoConnectCameraOnStartup = true;
-    [ObservableProperty] private int _connectTimeoutSeconds = 5;
-    [ObservableProperty] private int _snapshotTimeoutSeconds = 5;
-    [ObservableProperty] private int _photoRetentionDays = 3;
-    [ObservableProperty] private string? _rtspHostError;
-    [ObservableProperty] private string? _photoRetentionError;
-    [ObservableProperty] private string? _cameraTestMessage;
-    [ObservableProperty] private string? _settingsStatusMessage;
+    [ObservableProperty] private string _defaultPrinterName = "—";
+    [ObservableProperty] private string _printerStatusText = "—";
+    [ObservableProperty] private string? _printerTestMessage;
 
     [ObservableProperty] private string _applicationVersion = "1.7.0";
     [ObservableProperty] private string _databasePath = string.Empty;
@@ -89,24 +72,22 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _migrationStatus = "—";
     [ObservableProperty] private string _errorLogSummary = "Không có lỗi gần đây.";
     [ObservableProperty] private string _buildInfoText = string.Empty;
-    [ObservableProperty] private string _cameraHealthText = "Chưa có dữ liệu camera.";
     [ObservableProperty] private bool _isDiagnosticsRunning;
     [ObservableProperty] private string? _diagnosticsStatusMessage;
     [ObservableProperty] private string? _lastDiagnosticsReportPath;
 
     public ObservableCollection<DiagnosticRowViewModel> DiagnosticRows { get; } = [];
 
-    public string CameraPasswordPlaceholder =>
-        HasStoredCameraPassword && string.IsNullOrWhiteSpace(CameraPassword) ? "••••••" : string.Empty;
-
     public event EventHandler<StationSettingsDto>? StationSettingsSaved;
-    public event EventHandler? CameraSettingsSaved;
 
     public async Task LoadAsync(string databasePath)
     {
         DatabasePath = databasePath;
         DeviceModeDisplay = _appSettings.DeviceMode;
-        MigrationStatus = $"{DatabaseUpgrader.Phase16MigrationId}, {DatabaseUpgrader.Phase17MigrationId}, {DatabaseUpgrader.Phase2CMigrationId}, {DatabaseUpgrader.Phase2DMigrationId}, {DatabaseUpgrader.Phase3AMigrationId}";
+        MigrationStatus =
+            $"{DatabaseUpgrader.Phase16MigrationId}, {DatabaseUpgrader.Phase17MigrationId}, " +
+            $"{DatabaseUpgrader.Phase2CMigrationId}, {DatabaseUpgrader.Phase2DMigrationId}, " +
+            $"{DatabaseUpgrader.Phase3AMigrationId}, {DatabaseUpgrader.Phase4MigrationId}";
 
         var station = await _settingsService.GetStationAsync();
         StationName = station.StationName;
@@ -133,23 +114,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (!ScaleInputModeDisplay.IsHardwareDeviceMode(DeviceMode))
             AutoConnectScaleOnStartup = false;
 
-        var camera = await _settingsService.GetCameraAsync();
-        CameraName = camera.CameraName;
-        CameraEnabled = camera.IsEnabled;
-        RtspHost = camera.RtspHost;
-        RtspPort = camera.RtspPort > 0 ? camera.RtspPort : 554;
-        RtspPath = string.IsNullOrWhiteSpace(camera.RtspPath) ? "/" : camera.RtspPath;
-        CameraUsername = camera.Username;
-        CameraPassword = null;
-        HasStoredCameraPassword = camera.HasStoredPassword;
-        CameraPreviewEnabled = camera.PreviewEnabled;
-        AutoConnectCameraOnStartup = camera.AutoConnectCameraOnStartup;
-        ConnectTimeoutSeconds = camera.ConnectTimeoutSeconds;
-        SnapshotTimeoutSeconds = camera.SnapshotTimeoutSeconds;
-        PhotoRetentionDays = camera.PhotoRetentionDays;
-        RtspTransport = string.IsNullOrWhiteSpace(camera.RtspTransport) ? "TCP" : camera.RtspTransport;
-        OnPropertyChanged(nameof(CameraPasswordPlaceholder));
+        RefreshPrinterInfo();
         RefreshBuildInfo();
+    }
+
+    private void RefreshPrinterInfo()
+    {
+        var printer = _printerCapability.GetDefaultPrinter();
+        DefaultPrinterName = printer?.Name ?? "Chưa cấu hình";
+        PrinterStatusText = printer is null
+            ? "Không tìm thấy máy in mặc định."
+            : $"A4: {(printer.SupportsA4 ? "Có" : "Không")}";
     }
 
     private void RefreshBuildInfo()
@@ -160,15 +135,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         DeviceModeDisplay = info.DeviceMode;
     }
 
-    public void RefreshCameraHealth(CameraHealthSnapshot snapshot, string? extendedText = null) =>
-        CameraHealthText = extendedText ?? snapshot.ToDisplayText();
-
     [RelayCommand]
     private void CopyBuildInfo()
     {
         Clipboard.SetText(BuildInfoText);
         SettingsStatusMessage = "Đã sao chép thông tin phiên bản.";
     }
+
+    [ObservableProperty] private string? _settingsStatusMessage;
 
     [RelayCommand]
     private async Task RunFullDiagnosticsAsync()
@@ -184,7 +158,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             var result = await _diagnosticsService.RunAllAsync(new DiagnosticsRunOptions
             {
-                RequireCamera = false,
+                IncludeApplication = true,
+                IncludeDatabase = true,
+                IncludeFilesystem = true,
+                IncludePrinter = true,
+                IncludeScale = true,
                 RequireScale = false
             }).ConfigureAwait(true);
 
@@ -294,55 +272,22 @@ public sealed partial class SettingsViewModel : ObservableObject
     };
 
     [RelayCommand]
-    private async Task SaveCameraAsync()
-    {
-        RtspHostError = null;
-        PhotoRetentionError = null;
-        var dto = BuildCameraDto();
-        var (success, validation) = await _settingsService.SaveCameraAsync(dto);
-        if (!success)
-        {
-            RtspHostError = validation.Errors.GetValueOrDefault(nameof(CameraDeviceSettingsDto.RtspHost));
-            PhotoRetentionError = validation.Errors.GetValueOrDefault(nameof(CameraDeviceSettingsDto.PhotoRetentionDays));
-            SettingsStatusMessage = "Không lưu được cấu hình camera.";
-            return;
-        }
-
-        HasStoredCameraPassword = dto.ClearStoredPassword ? false : HasStoredCameraPassword || !string.IsNullOrEmpty(dto.Password);
-        _clearStoredPasswordPending = false;
-        CameraPassword = null;
-        OnPropertyChanged(nameof(CameraPasswordPlaceholder));
-        SettingsStatusMessage = "Đã lưu cấu hình camera.";
-        CameraSettingsSaved?.Invoke(this, EventArgs.Empty);
-    }
-
-    [RelayCommand]
-    private void ClearStoredCameraPassword()
-    {
-        CameraPassword = null;
-        HasStoredCameraPassword = false;
-        _clearStoredPasswordPending = true;
-        OnPropertyChanged(nameof(CameraPasswordPlaceholder));
-        SettingsStatusMessage = "Mật khẩu đã lưu sẽ bị xóa khi bấm LƯU CẤU HÌNH.";
-    }
-
-    [RelayCommand]
-    private async Task TestRtspAsync()
-    {
-        CameraTestMessage = null;
-        var runtime = await BuildCameraRuntimeForTestAsync();
-        var dto = CameraSettingsMapper.FromRuntime(runtime);
-        dto.Password = runtime.Password;
-        var result = await _cameraTester.TestAsync(dto);
-        CameraTestMessage = result.Message;
-    }
-
-    [RelayCommand]
     private async Task TestScaleAsync()
     {
         ScaleTestMessage = null;
         var result = await _scaleTester.TestAsync(BuildScaleDto());
         ScaleTestMessage = result.Message;
+    }
+
+    [RelayCommand]
+    private void TestPrint()
+    {
+        PrinterTestMessage = null;
+        var validation = _printerCapability.ValidatePrinter(null);
+        PrinterTestMessage = validation.Success
+            ? $"Máy in sẵn sàng: {validation.Printer?.Name}"
+            : validation.ErrorMessage ?? "Máy in không khả dụng.";
+        RefreshPrinterInfo();
     }
 
     [RelayCommand]
@@ -379,34 +324,4 @@ public sealed partial class SettingsViewModel : ObservableObject
         Email = Email,
         TicketFooterText = TicketFooterText
     };
-
-    public CameraDeviceSettingsDto BuildCameraDto() => new()
-    {
-        CameraName = CameraName,
-        IsEnabled = CameraEnabled,
-        RtspHost = RtspHost,
-        RtspPort = RtspPort,
-        RtspPath = RtspPath,
-        Username = CameraUsername,
-        Password = CameraPassword,
-        ClearStoredPassword = _clearStoredPasswordPending,
-        RtspTransport = RtspTransport,
-        PreviewEnabled = CameraPreviewEnabled,
-        AutoConnectCameraOnStartup = AutoConnectCameraOnStartup,
-        ConnectTimeoutSeconds = ConnectTimeoutSeconds,
-        SnapshotTimeoutSeconds = SnapshotTimeoutSeconds,
-        PhotoRetentionDays = PhotoRetentionDays
-    };
-
-    private async Task<CameraRuntimeSettings> BuildCameraRuntimeForTestAsync()
-    {
-        var dto = BuildCameraDto();
-        if (string.IsNullOrEmpty(dto.Password) && HasStoredCameraPassword)
-        {
-            var stored = await _settingsService.GetCameraRuntimeAsync();
-            return CameraSettingsMapper.ToRuntime(dto, stored.Password);
-        }
-
-        return CameraSettingsMapper.ToRuntime(dto, dto.Password);
-    }
 }

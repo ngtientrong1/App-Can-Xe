@@ -16,6 +16,11 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
     public async Task<WeighTicket?> GetByIdWithEventsAsync(int id, CancellationToken cancellationToken = default) =>
         await _db.WeighTickets
             .Include(t => t.Events)
+            .FirstOrDefaultAsync(t => t.Id == id && !t.IsDeleted, cancellationToken);
+
+    public async Task<WeighTicket?> GetByIdIncludingDeletedAsync(int id, CancellationToken cancellationToken = default) =>
+        await _db.WeighTickets
+            .Include(t => t.Events)
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
 
     public async Task<IReadOnlyList<WeighTicket>> GetFilteredAsync(
@@ -24,6 +29,7 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
     {
         var query = _db.WeighTickets
             .Include(t => t.Events)
+            .Where(t => !t.IsDeleted)
             .AsQueryable();
 
         var hasDateFrom = filter.FromDate is not null;
@@ -147,7 +153,7 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
     {
         var term = customerName.Trim();
         var tickets = await _db.WeighTickets
-            .Where(t => t.CustomerNameSnapshot != null && t.CustomerNameSnapshot == term && t.LicensePlateSnapshot != null)
+            .Where(t => !t.IsDeleted && t.CustomerNameSnapshot != null && t.CustomerNameSnapshot == term && t.LicensePlateSnapshot != null)
             .ToListAsync(cancellationToken);
 
         return tickets
@@ -162,7 +168,7 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
     {
         var term = cargoTypeName.Trim();
         return await _db.WeighTickets
-            .CountAsync(t => t.CargoTypeNameSnapshot == term, cancellationToken);
+            .CountAsync(t => !t.IsDeleted && t.CargoTypeNameSnapshot == term, cancellationToken);
     }
 
     public async Task<IReadOnlyList<string>> SearchRecentNotesAsync(
@@ -171,7 +177,7 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
         CancellationToken cancellationToken = default)
     {
         var notes = await _db.WeighTickets
-            .Where(t => t.Notes != null && t.Notes != string.Empty)
+            .Where(t => !t.IsDeleted && t.Notes != null && t.Notes != string.Empty)
             .Select(t => t.Notes!)
             .ToListAsync(cancellationToken);
 
@@ -199,8 +205,8 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
             return null;
 
         var tickets = (await _db.WeighTickets
-            .Where(t => t.VehicleId == vehicle.Id ||
-                        (t.LicensePlateSnapshot != null && t.LicensePlateSnapshot == vehicle.PlateNumber))
+            .Where(t => !t.IsDeleted && (t.VehicleId == vehicle.Id ||
+                        (t.LicensePlateSnapshot != null && t.LicensePlateSnapshot == vehicle.PlateNumber)))
             .ToListAsync(cancellationToken))
             .OrderByDescending(t => t.TicketDateTime)
             .Take(FrequentCargoTypeResolver.MaxTicketsToAnalyze)

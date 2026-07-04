@@ -38,8 +38,16 @@ public partial class App : System.Windows.Application
                     services.AddCanXeInfrastructure(settings, dbPath, photoRoot);
                     services.AddSingleton<IUserNotificationService, WpfNotificationService>();
                     services.AddSingleton<IUiFocusService, WpfUiFocusService>();
-                    services.AddSingleton<ITicketDocumentRenderer, WpfTicketDocumentRenderer>();
+                    services.AddSingleton<PrintCommandLogger>();
+                    services.AddSingleton<IPrintNotificationService, WpfPrintNotificationService>();
+                    services.AddSingleton<IWeighTicketPrintSubmissionService, WeighTicketPrintSubmissionService>();
+                    services.AddSingleton<IWeighTicketPrintWorkflow, WeighTicketPrintWorkflow>();
+                    services.AddSingleton<IWeighTicketDocumentFactory, WpfWeighTicketDocumentFactory>();
+                    services.AddSingleton<IWeighTicketDocumentBuilder, WpfWeighTicketDocumentBuilder>();
+                    services.AddSingleton<IPrinterCapabilityService, PrinterCapabilityService>();
+                    services.AddSingleton<IWeighTicketPrintService, WpfWeighTicketPrintService>();
                     services.AddSingleton<SettingsViewModel>();
+                    services.AddSingleton<DeveloperViewModel>();
                     services.AddSingleton<MainViewModel>();
                     services.AddSingleton<MainWindow>();
                 })

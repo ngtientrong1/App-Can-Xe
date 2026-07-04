@@ -57,6 +57,14 @@ public sealed class WpfSmokeFixture : IDisposable
         _app.Dispatcher.Invoke(() => action(_app));
     }
 
+    public Task InvokeAsync(Func<WpfApplication, Task> action)
+    {
+        if (_app is null)
+            throw new InvalidOperationException("WPF smoke fixture is not available.");
+
+        return _app.Dispatcher.InvokeAsync(() => action(_app)).Task.Unwrap();
+    }
+
     public T Invoke<T>(Func<WpfApplication, T> func)
     {
         if (_app is null)

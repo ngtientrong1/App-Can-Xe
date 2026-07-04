@@ -131,6 +131,27 @@ public static class OperatorActionLogger
 
 
     public static void RegisterTakeWeightContext(
+        string operationId,
+        string action,
+        ScaleReading? scaleReading)
+    {
+        _lastTakeWeightOperationId = operationId;
+        _lastTakeWeightAction = action;
+        _lastTakeWeightAt = DateTimeOffset.UtcNow;
+        _takeWeightOperationState = "CaptureStarted";
+
+        var readingAge = scaleReading is null
+            ? (TimeSpan?)null
+            : DateTimeOffset.UtcNow - scaleReading.ReceivedAt.ToUniversalTime();
+
+        Write(
+            operationId,
+            action,
+            "TakeWeightContextRegistered",
+            $"ScaleReadingAgeAtClick={readingAge?.TotalMilliseconds:F0}ms; ScaleStableAtClick={scaleReading?.IsStable}");
+    }
+
+    public static void RegisterTakeWeightContext(
 
         string operationId,
 
@@ -370,6 +391,26 @@ public static class OperatorActionLogger
 
             $"LastDecodedFrameAt={lastDecodedFrameAt:O}");
 
+    }
+
+    public static void WritePerformance(string action, string metrics)
+    {
+        try
+        {
+            var line = $"{DateTimeOffset.Now:O} [{action}] {metrics}{Environment.NewLine}";
+            lock (Gate)
+            {
+                var dir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "CanXe", "Logs");
+                Directory.CreateDirectory(dir);
+                File.AppendAllText(Path.Combine(dir, "operator-performance.log"), line);
+            }
+        }
+        catch
+        {
+            // Best-effort diagnostics only.
+        }
     }
 
 }

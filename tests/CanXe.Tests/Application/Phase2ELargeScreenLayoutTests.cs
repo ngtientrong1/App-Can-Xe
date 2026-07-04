@@ -25,10 +25,10 @@ public class Phase2ELargeScreenLayoutTests
     }
 
     [Theory]
-    [InlineData(1366, 768, 72)]
-    [InlineData(1920, 1080, 96)]
-    [InlineData(2500, 1600, 88)]
-    [InlineData(2560, 1600, 88)]
+    [InlineData(1366, 768, 68)]
+    [InlineData(1920, 1080, 84)]
+    [InlineData(2500, 1600, 84)]
+    [InlineData(2560, 1600, 84)]
     public void LiveWeightFontSize_DoesNotGrowWithoutLimitOnTallScreens(
         double windowWidth,
         double windowHeight,

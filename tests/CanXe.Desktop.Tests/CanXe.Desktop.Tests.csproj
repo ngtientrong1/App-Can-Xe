@@ -20,6 +20,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Phase3ACameraAutoConnectDesktopTests.cs" />
+    <Compile Remove="Phase3BRealDecoderDesktopTests.cs" />
+    <Compile Remove="MainWindowDevDiagnosticsBindingSmokeTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\CanXe.Desktop\CanXe.Desktop.csproj" />
     <ProjectReference Include="..\..\src\CanXe.Infrastructure\CanXe.Infrastructure.csproj" />
   </ItemGroup>

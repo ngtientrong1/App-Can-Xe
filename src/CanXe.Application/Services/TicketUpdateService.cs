@@ -71,6 +71,15 @@ public sealed class TicketUpdateService
         };
     }
 
+    public async Task<WeighTicketDraft> LoadForViewAsync(
+        int ticketId,
+        CancellationToken cancellationToken = default)
+    {
+        var draft = await LoadForEditAsync(ticketId, cancellationToken);
+        draft.IsEditMode = false;
+        return draft;
+    }
+
     public async Task<UpdateTicketResult> UpdateAsync(
         WeighTicketDraft draft,
         string? editedBy,

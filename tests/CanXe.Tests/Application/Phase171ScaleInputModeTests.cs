@@ -127,36 +127,22 @@ public class Phase171ScaleInputModeTests
     }
 
     [Fact]
-    public void CameraDrawerClosed_LeavesNoGap()
+    public void Phase4Layout_NoCameraDrawerOrRail()
     {
-        var width = WorkAreaLayoutCalculator.GetCameraDrawerWidth(false);
-        Assert.True(WorkAreaVisualStatePolicy.CameraDrawerLeavesNoGapWhenClosed(width));
-    }
-
-    [Fact]
-    public void UtilityRail_AlwaysVisibleWhenConfigured()
-    {
-        var width = WorkAreaLayoutCalculator.GetUtilityRailWidth(isCompact: false);
-        Assert.True(WorkAreaVisualStatePolicy.UtilityRailAlwaysVisible(width));
-        Assert.InRange(width, 52, 64);
-    }
-
-    [Fact]
-    public void FullHdLayout_Uses35And45StarsWhenCameraOpen()
-    {
-        var (weigh, info) = WorkAreaLayoutCalculator.GetMainColumnStars(isCameraDrawerOpen: true);
-        Assert.Equal(35, weigh);
-        Assert.Equal(45, info);
-        Assert.Equal(340, WorkAreaLayoutCalculator.GetCameraDrawerWidth(true, 1920));
-    }
-
-    [Fact]
-    public void FullHdLayout_ExpandsInfoWhenCameraClosed()
-    {
-        var (weigh, info) = WorkAreaLayoutCalculator.GetMainColumnStars(isCameraDrawerOpen: false);
-        Assert.Equal(38, weigh);
-        Assert.Equal(62, info);
         Assert.Equal(0, WorkAreaLayoutCalculator.GetCameraDrawerWidth(false));
+        Assert.Equal(0, WorkAreaLayoutCalculator.GetCameraDrawerWidth(true, 1920));
+        Assert.Equal(0, WorkAreaLayoutCalculator.GetUtilityRailWidth(isCompact: false));
+    }
+
+    [Fact]
+    public void Phase4Layout_UsesResponsiveStars()
+    {
+        var (weigh, info) = WorkAreaLayoutCalculator.GetMainColumnStars(1920);
+        Assert.Equal(44, weigh);
+        Assert.Equal(56, info);
+        var (legacyWeigh, legacyInfo) = WorkAreaLayoutCalculator.GetMainColumnStars(isCameraDrawerOpen: true);
+        Assert.Equal(weigh, legacyWeigh);
+        Assert.Equal(info, legacyInfo);
     }
 
     [Fact]

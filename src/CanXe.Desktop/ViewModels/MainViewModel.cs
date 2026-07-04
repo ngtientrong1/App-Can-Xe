@@ -9,6 +9,7 @@ using CanXe.Application.Services;
 using CanXe.Domain.Models;
 using CanXe.Domain.Services;
 using CanXe.Desktop.Services;
+using CanXe.Infrastructure.Logging;
 using CanXe.ScaleProtocol.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -18,15 +19,19 @@ namespace CanXe.Desktop.ViewModels;
 public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 {
     private readonly IHardwareScaleDiagnostics? _hardwareScale;
-    private readonly ICameraStreamService _cameraStream;
-    private readonly ICameraConnectionSupervisor _cameraSupervisor;
-    private readonly ILatestCameraFrameProvider _latestCameraFrameProvider;
     private readonly StationSettingsService _stationSettings;
     private readonly WeighTicketService _weighTicketService;
     private readonly FastEntrySearchService _fastEntrySearch;
     private readonly IScaleService _scaleService;
     private readonly IUiFocusService _focusService;
-    private readonly ITicketDocumentRenderer _ticketDocumentRenderer;
+    private readonly IWeighTicketPrintService _printService;
+    private readonly IWeighTicketPrintWorkflow _printWorkflow;
+    private readonly IWeighTicketDocumentFactory _documentFactory;
+    private readonly PrintSettingsService _printSettings;
+    private readonly PrintCommandLogger _printCommandLogger;
+    private readonly IPrintNotificationService _printNotificationService;
+    private readonly ITicketDeleteService _ticketDeleteService;
+    private readonly IDeveloperAuthorizationService _developerAuthorization;
     private readonly AppSettings _settings;
     private readonly bool _developerModeEnabled;
     private readonly AppPaths _appPaths;
@@ -50,35 +55,42 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         FastEntrySearchService fastEntrySearch,
         IScaleService scaleService,
         IHardwareScaleDiagnostics? hardwareScaleDiagnostics,
-        ICameraStreamService cameraStreamService,
-        ICameraConnectionSupervisor cameraSupervisor,
-        ILatestCameraFrameProvider latestCameraFrameProvider,
         StationSettingsService stationSettingsService,
         IUiFocusService focusService,
-        ITicketDocumentRenderer ticketDocumentRenderer,
+        IWeighTicketPrintService printService,
+        IWeighTicketPrintWorkflow printWorkflow,
+        IWeighTicketDocumentFactory documentFactory,
+        PrintSettingsService printSettings,
+        PrintCommandLogger printCommandLogger,
+        IPrintNotificationService printNotificationService,
+        ITicketDeleteService ticketDeleteService,
+        IDeveloperAuthorizationService developerAuthorization,
         AppSettings settings,
         SettingsViewModel settingsViewModel,
+        DeveloperViewModel developerViewModel,
         AppPaths appPaths)
     {
         _weighTicketService = weighTicketService;
         _fastEntrySearch = fastEntrySearch;
         _scaleService = scaleService;
         _hardwareScale = hardwareScaleDiagnostics;
-        _cameraStream = cameraStreamService;
-        _cameraSupervisor = cameraSupervisor;
-        _latestCameraFrameProvider = latestCameraFrameProvider;
         _stationSettings = stationSettingsService;
         _focusService = focusService;
-        _ticketDocumentRenderer = ticketDocumentRenderer;
+        _printService = printService;
+        _printWorkflow = printWorkflow;
+        _documentFactory = documentFactory;
+        _printSettings = printSettings;
+        _printCommandLogger = printCommandLogger;
+        _printNotificationService = printNotificationService;
+        _ticketDeleteService = ticketDeleteService;
+        _developerAuthorization = developerAuthorization;
         _settings = settings;
         _developerModeEnabled = settings.DeveloperMode;
         _appPaths = appPaths;
         Settings = settingsViewModel;
+        Developer = developerViewModel;
         Settings.StationSettingsSaved += (_, dto) => OnStationSettingsSaved(dto);
-        Settings.CameraSettingsSaved += (_, _) => _ = ApplySavedCameraSettingsAsync();
         _scaleService.WeightChanged += OnScaleWeightChanged;
-        WireCameraSupervisor(_cameraSupervisor);
-        WireOperatorActionCorrelation();
         if (_hardwareScale is not null)
             _hardwareScale.HardwareDiagnosticsChanged += (_, _) =>
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
@@ -86,8 +98,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                     UpdateHardwareDiagnostics();
                     NotifyDevDiagnosticsBindings();
                 });
-        IsDeveloperPanelAvailable = settings.DeveloperMode;
+        IsDeveloperPanelAvailable = settings.DeveloperMode && settings.ShowDeveloperTab;
         IsDeveloperWeightUnlockVisible = settings.DeveloperMode && settings.DeveloperTicketEditEnabled;
+        IsDeveloperDeleteVisible = developerAuthorization.CanDeleteTickets;
         foreach (var (code, label) in WeightOverrideReasons.All)
             WeightOverrideReasonOptions.Add(new WeightOverrideReasonOption(code, label));
     }
@@ -119,20 +132,19 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string _statusMessage = "Sẵn sàng";
     [ObservableProperty] private bool _isWeigh1Enabled = true;
     [ObservableProperty] private bool _isWeigh2Enabled = true;
+    [ObservableProperty] private bool _isPrinting;
     [ObservableProperty] private bool _isContinuationMode;
     [ObservableProperty] private ScaleInputMode _scaleInputMode = ScaleInputMode.SimulationAutomatic;
-    [ObservableProperty] private bool _isCameraDrawerOpen;
-    [ObservableProperty] private bool _isDevDrawerOpen;
     [ObservableProperty] private bool _suppressAutocomplete;
     [ObservableProperty] private bool _isCompactMode;
     [ObservableProperty] private AppNavigationSection _activeSection = AppNavigationSection.WeighTicket;
     [ObservableProperty] private string _simulatedWeightText = "18500";
     [ObservableProperty] private bool _simulateScaleStable = true;
     [ObservableProperty] private bool _simulateScaleDisconnected;
-    [ObservableProperty] private bool _simulateCameraError;
     [ObservableProperty] private bool _simulateScaleError;
 
     public SettingsViewModel Settings { get; }
+    public DeveloperViewModel Developer { get; }
 
     public bool IsWeighTicketSectionVisible => ActiveSection == AppNavigationSection.WeighTicket;
     public bool IsCatalogSectionVisible => ActiveSection == AppNavigationSection.Catalog;
@@ -140,8 +152,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public bool IsReportSectionVisible => ActiveSection == AppNavigationSection.Report;
     public bool IsSettingsSectionVisible => ActiveSection == AppNavigationSection.Settings;
     public bool IsSystemSectionVisible => ActiveSection == AppNavigationSection.System;
-    public bool IsUtilityRailVisible => IsWeighTicketSectionVisible;
-    public bool IsDevDrawerAvailable => IsDeveloperPanelAvailable && IsWeighTicketSectionVisible;
+    public bool IsDeveloperSectionVisible => IsDeveloperPanelAvailable && ActiveSection == AppNavigationSection.Developer;
 
     partial void OnActiveSectionChanged(AppNavigationSection value)
     {
@@ -151,17 +162,16 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(IsReportSectionVisible));
         OnPropertyChanged(nameof(IsSettingsSectionVisible));
         OnPropertyChanged(nameof(IsSystemSectionVisible));
-        OnPropertyChanged(nameof(IsUtilityRailVisible));
-        OnPropertyChanged(nameof(IsDevDrawerAvailable));
+        OnPropertyChanged(nameof(IsDeveloperSectionVisible));
         OnPropertyChanged(nameof(IsNavSystemActive));
         OnPropertyChanged(nameof(IsNavWeighTicketActive));
         OnPropertyChanged(nameof(IsNavCatalogActive));
         OnPropertyChanged(nameof(IsNavDeviceActive));
         OnPropertyChanged(nameof(IsNavReportActive));
         OnPropertyChanged(nameof(IsNavSettingsActive));
+        OnPropertyChanged(nameof(IsNavDeveloperActive));
     }
 
-    partial void OnIsDevDrawerOpenChanged(bool value) => OnPropertyChanged(nameof(IsDevDrawerAvailable));
     [ObservableProperty] private bool _isDeveloperPanelAvailable;
     [ObservableProperty] private bool _developerWeight1OverrideEnabled;
     [ObservableProperty] private bool _isWeight1DevOverrideWarningVisible;
@@ -174,11 +184,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string _footerMissingPriceCount = "0";
     [ObservableProperty] private bool _isToastVisible;
     [ObservableProperty] private string? _toastMessage;
-    [ObservableProperty] private bool _isTicketPreviewVisible;
-    [ObservableProperty] private WeighTicketDetailDto? _previewTicketDetail;
-    [ObservableProperty] private bool _isPreviewFrontSide = true;
-    [ObservableProperty] private string _headerScaleStatus = "● Đầu cân: Ổn định";
-    [ObservableProperty] private string _headerCameraStatus = "● Camera: Đang kết nối";
+    [ObservableProperty] private string _headerScaleStatus = "● Đầu cân: Đang kết nối";
     [ObservableProperty] private string _headerClockText = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
     [ObservableProperty] private string? _lastSavedTicketDisplayNumber;
 
@@ -186,6 +192,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private long? _editingTicketId;
     [ObservableProperty] private string? _editingTicketNumber;
     [ObservableProperty] private bool _isDeveloperWeightUnlockVisible;
+    [ObservableProperty] private bool _isDeveloperDeleteVisible;
     [ObservableProperty] private bool _isDevWeightEditUnlocked;
     [ObservableProperty] private string? _devWeight1Text;
     [ObservableProperty] private string? _devWeight2Text;
@@ -212,25 +219,22 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string _filterTotalsSummary = string.Empty;
 
     public GridLength WeighColumnWidth =>
-        new(WorkAreaLayoutCalculator.GetMainColumnStars(IsCameraDrawerOpen).WeighStars, GridUnitType.Star);
+        new(WorkAreaLayoutCalculator.GetMainColumnStars(WindowWidth).WeighStars, GridUnitType.Star);
 
     public GridLength InfoColumnWidth =>
-        new(WorkAreaLayoutCalculator.GetMainColumnStars(IsCameraDrawerOpen).InfoStars, GridUnitType.Star);
-
-    public GridLength CameraDrawerColumnWidth
-    {
-        get
-        {
-            var width = WorkAreaLayoutCalculator.GetCameraDrawerWidth(IsCameraDrawerOpen, WindowWidth);
-            return width > 0 ? new GridLength(width) : new GridLength(0);
-        }
-    }
-
-    public GridLength UtilityRailColumnWidth =>
-        new GridLength(WorkAreaLayoutCalculator.GetUtilityRailWidth(IsCompactMode));
+        new(WorkAreaLayoutCalculator.GetMainColumnStars(WindowWidth).InfoStars, GridUnitType.Star);
 
     public double LiveWeightFontSize =>
         OperatorLayoutMetrics.GetLiveWeightFontSize(WindowWidth, WindowHeight);
+
+    public double LiveWeightUnitFontSize =>
+        WorkAreaLayoutCalculator.GetLiveWeightUnitFontSize(WindowWidth);
+
+    public double WeighPanelValueFontSize =>
+        WorkAreaLayoutCalculator.GetWeighPanelValueFontSize(WindowWidth);
+
+    public double SummaryValueFontSize =>
+        WorkAreaLayoutCalculator.GetSummaryValueFontSize(WindowWidth);
 
     public bool IsReturnToAutomaticVisible => ScaleInputMode == ScaleInputMode.SimulationManual;
 
@@ -242,6 +246,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public bool IsNavDeviceActive => ActiveSection == AppNavigationSection.Device;
     public bool IsNavReportActive => ActiveSection == AppNavigationSection.Report;
     public bool IsNavSettingsActive => ActiveSection == AppNavigationSection.Settings;
+    public bool IsNavDeveloperActive => ActiveSection == AppNavigationSection.Developer;
 
     public string? ActiveQuickFilterKey => _activeQuickRangeLabel;
 
@@ -262,8 +267,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public ObservableCollection<ActiveFilterChip> ActiveFilterChips { get; } = [];
     public ObservableCollection<WeightOverrideReasonOption> WeightOverrideReasonOptions { get; } = [];
 
-    public bool IsCreateModeActionsVisible => !IsEditingExistingTicket;
-    public bool IsEditModeActionsVisible => IsEditingExistingTicket;
+    public bool IsCreateModeActionsVisible =>
+        FormMode is TicketFormMode.Browsing or TicketFormMode.Creating or TicketFormMode.AwaitingSecondWeigh;
+    public bool IsEditModeActionsVisible => FormMode == TicketFormMode.Editing;
     public string EditBannerTitle =>
         IsEditingExistingTicket && !string.IsNullOrWhiteSpace(EditingTicketNumber)
             ? $"ĐANG CHỈNH SỬA PHIẾU {EditingTicketNumber}"
@@ -286,7 +292,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         UpdateWindowSize(SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
         if (IsCompactMode)
         {
-            IsCameraDrawerOpen = false;
             IsAdvancedFilterVisible = false;
         }
 
@@ -313,14 +318,31 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         _focusService.FocusCustomerField();
         _ = AutoConnectScaleIfNeededAsync();
-        await StartCameraSupervisorAsync(_cameraSupervisor);
     }
 
     [RelayCommand]
     private void Navigate(AppNavigationSection section) => ActiveSection = section;
 
     [RelayCommand]
-    private void ToggleDevDrawer() => IsDevDrawerOpen = !IsDevDrawerOpen;
+    private void ToggleAdvancedFilter() => IsAdvancedFilterVisible = !IsAdvancedFilterVisible;
+
+    private void NotifyWorkAreaLayoutChanged()
+    {
+        OnPropertyChanged(nameof(WeighColumnWidth));
+        OnPropertyChanged(nameof(InfoColumnWidth));
+        OnPropertyChanged(nameof(LiveWeightFontSize));
+        OnPropertyChanged(nameof(LiveWeightUnitFontSize));
+        OnPropertyChanged(nameof(WeighPanelValueFontSize));
+        OnPropertyChanged(nameof(SummaryValueFontSize));
+        OnPropertyChanged(nameof(WorkspaceMaxHeight));
+        OnPropertyChanged(nameof(WorkspaceMinHeight));
+        OnPropertyChanged(nameof(DataGridMinHeight));
+        OnPropertyChanged(nameof(LiveWeightViewboxMaxHeight));
+        OnPropertyChanged(nameof(FormFieldHeight));
+        OnPropertyChanged(nameof(NotesFieldHeight));
+        OnPropertyChanged(nameof(SummaryFooterMaxHeight));
+        OnPropertyChanged(nameof(TicketGridRowHeight));
+    }
 
     [RelayCommand]
     private async Task SelectSimulationAutomaticModeAsync() =>
@@ -577,8 +599,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         StatusMessage = "Thông tin trạm cân đã cập nhật — preview phiếu dùng dữ liệu mới.";
     }
 
-    private TicketDocumentRenderOptions BuildPreviewRenderOptions() => Settings.BuildPreviewOptions();
-
     private async Task RunClockAsync()
     {
         while (true)
@@ -591,28 +611,70 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [RelayCommand]
     private async Task SaveAsync()
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         SyncDraftFromBindings();
+        StatusMessage = "ĐANG LƯU...";
+
         var filter = BuildCurrentFilter();
+        var dbSw = System.Diagnostics.Stopwatch.StartNew();
         var result = await _weighTicketService.SaveAsync(_draft, filter);
+        dbSw.Stop();
 
         if (!result.Success)
         {
             StatusMessage = result.ErrorMessage ?? "Lưu thất bại.";
+            OperatorActionLogger.WritePerformance("SaveTicket", $"total={sw.ElapsedMilliseconds}ms db={dbSw.ElapsedMilliseconds}ms result=fail");
             return;
         }
 
         var displayNumber = result.SavedTicket!.DisplayNumber;
         var savedId = result.SavedTicket.Id;
-        _lastSavedTicketDetail = await _weighTicketService.GetTicketDetailAsync(savedId);
         LastSavedTicketDisplayNumber = displayNumber;
 
-        await ResetDraftAsync();
-        await RefreshListAsync();
+        if (result.WorkflowState == WeighTicketWorkflowState.AwaitingSecondWeigh)
+        {
+            _draft = await _weighTicketService.LoadTicketForContinuationAsync(savedId);
+            LoadBindingsFromDraft();
+            FormMode = TicketFormMode.AwaitingSecondWeigh;
+            ActiveTicketId = savedId;
+            ViewingTicketNumber = displayNumber;
+            IsPreviewDisplayNumber = false;
+            CaptureFormSnapshot();
+            UpdateButtonStates();
+            UpdateButtonLabels();
+        }
+        else
+        {
+            await ResetDraftAsync();
+        }
+
+        if (result.IsVisibleInCurrentFilter && result.SavedTicket is not null)
+        {
+            var existing = Tickets.FirstOrDefault(t => t.Id == savedId);
+            if (existing is not null)
+                Tickets.Remove(existing);
+            Tickets.Insert(0, result.SavedTicket);
+            await RefreshSummaryOnlyAsync();
+        }
+        else
+        {
+            _ = RefreshSummaryOnlyAsync();
+        }
+
+        _ = Task.Run(async () =>
+        {
+            _lastSavedTicketDetail = await _weighTicketService.GetTicketDetailAsync(savedId);
+        });
+
+        OperatorActionLogger.WritePerformance("SaveTicket",
+            $"total={sw.ElapsedMilliseconds}ms db={dbSw.ElapsedMilliseconds}ms historyRefresh=deferred statsRefresh=incremental");
 
         if (result.IsVisibleInCurrentFilter)
         {
             if (result.SimilarCustomerWarnings.Count > 0)
                 StatusMessage = string.Join(" ", result.SimilarCustomerWarnings);
+            else if (result.WorkflowState == WeighTicketWorkflowState.AwaitingSecondWeigh)
+                StatusMessage = $"Đã lưu phiếu {displayNumber}. CHỜ CÂN LẦN 2 — bấm LẤY CÂN LẦN 2.";
             else
                 StatusMessage = $"Đã lưu phiếu {displayNumber}.";
 
@@ -627,6 +689,21 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _focusService.FocusCustomerField();
     }
 
+    private async Task RefreshSummaryOnlyAsync()
+    {
+        var filter = BuildCurrentFilter();
+        var result = await _weighTicketService.GetFilteredWithSummaryAsync(filter);
+        FilterResultSummary = ActiveFilterChips.Count > 0
+            ? $"Đang hiển thị: {result.Count} phiếu"
+            : string.Empty;
+        FilterTotalsSummary = string.Empty;
+        FooterTicketCount = result.Count.ToString(CultureInfo.CurrentCulture);
+        FooterTotalNet = $"{result.TotalNetWeightKg:N0} kg";
+        FooterTotalBillable = $"{result.TotalBillableWeightKg:N0} kg";
+        FooterTotalAmount = $"{result.TotalAmountVnd:N0} VNĐ";
+        FooterMissingPriceCount = result.MissingPriceCount.ToString(CultureInfo.CurrentCulture);
+    }
+
     [RelayCommand]
     private async Task CancelAsync()
     {
@@ -636,119 +713,151 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _focusService.FocusCustomerField();
     }
 
-    [RelayCommand]
-    private void ToggleCameraPanel() => ToggleCameraDrawer();
+    [RelayCommand(CanExecute = nameof(CanPrintTicket))]
+    private Task PrintTicketAsync() => ExecuteMainPrintAsync();
 
-    [RelayCommand]
-    private void ToggleCameraDrawer() => IsCameraDrawerOpen = !IsCameraDrawerOpen;
-
-    partial void OnIsCameraDrawerOpenChanged(bool value) => NotifyWorkAreaLayoutChanged();
-
-    private void NotifyWorkAreaLayoutChanged()
+    public void RecordMainPrintButtonClick(MainPrintButtonTelemetry telemetry)
     {
-        OnPropertyChanged(nameof(WeighColumnWidth));
-        OnPropertyChanged(nameof(InfoColumnWidth));
-        OnPropertyChanged(nameof(CameraDrawerColumnWidth));
-        OnPropertyChanged(nameof(UtilityRailColumnWidth));
-        OnPropertyChanged(nameof(LiveWeightFontSize));
-        OnPropertyChanged(nameof(LiveWeightUnitFontSize));
-        OnPropertyChanged(nameof(WorkspaceMaxHeight));
-        OnPropertyChanged(nameof(WorkspaceMinHeight));
-        OnPropertyChanged(nameof(DataGridMinHeight));
-        OnPropertyChanged(nameof(LiveWeightViewboxMaxHeight));
-        OnPropertyChanged(nameof(FormFieldHeight));
-        OnPropertyChanged(nameof(NotesFieldHeight));
-        OnPropertyChanged(nameof(SummaryFooterMaxHeight));
-        OnPropertyChanged(nameof(TicketGridRowHeight));
+        _printCommandLogger.Log(
+            "MAIN_PRINT_BUTTON_CLICK_RECEIVED " +
+            $"button={telemetry.ButtonName} " +
+            $"isEnabled={telemetry.IsEnabled} " +
+            $"isHitTestVisible={telemetry.IsHitTestVisible} " +
+            $"dataContext={telemetry.DataContextType} " +
+            $"command={telemetry.CommandType} " +
+            $"canExecute={telemetry.CanExecute} " +
+            $"activeTicketId={telemetry.ActiveTicketId?.ToString() ?? "null"} " +
+            $"selectedTicketId={telemetry.SelectedTicketId?.ToString() ?? "null"} " +
+            $"formMode={telemetry.FormMode} " +
+            $"isDirty={telemetry.IsDirty} " +
+            $"isPrinting={telemetry.IsPrinting}");
     }
 
-    [RelayCommand]
-    private void ToggleAdvancedFilter() => IsAdvancedFilterVisible = !IsAdvancedFilterVisible;
-
-    [RelayCommand]
-    private void PrintTicket() => StatusMessage = "In phiếu Brother sẽ có ở giai đoạn sau.";
-
-    [RelayCommand]
-    private async Task ViewTicketAsync()
+    public async Task ExecuteMainPrintAsync()
     {
-        try
-        {
-            WeighTicketDetailDto? detail = null;
-            if (IsEditingExistingTicket && EditingTicketId is long editId)
-                detail = await _weighTicketService.GetTicketDetailAsync((int)editId);
-            else if (SelectedTicket is { } selected)
-                detail = await _weighTicketService.GetTicketDetailAsync(selected.Id);
-            else if (_lastSavedTicketDetail is not null)
-                detail = _lastSavedTicketDetail;
+        _printCommandLogger.LogMilestone("MAIN_PRINT_COMMAND_EXECUTED");
 
-            if (detail is null)
+        if (IsPrinting)
+        {
+            _printCommandLogger.LogMilestone("PRINT_CLICK_IGNORED_ALREADY_PRINTING");
+            return;
+        }
+
+        var resolved = ResolvePrintTicketForExecution();
+        if (resolved is null)
+        {
+            const string message = "Vui lòng chọn hoặc lưu phiếu trước khi in.";
+            StatusMessage = message;
+            _printNotificationService.ShowPrintError(message);
+            return;
+        }
+
+        var ticketId = resolved.Value.TicketId;
+        if (resolved.Value.IsDirty)
+        {
+            var choice = _printNotificationService.PromptDirtyPrintChoice();
+            if (choice == PrintDirtyChoice.Cancel)
+                return;
+            if (choice == PrintDirtyChoice.PrintCurrent)
             {
-                StatusMessage = "Chọn một phiếu hoặc lưu phiếu trước khi xem.";
+                const string message = "Vui lòng cập nhật phiếu trước khi in.";
+                StatusMessage = message;
+                _printNotificationService.ShowPrintError(message);
                 return;
             }
-
-            PreviewTicketDetail = detail;
-            IsPreviewFrontSide = true;
-            IsTicketPreviewVisible = true;
         }
-        catch (Exception ex)
-        {
-            StatusMessage = ex.Message;
-        }
-    }
 
-    [RelayCommand]
-    private void CloseTicketPreview() => IsTicketPreviewVisible = false;
-
-    [RelayCommand]
-    private void ShowPreviewFront() => IsPreviewFrontSide = true;
-
-    [RelayCommand]
-    private void ShowPreviewBack() => IsPreviewFrontSide = false;
-
-    [RelayCommand]
-    private async Task CopyTicketImageAsync()
-    {
-        if (PreviewTicketDetail is not { } detail)
-            return;
+        IsPrinting = true;
+        PrintTicketCommand.NotifyCanExecuteChanged();
+        StatusMessage = "ĐANG CHUẨN BỊ IN...";
 
         try
         {
-            var rendered = _ticketDocumentRenderer.RenderCombinedVertical(detail, BuildPreviewRenderOptions());
-            ClipboardImageService.CopyPngToClipboard(rendered.PngBytes);
-            await ShowToastAsync("Đã sao chép ảnh phiếu");
+            var result = await _printWorkflow.PrintTicketAsync(ticketId, PrintCommandSource.MainWindow).ConfigureAwait(true);
+            StatusMessage = result.Success
+                ? "ĐÃ GỬI ĐẾN MÁY IN"
+                : result.ErrorMessage ?? "In thất bại";
         }
         catch (Exception ex)
         {
+            _printCommandLogger.LogException("MAIN_PRINT_COMMAND_EXECUTED", ex);
+            _printNotificationService.ShowPrintError(ex.Message);
             StatusMessage = ex.Message;
+        }
+        finally
+        {
+            IsPrinting = false;
+            PrintTicketCommand.NotifyCanExecuteChanged();
         }
     }
 
-    [RelayCommand]
-    private async Task SaveTicketImageAsync()
+    [RelayCommand(CanExecute = nameof(CanPrintTicket))]
+    private async Task ViewTicketAsync()
     {
-        if (PreviewTicketDetail is not { } detail)
+        var ticketId = ResolvePrintTicketId();
+        if (ticketId is null)
+        {
+            StatusMessage = "Vui lòng chọn hoặc lưu phiếu trước khi xem.";
             return;
+        }
 
         try
         {
-            var rendered = _ticketDocumentRenderer.RenderCombinedVertical(detail, BuildPreviewRenderOptions());
-            var dialog = new Microsoft.Win32.SaveFileDialog
-            {
-                FileName = rendered.SuggestedFileName,
-                Filter = "PNG (*.png)|*.png"
-            };
-            if (dialog.ShowDialog() != true)
-                return;
-
-            await File.WriteAllBytesAsync(dialog.FileName, rendered.PngBytes);
-            StatusMessage = $"Đã lưu ảnh phiếu: {dialog.FileName}";
+            StatusMessage = "ĐANG CHUẨN BỊ PHIẾU...";
+            await _printWorkflow.PreviewTicketAsync(ticketId.Value).ConfigureAwait(true);
+            StatusMessage = "Đã đóng xem trước phiếu.";
         }
         catch (Exception ex)
         {
             StatusMessage = ex.Message;
         }
     }
+
+    private bool CanPrintTicket() => !IsPrinting && ResolvePrintTicketCore() is not null;
+
+    public bool IsTicketDirty => IsFormDirty();
+
+    private readonly record struct ResolvedPrintTicket(int TicketId, string Source, bool IsDirty);
+
+    private ResolvedPrintTicket? ResolvePrintTicketCore()
+    {
+        var dirty = IsFormDirty();
+
+        if (ActiveTicketId is int activeId)
+            return new ResolvedPrintTicket(activeId, "ActiveTicket", dirty);
+
+        if (SelectedTicket is { } selected)
+            return new ResolvedPrintTicket(selected.Id, "SelectedTicket", dirty);
+
+        if (FormMode == TicketFormMode.Editing && EditingTicketId is long editId)
+            return new ResolvedPrintTicket((int)editId, "EditingTicket", dirty);
+
+        if (_lastSavedTicketDetail is not null &&
+            (ActiveTicketId == _lastSavedTicketDetail.Id || SelectedTicket?.Id == _lastSavedTicketDetail.Id))
+            return new ResolvedPrintTicket(_lastSavedTicketDetail.Id, "LastSaved", dirty);
+
+        return null;
+    }
+
+    private ResolvedPrintTicket? ResolvePrintTicketForExecution()
+    {
+        var resolved = ResolvePrintTicketCore();
+        if (resolved is null)
+            return null;
+
+        _printCommandLogger.Log(
+            $"TICKET_RESOLVED ResolvedTicketSource={resolved.Value.Source} ResolvedTicketId={resolved.Value.TicketId}");
+        return resolved;
+    }
+
+    private int? ResolvePrintTicketId() => ResolvePrintTicketCore()?.TicketId;
+
+    partial void OnIsPrintingChanged(bool value)
+    {
+        PrintTicketCommand.NotifyCanExecuteChanged();
+        ViewTicketCommand.NotifyCanExecuteChanged();
+    }
+
 
     [RelayCommand]
     private void ExportExcelStub() => StatusMessage = "Xuất Excel sẽ có ở giai đoạn sau.";
@@ -840,23 +949,38 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [RelayCommand]
     private async Task BeginEditTicketAsync(WeighTicketListItem? item)
     {
-        if (item is null || !CanLoadTicketIntoForm || IsEditingExistingTicket)
+        if (item is null)
             return;
+
+        if (IsFormDirty())
+        {
+            var decision = PromptUnsavedChangesForOpen();
+            if (decision == UnsavedChangeDecision.Stay)
+                return;
+            if (decision == UnsavedChangeDecision.SaveAndContinue)
+            {
+                if (!await TrySaveCurrentFormAsync())
+                    return;
+            }
+        }
 
         try
         {
+            _selectionLoadCts?.Cancel();
             _draft = await _weighTicketService.LoadTicketForEditAsync(item.Id);
+            FormMode = TicketFormMode.Editing;
             IsEditingExistingTicket = true;
             EditingTicketId = item.Id;
             EditingTicketNumber = item.DisplayNumber;
-            CanLoadTicketIntoForm = false;
-            IsContinuationMode = false;
+            ActiveTicketId = item.Id;
+            ViewingTicketNumber = item.DisplayNumber;
             IsDevWeightEditUnlocked = false;
             WeightOverrideReasonCode = null;
             WeightOverrideReasonOther = null;
             DevWeight1Text = _draft.DraftWeight1?.ToString("N0", CultureInfo.CurrentCulture);
             DevWeight2Text = _draft.DraftWeight2?.ToString("N0", CultureInfo.CurrentCulture);
             LoadBindingsFromDraft();
+            CaptureFormSnapshot();
             UpdateWeightOverrideUi();
             UpdateButtonStates();
             UpdateButtonLabels();
@@ -918,30 +1042,12 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     }
 
     [RelayCommand]
-    private async Task OpenTicketDetailAsync(WeighTicketListItem? item) =>
-        await BeginEditTicketAsync(item);
+    public async Task ContinueTicketAsync(WeighTicketListItem? item) =>
+        await OpenTicketFromListAsync(item);
 
     [RelayCommand]
-    public async Task ContinueTicketAsync(WeighTicketListItem? item)
-    {
-        if (item is null || item.EventCount >= 2)
-            return;
-
-        try
-        {
-            _draft = await _weighTicketService.LoadTicketForContinuationAsync(item.Id);
-            LoadBindingsFromDraft();
-            IsContinuationMode = true;
-            IsPreviewDisplayNumber = false;
-            UpdateButtonStates();
-            UpdateButtonLabels();
-            StatusMessage = $"Đang tiếp tục phiếu {item.DisplayNumber}. Chỉ có thể lấy lần cân còn thiếu.";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = ex.Message;
-        }
-    }
+    private async Task OpenTicketDetailAsync(WeighTicketListItem? item) =>
+        await OpenTicketFromListAsync(item);
 
     [RelayCommand]
     private void SetManualScale8500() => SetManualWeight(8500m);
@@ -1298,6 +1404,20 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         FooterMissingPriceCount = result.MissingPriceCount.ToString(CultureInfo.CurrentCulture);
     }
 
+    private async Task RefreshFooterSummaryAsync()
+    {
+        var filter = BuildCurrentFilter();
+        var result = await _weighTicketService.GetFilteredWithSummaryAsync(filter);
+        FilterResultSummary = ActiveFilterChips.Count > 0
+            ? $"Đang hiển thị: {result.Count} phiếu"
+            : string.Empty;
+        FooterTicketCount = result.Count.ToString(CultureInfo.CurrentCulture);
+        FooterTotalNet = $"{result.TotalNetWeightKg:N0} kg";
+        FooterTotalBillable = $"{result.TotalBillableWeightKg:N0} kg";
+        FooterTotalAmount = $"{result.TotalAmountVnd:N0} VNĐ";
+        FooterMissingPriceCount = result.MissingPriceCount.ToString(CultureInfo.CurrentCulture);
+    }
+
     partial void OnIsCompactModeChanged(bool value) => NotifyWorkAreaLayoutChanged();
 
     private WeighTicketFilter BuildCurrentFilter()
@@ -1345,8 +1465,12 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private async Task ResetDraftAsync()
     {
+        _selectionLoadCts?.Cancel();
         _draft = new WeighTicketDraft();
         DeveloperWeight1OverrideEnabled = false;
+        FormMode = TicketFormMode.Creating;
+        ActiveTicketId = null;
+        ViewingTicketNumber = null;
         IsContinuationMode = false;
         IsEditingExistingTicket = false;
         EditingTicketId = null;
@@ -1358,7 +1482,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         WeightOverrideReasonOther = null;
         IsWeightOverrideReasonPanelVisible = false;
         IsManualWeightOverrideMessageVisible = false;
-        CanLoadTicketIntoForm = true;
+        ClearFormSnapshot();
         LoadBindingsFromDraft();
         await RefreshPreviewDisplayNumberAsync();
         UpdateButtonStates();
@@ -1467,7 +1591,14 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void UpdateButtonStates()
     {
-        if (IsEditingExistingTicket)
+        if (FormMode == TicketFormMode.Viewing)
+        {
+            IsWeigh1Enabled = false;
+            IsWeigh2Enabled = false;
+            return;
+        }
+
+        if (FormMode == TicketFormMode.Editing)
         {
             IsWeigh1Enabled = false;
             IsWeigh2Enabled = false;
@@ -1544,8 +1675,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _scaleService.WeightChanged -= OnScaleWeightChanged;
         if (_scaleService is IAsyncDisposable disposable)
             await disposable.DisposeAsync();
-        await _cameraSupervisor.DisposeAsync();
-        await _cameraStream.DisposeAsync();
         _takeWeightGate.Dispose();
         _vmConnectGate.Dispose();
     }

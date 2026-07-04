@@ -23,83 +23,45 @@ public sealed class DiagnosticsRunOrchestrator
 
         if (options.PublishCheck)
         {
-            await RunPhaseAsync(
-                checks,
-                "Publish checks",
-                DiagnosticsTimeouts.Application,
-                overallCts.Token,
+            await RunPhaseAsync(checks, "Publish checks", DiagnosticsTimeouts.Application, overallCts.Token,
                 (runner, ct) => runner.RunPublishChecksAsync(options, ct)).ConfigureAwait(false);
         }
 
         if (options.IncludeApplication)
         {
-            await RunPhaseAsync(
-                checks,
-                "Application checks",
-                DiagnosticsTimeouts.Application,
-                overallCts.Token,
+            await RunPhaseAsync(checks, "Application checks", DiagnosticsTimeouts.Application, overallCts.Token,
                 (runner, ct) => runner.RunApplicationChecksAsync(ct)).ConfigureAwait(false);
         }
 
         if (options.IncludeDatabase)
         {
-            await RunPhaseAsync(
-                checks,
-                "Database checks",
-                DiagnosticsTimeouts.Database,
-                overallCts.Token,
+            await RunPhaseAsync(checks, "Database checks", DiagnosticsTimeouts.Database, overallCts.Token,
                 (runner, ct) => runner.RunDatabaseChecksAsync(ct)).ConfigureAwait(false);
         }
 
-        if (options.IncludeFfmpeg)
+        if (options.IncludeFilesystem)
         {
-            await RunPhaseAsync(
-                checks,
-                "FFmpeg checks",
-                DiagnosticsTimeouts.Ffmpeg,
-                overallCts.Token,
-                (runner, ct) => runner.RunFfmpegChecksAsync(options, ct)).ConfigureAwait(false);
+            await RunPhaseAsync(checks, "Filesystem checks", DiagnosticsTimeouts.Application, overallCts.Token,
+                (runner, ct) => runner.RunFilesystemChecksAsync(ct)).ConfigureAwait(false);
         }
 
-        if (options.IncludeCameraConfig || options.IncludeCameraConnection)
+        if (options.IncludePrinter)
         {
-            await RunPhaseAsync(
-                checks,
-                "Camera checks",
-                DiagnosticsTimeouts.Camera,
-                overallCts.Token,
-                async (runner, ct) =>
-                {
-                    var cameraChecks = new List<SystemDiagnosticCheck>();
-                    if (options.IncludeCameraConfig)
-                        cameraChecks.AddRange(await runner.RunCameraConfigChecksAsync(options, ct).ConfigureAwait(false));
-                    if (options.IncludeCameraConnection)
-                        cameraChecks.AddRange(await runner.RunCameraConnectionChecksAsync(options, ct).ConfigureAwait(false));
-
-                    await DiagnosticsCleanup.WaitForFfmpegDrainAsync(ct).ConfigureAwait(false);
-                    return cameraChecks;
-                }).ConfigureAwait(false);
+            await RunPhaseAsync(checks, "Printer checks", DiagnosticsTimeouts.Application, overallCts.Token,
+                (runner, ct) => runner.RunPrinterChecksAsync(ct)).ConfigureAwait(false);
         }
 
         if (options.IncludeScale)
         {
-            await RunPhaseAsync(
-                checks,
-                "Scale checks",
-                DiagnosticsTimeouts.Scale,
-                overallCts.Token,
+            await RunPhaseAsync(checks, "Scale checks", DiagnosticsTimeouts.Scale, overallCts.Token,
                 (runner, ct) => runner.RunScaleChecksAsync(options, ct)).ConfigureAwait(false);
         }
 
-        var result = new SystemDiagnosticsResult
+        return new SystemDiagnosticsResult
         {
             Checks = checks,
             TotalDuration = Stopwatch.GetElapsedTime(started)
         };
-
-        DiagnosticsLogger.Write(
-            $"Diagnostics completed: {result.Passed} pass, {result.Failed} fail, {result.Skipped} skipped");
-        return result;
     }
 
     private async Task RunPhaseAsync(
@@ -133,25 +95,21 @@ public sealed class DiagnosticsRunOrchestrator
         }
     }
 
-    private static SystemDiagnosticCheck PhaseTimeoutCheck(string phaseName, string detail)
-    {
-        var category = phaseName switch
+    private static SystemDiagnosticCheck PhaseTimeoutCheck(string phaseName, string detail) =>
+        new()
         {
-            "Application checks" => "Application",
-            "Database checks" => "Database",
-            "FFmpeg checks" => "FFmpeg",
-            "Camera checks" => "Camera",
-            "Scale checks" => "Scale",
-            "Publish checks" => "Publish",
-            _ => "Diagnostics"
-        };
-
-        return new SystemDiagnosticCheck
-        {
-            Category = category,
+            Category = phaseName switch
+            {
+                "Application checks" => "Application",
+                "Database checks" => "Database",
+                "Filesystem checks" => "Filesystem",
+                "Printer checks" => "Printer",
+                "Scale checks" => "Scale",
+                "Publish checks" => "Publish",
+                _ => "Diagnostics"
+            },
             Name = "Phase timeout",
             Status = DiagnosticStatus.Fail,
             Detail = detail
         };
-    }
 }

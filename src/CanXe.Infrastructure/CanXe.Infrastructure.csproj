@@ -22,4 +22,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="Camera\**" />
+    <Compile Remove="Device\CameraConnectionTester.cs" />
+    <Compile Remove="Diagnostics\CameraStabilityRunner.cs" />
+    <Compile Remove="Diagnostics\DiagnosticsCleanup.cs" />
+  </ItemGroup>
+
 </Project>

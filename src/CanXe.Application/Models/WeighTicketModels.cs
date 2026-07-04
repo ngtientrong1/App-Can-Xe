@@ -116,6 +116,8 @@ public sealed class WeighTicketListItem
     public decimal? TotalAmountVnd { get; init; }
     public string? Notes { get; init; }
     public int EventCount { get; init; }
+    public WeighTicketWorkflowState WorkflowState => WeighTicketWorkflow.FromEventCount(EventCount);
+    public string WorkflowStatusText => WeighTicketWorkflow.ListColumnText(WorkflowState);
 }
 
 public sealed class WeighTicketDetailDto
@@ -162,6 +164,7 @@ public sealed class SaveTicketResult
     public bool Success { get; init; }
     public string? ErrorMessage { get; init; }
     public WeighTicketListItem? SavedTicket { get; init; }
+    public WeighTicketWorkflowState WorkflowState { get; init; }
     public IReadOnlyList<string> SimilarCustomerWarnings { get; init; } = [];
     public bool IsVisibleInCurrentFilter { get; init; } = true;
 }

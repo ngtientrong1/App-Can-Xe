@@ -14,13 +14,13 @@ namespace CanXe.Tests.Application;
 public class Phase17AppleUiAndSettingsTests
 {
     [Fact]
-    public void CameraClosedLayout_HasZeroDrawerWidthButRailPixels()
+    public void Phase4Layout_HasZeroDrawerAndResponsiveColumns()
     {
         Assert.Equal(0, WorkAreaLayoutCalculator.GetCameraDrawerWidth(false));
-        Assert.InRange(WorkAreaLayoutCalculator.GetUtilityRailWidth(false), 52, 64);
-        var (weigh, info) = WorkAreaLayoutCalculator.GetMainColumnStars(false);
-        Assert.Equal(38, weigh);
-        Assert.Equal(62, info);
+        Assert.Equal(0, WorkAreaLayoutCalculator.GetUtilityRailWidth(false));
+        var (weigh, info) = WorkAreaLayoutCalculator.GetMainColumnStars(1366);
+        Assert.Equal(46, weigh);
+        Assert.Equal(54, info);
     }
 
     [Fact]

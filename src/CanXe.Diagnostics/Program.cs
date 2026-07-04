@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 
 using CanXe.Application.Configuration;
@@ -8,8 +9,8 @@ using CanXe.Application.Models;
 
 using CanXe.Infrastructure;
 
+using CanXe.Desktop.Services;
 using CanXe.Infrastructure.Diagnostics;
-using CanXe.Infrastructure.Camera;
 using Microsoft.Extensions.DependencyInjection;
 
 using Microsoft.Extensions.Hosting;
@@ -30,31 +31,18 @@ internal static class Program
     {
         try
         {
-            if (TryRunParseCameraCapture(args, out var parseExit))
-                return parseExit;
-
             var cli = DiagnosticsArgumentParser.Parse(args);
 
             if (cli.ShowHelp)
-
             {
-
                 PrintHelp();
-
                 return 0;
-
             }
 
-
-
-            if (cli.HasCameraFlagConflict || cli.HasScaleFlagConflict)
-
+            if (cli.HasScaleFlagConflict)
             {
-
-                Console.Error.WriteLine("ERROR: Conflicting flags — use either --require-* or --skip-*, not both.");
-
+                Console.Error.WriteLine("ERROR: Conflicting flags — use either --require-scale or --skip-scale, not both.");
                 return 2;
-
             }
 
 
@@ -127,22 +115,40 @@ internal static class Program
 
             await DependencyInjection.InitializeDatabaseAsync(host.Services, dbPath);
 
-            if (cli.CameraStabilitySeconds is int stabilitySeconds && stabilitySeconds > 0)
-            {
-                var report = await CameraStabilityRunner.RunAsync(
-                    host.Services,
-                    stabilitySeconds).ConfigureAwait(false);
-                report.Print();
-                await host.StopAsync();
-                return report.Passed ? 0 : 1;
-            }
-
             if (cli.ScaleLiveSeconds is int scaleLiveSeconds && scaleLiveSeconds > 0)
             {
                 var exit = await ScaleLiveRunner.RunAsync(
                     host.Services,
                     scaleLiveSeconds,
                     cli.VerboseScaleFrames).ConfigureAwait(false);
+                await host.StopAsync();
+                return exit;
+            }
+
+            if (cli.PrintLayoutGeometryTest)
+            {
+                var exit = PrintLayoutGeometryTestRunner.Run();
+                await host.StopAsync();
+                return exit;
+            }
+
+            if (cli.PrintA4TwoUpTest)
+            {
+                var exit = PrintA4TwoUpTestRunner.Run(cli.PrintRenderSendToPrinter);
+                await host.StopAsync();
+                return exit;
+            }
+
+            if (cli.PrintA5FitTest)
+            {
+                var exit = PrintA5FitTestRunner.Run(cli.PrintRenderSendToPrinter);
+                await host.StopAsync();
+                return exit;
+            }
+
+            if (cli.PrintRenderTest)
+            {
+                var exit = PrintRenderTestRunner.Run(cli.PrintRenderSendToPrinter);
                 await host.StopAsync();
                 return exit;
             }
@@ -158,9 +164,7 @@ internal static class Program
 
             var diagnostics = host.Services.GetRequiredService<ISystemDiagnosticsService>();
 
-            var testMedia = ResolveTestMediaPath();
-
-            var runOptions = DiagnosticsArgumentParser.BuildRunOptions(cli, testMedia);
+            var runOptions = DiagnosticsArgumentParser.BuildRunOptions(cli);
 
             SystemDiagnosticsResult? result = null;
             var exitCode = 1;
@@ -200,9 +204,7 @@ internal static class Program
                 }
 
                 var summary = DiagnosticsExitEvaluator.Evaluate(result ?? new SystemDiagnosticsResult(), runOptions);
-                Console.WriteLine($"Required camera: {summary.RequiredCamera}");
                 Console.WriteLine($"Required scale: {summary.RequiredScale}");
-                Console.WriteLine($"Camera result: {summary.CameraResult}");
                 Console.WriteLine($"Scale result: {summary.ScaleResult}");
                 Console.WriteLine($"Final exit code: {summary.ExitCode}");
 
@@ -428,29 +430,6 @@ internal static class Program
 
     }
 
-    private static bool TryRunParseCameraCapture(string[] args, out int exitCode)
-    {
-        exitCode = 0;
-        for (var i = 0; i < args.Length; i++)
-        {
-            if (!args[i].Equals("--parse-camera-capture", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            var path = i + 1 < args.Length && !args[i + 1].StartsWith('-')
-                ? args[i + 1]
-                : CameraPipeCapture.DefaultCapturePath;
-
-            var result = CameraPipeCapture.ParseFile(path);
-            Console.WriteLine(result.Success ? $"PASS: {result.Detail}" : $"FAIL: {result.Detail}");
-            Console.WriteLine(
-                $"FileBytes={result.FileBytes}; Frames={result.FrameCount}; " +
-                $"FirstFrameBytes={result.FirstFrameBytes}; Size={result.Width}x{result.Height}");
-            exitCode = result.Success ? 0 : 1;
-            return true;
-        }
-
-        return false;
-    }
 }
 
 

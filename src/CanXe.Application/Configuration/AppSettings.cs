@@ -3,14 +3,12 @@ namespace CanXe.Application.Configuration;
 public sealed class AppSettings
 {
     public string DeviceMode { get; set; } = "Simulation";
-    public int PhotoRetentionDays { get; set; } = 3;
     public ScaleSettings Scale { get; set; } = new();
-    public bool CameraPreviewEnabled { get; set; } = true;
-    public bool SimulateCameraFailure { get; set; }
-    public bool SimulateScaleDisconnect { get; set; }
     public bool DeveloperMode { get; set; }
+    public bool ShowDeveloperTab { get; set; }
     public bool ShowDeveloperPanel { get; set; } = true;
     public bool DeveloperTicketEditEnabled { get; set; } = true;
+    public bool SimulateScaleDisconnect { get; set; }
 }
 
 public sealed class ScaleSettings

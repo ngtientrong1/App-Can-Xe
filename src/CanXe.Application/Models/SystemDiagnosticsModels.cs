@@ -32,16 +32,10 @@ public sealed class DiagnosticsRunOptions
 {
     public bool IncludeApplication { get; init; } = true;
     public bool IncludeDatabase { get; init; } = true;
-    public bool IncludeFfmpeg { get; init; } = true;
-    public bool IncludeCameraConfig { get; init; } = true;
-    public bool IncludeCameraConnection { get; init; } = true;
+    public bool IncludeFilesystem { get; init; } = true;
+    public bool IncludePrinter { get; init; } = true;
     public bool IncludeScale { get; init; } = true;
-    public bool RequireCamera { get; init; }
     public bool RequireScale { get; init; }
-    public bool SkipCamera { get; init; }
     public bool SkipScale { get; init; }
-    public bool UseTestMedia { get; init; }
     public bool PublishCheck { get; init; }
-    public bool CaptureCameraPipe { get; init; }
-    public string? TestMediaPath { get; init; }
 }

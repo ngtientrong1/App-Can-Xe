@@ -5,6 +5,7 @@ using CanXe.Domain.Models;
 public sealed class StationSettingsDto
 {
     public string StationName { get; set; } = "Trạm cân CanXe";
+    public string? StationSubtitle { get; set; }
     public string? OwnerName { get; set; }
     public string? Address { get; set; }
     public string? Phone { get; set; }
@@ -12,6 +13,7 @@ public sealed class StationSettingsDto
     public string? TaxCode { get; set; }
     public string? LogoPath { get; set; }
     public string? TicketFooterText { get; set; }
+    public string? SignLocationName { get; set; }
 }
 
 public sealed class ScaleDeviceSettingsDto
@@ -83,5 +85,6 @@ public enum AppNavigationSection
     Catalog,
     Device,
     Report,
-    Settings
+    Settings,
+    Developer
 }

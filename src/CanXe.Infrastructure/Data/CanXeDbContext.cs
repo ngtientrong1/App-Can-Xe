@@ -17,6 +17,8 @@ public sealed class CanXeDbContext : DbContext
     public DbSet<StationSettings> StationSettings => Set<StationSettings>();
     public DbSet<ScaleDeviceSettings> ScaleDeviceSettings => Set<ScaleDeviceSettings>();
     public DbSet<CameraDeviceSettings> CameraDeviceSettings => Set<CameraDeviceSettings>();
+    public DbSet<PrintSettings> PrintSettings => Set<PrintSettings>();
+    public DbSet<PrintJobHistory> PrintJobHistories => Set<PrintJobHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -98,6 +100,22 @@ public sealed class CanXeDbContext : DbContext
         modelBuilder.Entity<CameraDeviceSettings>(entity =>
         {
             entity.HasKey(e => e.Id);
+        });
+
+        modelBuilder.Entity<PrintSettings>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PaperSize).IsRequired();
+            entity.Property(e => e.PaperOrientation).IsRequired();
+            entity.Property(e => e.TopCopyLabel).IsRequired();
+            entity.Property(e => e.BottomCopyLabel).IsRequired();
+        });
+
+        modelBuilder.Entity<PrintJobHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TicketId);
+            entity.HasIndex(e => e.RequestedAt);
         });
     }
 }

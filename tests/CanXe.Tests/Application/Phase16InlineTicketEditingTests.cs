@@ -531,8 +531,6 @@ public class Phase16InlineTicketEditingTests : IAsyncLifetime
             sp.GetRequiredService<ICargoTypeRepository>(),
             sp.GetRequiredService<IVehicleRepository>(),
             sp.GetRequiredService<IScaleService>(),
-            sp.GetRequiredService<ICameraService>(),
-            sp.GetRequiredService<IPhotoStorageService>(),
             ticketUpdate);
     }
 
@@ -565,6 +563,9 @@ public class Phase16InlineTicketEditingTests : IAsyncLifetime
 
         public Task<WeighTicket?> GetByIdWithEventsAsync(int id, CancellationToken cancellationToken = default) =>
             _inner.GetByIdWithEventsAsync(id, cancellationToken);
+
+        public Task<WeighTicket?> GetByIdIncludingDeletedAsync(int id, CancellationToken cancellationToken = default) =>
+            _inner.GetByIdIncludingDeletedAsync(id, cancellationToken);
 
         public Task<IReadOnlyList<WeighTicket>> GetFilteredAsync(WeighTicketFilter filter, CancellationToken cancellationToken = default) =>
             _inner.GetFilteredAsync(filter, cancellationToken);

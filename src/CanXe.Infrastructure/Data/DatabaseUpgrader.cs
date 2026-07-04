@@ -10,6 +10,10 @@ public static class DatabaseUpgrader
     public const string Phase2CMigrationId = "202606270003_Phase2C_ScaleInputMode";
     public const string Phase2DMigrationId = "202606270004_Phase2D_AutoConnectScale";
     public const string Phase3AMigrationId = "202606270005_Phase3A_CameraRtspAutoConnect";
+    public const string Phase4MigrationId = "202606290001_Phase4_PrintSettingsAndStationFields";
+    public const string Phase4Rc11MigrationId = "202606300001_Phase4_Rc11_PrintRenderingMode";
+    public const string Phase4Rc18MigrationId = "202606300002_Phase4_Rc18_PrintLayoutMode";
+    public const string Phase4Rc23MigrationId = "202606300003_Phase4_Rc23_A4TwoUpAndSoftDelete";
 
     public static async Task UpgradeAsync(CanXeDbContext db, string databasePath, CancellationToken cancellationToken = default)
     {
@@ -25,6 +29,14 @@ public static class DatabaseUpgrader
             await RecordMigrationAsync(db, Phase2DMigrationId, cancellationToken);
             await ApplyPhase3ACameraRtspFieldsAsync(db, cancellationToken);
             await RecordMigrationAsync(db, Phase3AMigrationId, cancellationToken);
+            await ApplyPhase4PrintAndStationFieldsAsync(db, cancellationToken);
+            await RecordMigrationAsync(db, Phase4MigrationId, cancellationToken);
+            await ApplyPhase4Rc11PrintRenderingModeAsync(db, cancellationToken);
+            await RecordMigrationAsync(db, Phase4Rc11MigrationId, cancellationToken);
+            await ApplyPhase4Rc18PrintLayoutModeAsync(db, cancellationToken);
+            await RecordMigrationAsync(db, Phase4Rc18MigrationId, cancellationToken);
+            await ApplyPhase4Rc23A4TwoUpAndSoftDeleteAsync(db, cancellationToken);
+            await RecordMigrationAsync(db, Phase4Rc23MigrationId, cancellationToken);
             return;
         }
 
@@ -43,6 +55,15 @@ public static class DatabaseUpgrader
 
         await ApplyPhase3ACameraRtspFieldsAsync(db, cancellationToken);
         await RecordMigrationAsync(db, Phase3AMigrationId, cancellationToken);
+
+        await ApplyPhase4PrintAndStationFieldsAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase4MigrationId, cancellationToken);
+        await ApplyPhase4Rc11PrintRenderingModeAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase4Rc11MigrationId, cancellationToken);
+        await ApplyPhase4Rc18PrintLayoutModeAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase4Rc18MigrationId, cancellationToken);
+        await ApplyPhase4Rc23A4TwoUpAndSoftDeleteAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase4Rc23MigrationId, cancellationToken);
     }
 
     public static void BackupDatabase(string databasePath)
@@ -253,6 +274,129 @@ public static class DatabaseUpgrader
         finally
         {
             await connection.CloseAsync();
+        }
+    }
+
+    private static async Task ApplyPhase4PrintAndStationFieldsAsync(CanXeDbContext db, CancellationToken cancellationToken)
+    {
+        if (!await ColumnExistsAsync(db, "StationSettings", "StationSubtitle", cancellationToken))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE StationSettings ADD COLUMN StationSubtitle TEXT NULL;",
+                cancellationToken);
+        }
+
+        if (!await ColumnExistsAsync(db, "StationSettings", "SignLocationName", cancellationToken))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE StationSettings ADD COLUMN SignLocationName TEXT NULL;",
+                cancellationToken);
+        }
+
+        if (!await TableExistsAsync(db, "PrintSettings", cancellationToken))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE PrintSettings (
+                    Id INTEGER NOT NULL PRIMARY KEY,
+                    PreferredPrinterName TEXT NULL,
+                    PaperSize TEXT NOT NULL,
+                    PaperOrientation TEXT NOT NULL,
+                    DefaultCopies INTEGER NOT NULL,
+                    TopCopyLabel TEXT NOT NULL,
+                    BottomCopyLabel TEXT NOT NULL,
+                    ShowLogo INTEGER NOT NULL,
+                    ShowPrice INTEGER NOT NULL,
+                    TicketFooterText TEXT NULL,
+                    SignLocationName TEXT NULL,
+                    ShowReprintWatermark INTEGER NOT NULL,
+                    UpdatedAt TEXT NOT NULL
+                );
+                INSERT INTO PrintSettings (Id, PaperSize, PaperOrientation, DefaultCopies, TopCopyLabel, BottomCopyLabel, ShowLogo, ShowPrice, ShowReprintWatermark, UpdatedAt)
+                VALUES (1, 'A4', 'Portrait', 1, 'LIÊN TRẠM CÂN', 'LIÊN KHÁCH HÀNG', 1, 1, 1, datetime('now'));
+                """,
+                cancellationToken);
+        }
+
+        if (!await TableExistsAsync(db, "PrintJobHistories", cancellationToken))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE PrintJobHistories (
+                    Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    TicketId INTEGER NULL,
+                    TicketNumber TEXT NULL,
+                    PrinterName TEXT NULL,
+                    PaperSize TEXT NOT NULL,
+                    Copies INTEGER NOT NULL,
+                    RequestedAt TEXT NOT NULL,
+                    CompletedAt TEXT NULL,
+                    Status INTEGER NOT NULL,
+                    ErrorMessage TEXT NULL,
+                    IsReprint INTEGER NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS IX_PrintJobHistories_TicketId ON PrintJobHistories (TicketId);
+                CREATE INDEX IF NOT EXISTS IX_PrintJobHistories_RequestedAt ON PrintJobHistories (RequestedAt);
+                """,
+                cancellationToken);
+        }
+    }
+
+    private static async Task ApplyPhase4Rc11PrintRenderingModeAsync(CanXeDbContext db, CancellationToken cancellationToken)
+    {
+        if (await TableExistsAsync(db, "PrintSettings", cancellationToken)
+            && !await ColumnExistsAsync(db, "PrintSettings", "PrintRenderingMode", cancellationToken))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                ALTER TABLE PrintSettings ADD COLUMN PrintRenderingMode TEXT NOT NULL DEFAULT 'RasterCompatibility';
+                UPDATE PrintSettings SET PrintRenderingMode = 'RasterCompatibility' WHERE PrintRenderingMode IS NULL OR PrintRenderingMode = '';
+                """,
+                cancellationToken);
+        }
+    }
+
+    private static async Task ApplyPhase4Rc18PrintLayoutModeAsync(CanXeDbContext db, CancellationToken cancellationToken)
+    {
+        if (await TableExistsAsync(db, "PrintSettings", cancellationToken)
+            && !await ColumnExistsAsync(db, "PrintSettings", "PrintLayoutMode", cancellationToken))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                ALTER TABLE PrintSettings ADD COLUMN PrintLayoutMode TEXT NOT NULL DEFAULT 'A5SingleTicket';
+                UPDATE PrintSettings SET PrintLayoutMode = 'A5SingleTicket' WHERE PrintLayoutMode IS NULL OR PrintLayoutMode = '';
+                """,
+                cancellationToken);
+        }
+    }
+
+    private static async Task ApplyPhase4Rc23A4TwoUpAndSoftDeleteAsync(CanXeDbContext db, CancellationToken cancellationToken)
+    {
+        if (await TableExistsAsync(db, "WeighTickets", cancellationToken)
+            && !await ColumnExistsAsync(db, "WeighTickets", "IsDeleted", cancellationToken))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                ALTER TABLE WeighTickets ADD COLUMN IsDeleted INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE WeighTickets ADD COLUMN DeletedAt TEXT NULL;
+                ALTER TABLE WeighTickets ADD COLUMN DeletedBy TEXT NULL;
+                ALTER TABLE WeighTickets ADD COLUMN DeleteReason TEXT NULL;
+                CREATE INDEX IF NOT EXISTS IX_WeighTickets_IsDeleted ON WeighTickets (IsDeleted);
+                """,
+                cancellationToken);
+        }
+
+        if (await TableExistsAsync(db, "PrintSettings", cancellationToken))
+        {
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                UPDATE PrintSettings
+                SET PrintLayoutMode = 'A4TwoUp'
+                WHERE PrintLayoutMode IS NULL
+                   OR PrintLayoutMode = ''
+                   OR PrintLayoutMode = 'A5SingleTicket';
+                """,
+                cancellationToken);
         }
     }
 

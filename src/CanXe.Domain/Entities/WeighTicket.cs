@@ -35,5 +35,10 @@ public class WeighTicket
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
 
+    public bool IsDeleted { get; set; }
+    public DateTimeOffset? DeletedAt { get; set; }
+    public string? DeletedBy { get; set; }
+    public string? DeleteReason { get; set; }
+
     public ICollection<WeighEvent> Events { get; set; } = [];
 }

@@ -62,17 +62,12 @@ public class FrequentCargoTypeResolverTests
 public class WorkAreaLayoutCalculatorTests
 {
     [Fact]
-    public void CameraCollapsed_Uses34_66_0Ratio()
+    public void Phase4Layout_UsesResponsiveTwoColumnRatio()
     {
-        var stars = WorkAreaLayoutCalculator.GetColumnStars(false);
-        Assert.Equal((34, 66, 0), stars);
-        Assert.False(WorkAreaLayoutCalculator.HasUnusedCameraColumnGap(false, 0));
-    }
-
-    [Fact]
-    public void CameraVisible_Uses32_50_18Ratio()
-    {
-        var stars = WorkAreaLayoutCalculator.GetColumnStars(true);
-        Assert.Equal((32, 50, 18), stars);
+        var (weigh, info) = WorkAreaLayoutCalculator.GetMainColumnStars(1920);
+        Assert.Equal(44, weigh);
+        Assert.Equal(56, info);
+        Assert.Equal(0, WorkAreaLayoutCalculator.GetCameraDrawerWidth(false));
+        Assert.Equal(0, WorkAreaLayoutCalculator.GetUtilityRailWidth(false));
     }
 }
