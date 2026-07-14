@@ -45,7 +45,11 @@ public sealed class WeighTicketDraft
     public bool IsWeight2LockedFromSavedTicket { get; set; }
     public int? SavedWeight2EventId { get; set; }
 
-    public bool HasAnyWeight => DraftWeight1.HasValue || DraftWeight2.HasValue;
+    public bool HasCapturedWeight1 => DraftWeight1RecordedAt.HasValue;
+
+    public bool HasCapturedWeight2 => DraftWeight2RecordedAt.HasValue;
+
+    public bool HasAnyWeight => HasCapturedWeight1 || HasCapturedWeight2;
 
     public decimal? GetWeightKg(int sequence) => sequence == 1 ? DraftWeight1 : DraftWeight2;
 

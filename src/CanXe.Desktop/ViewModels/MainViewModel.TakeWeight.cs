@@ -226,6 +226,10 @@ public sealed partial class MainViewModel
 
                 $"total={sw.ElapsedMilliseconds}ms click={clickFeedbackMs}ms validation={validationMs}ms reading={readingMs}ms update={updateMs}ms");
 
+            WeighWorkflowLogger.Write(
+                sequence == 1 ? "TAKE_WEIGHT_1" : "TAKE_WEIGHT_2",
+                $"WeightKg={result.WeightKg:N0}");
+
         }
 
         catch (Exception ex)

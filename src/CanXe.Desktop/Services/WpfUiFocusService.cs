@@ -20,4 +20,7 @@ public sealed class WpfUiFocusService : IUiFocusService
 
     public void HighlightTicketRow(int ticketId, bool scrollToTop) =>
         _window?.HighlightTicketRow(ticketId, scrollToTop);
+
+    public void RefreshAutocompleteDisplays() =>
+        _window?.RefreshAutocompleteDisplays();
 }

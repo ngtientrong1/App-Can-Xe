@@ -386,6 +386,18 @@ public class Phase11WorkflowTests : IAsyncLifetime
         public Task<VehicleUsageContext?> GetVehicleUsageContextAsync(string normalizedPlate, CancellationToken cancellationToken = default) =>
             _inner.GetVehicleUsageContextAsync(normalizedPlate, cancellationToken);
 
+        public Task<IReadOnlyList<string>> GetRecentCustomerNamesAsync(int maxResults = 50, CancellationToken cancellationToken = default) =>
+            _inner.GetRecentCustomerNamesAsync(maxResults, cancellationToken);
+
+        public Task<IReadOnlyList<string>> GetRecentLicensePlatesAsync(int maxResults = 50, CancellationToken cancellationToken = default) =>
+            _inner.GetRecentLicensePlatesAsync(maxResults, cancellationToken);
+
+        public Task<IReadOnlyList<string>> GetRecentCargoTypeNamesAsync(int maxResults = 50, CancellationToken cancellationToken = default) =>
+            _inner.GetRecentCargoTypeNamesAsync(maxResults, cancellationToken);
+
+        public Task<decimal?> GetRecentUnitPriceForCargoAsync(string cargoTypeName, CancellationToken cancellationToken = default) =>
+            _inner.GetRecentUnitPriceForCargoAsync(cargoTypeName, cancellationToken);
+
         public Task UpdateTicketEditAsync(WeighTicket ticket, IReadOnlyList<WeighEvent> events, IReadOnlyList<AuditLog> auditLogs, CancellationToken cancellationToken = default) =>
             _inner.UpdateTicketEditAsync(ticket, events, auditLogs, cancellationToken);
 

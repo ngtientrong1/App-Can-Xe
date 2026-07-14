@@ -24,6 +24,12 @@ public sealed class RecordingPrintNotificationService : IPrintNotificationServic
     public Task ShowDeleteSuccessToastAsync(string? displayNumber, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
 
+    public Task ShowCatalogDeleteSuccessToastAsync(CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+
+    public Task ShowExportSuccessToastAsync(string? filePath, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+
     public void ShowPrintError(string? detailMessage)
     {
         ErrorCount++;

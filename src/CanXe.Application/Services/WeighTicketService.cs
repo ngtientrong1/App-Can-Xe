@@ -176,6 +176,13 @@ public sealed class WeighTicketService
         WeighTicketFilter? visibilityFilter = null,
         CancellationToken cancellationToken = default)
     {
+        if (!draft.ExistingTicketId.HasValue && !draft.HasCapturedWeight1)
+            return new SaveTicketResult
+            {
+                Success = false,
+                ErrorMessage = "Vui lòng lấy cân lần 1 trước khi lưu phiếu."
+            };
+
         if (!draft.HasAnyWeight)
             return new SaveTicketResult { Success = false, ErrorMessage = "Cần ít nhất một trọng lượng để lưu." };
 
@@ -199,7 +206,8 @@ public sealed class WeighTicketService
         }
         catch (Exception ex)
         {
-            return new SaveTicketResult { Success = false, ErrorMessage = ex.Message };
+            var message = ex.InnerException?.Message ?? ex.Message;
+            return new SaveTicketResult { Success = false, ErrorMessage = message };
         }
     }
 
@@ -321,11 +329,13 @@ public sealed class WeighTicketService
                 CreatedAt = now
             };
 
-            await ApplyDraftMetadataAsync(ticket, draft, cancellationToken);
+            await ApplyDraftMetadataAsync(ticket, draft, preserveExistingMetadataWhenEmpty: false, cancellationToken);
             AddDraftEventsToTicket(ticket, draft, internalCode);
 
             ApplyCalculations(ticket, draft);
-            return await _ticketRepository.AddAsync(ticket, cancellationToken);
+            var saved = await _ticketRepository.AddAsync(ticket, cancellationToken);
+            return await _ticketRepository.GetByIdWithEventsAsync(saved.Id, cancellationToken)
+                ?? saved;
         }, cancellationToken);
     }
 
@@ -339,9 +349,9 @@ public sealed class WeighTicketService
             var ticket = await _ticketRepository.GetByIdWithEventsAsync(ticketId, cancellationToken)
                 ?? throw new InvalidOperationException($"Không tìm thấy phiếu #{ticketId}.");
 
-            await ApplyDraftMetadataAsync(ticket, draft, cancellationToken);
+            await ApplyDraftMetadataAsync(ticket, draft, preserveExistingMetadataWhenEmpty: true, cancellationToken);
 
-            if (draft.DraftWeight1.HasValue && !draft.IsWeight1LockedFromSavedTicket &&
+            if (draft.HasCapturedWeight1 && !draft.IsWeight1LockedFromSavedTicket &&
                 ticket.Events.All(e => e.Sequence != 1))
             {
                 await _ticketRepository.AddEventAsync(new WeighEvent
@@ -356,7 +366,7 @@ public sealed class WeighTicketService
                 }, cancellationToken);
             }
 
-            if (draft.DraftWeight2.HasValue && !draft.IsWeight2LockedFromSavedTicket &&
+            if (draft.HasCapturedWeight2 && !draft.IsWeight2LockedFromSavedTicket &&
                 ticket.Events.All(e => e.Sequence != 2))
             {
                 await _ticketRepository.AddEventAsync(new WeighEvent
@@ -382,28 +392,32 @@ public sealed class WeighTicketService
 
     private void AddDraftEventsToTicket(WeighTicket ticket, WeighTicketDraft draft, string internalCode)
     {
-        if (draft.DraftWeight1.HasValue)
-        {
+        if (draft.HasCapturedWeight1)
             ticket.Events.Add(CreateEventFromDraft(ticket.Id, draft, 1, internalCode));
-        }
 
-        if (draft.DraftWeight2.HasValue)
-        {
+        if (draft.HasCapturedWeight2)
             ticket.Events.Add(CreateEventFromDraft(ticket.Id, draft, 2, internalCode));
-        }
     }
 
     private WeighEvent CreateEventFromDraft(int ticketId, WeighTicketDraft draft, int sequence, string internalCode)
     {
-        var weight = draft.GetWeightKg(sequence)!.Value;
-        var recordedAt = sequence == 1 ? draft.DraftWeight1RecordedAt!.Value : draft.DraftWeight2RecordedAt!.Value;
+        var weight = sequence == 1 ? draft.DraftWeight1 : draft.DraftWeight2;
+        var recordedAt = sequence == 1 ? draft.DraftWeight1RecordedAt : draft.DraftWeight2RecordedAt;
+        var hasCapture = sequence == 1 ? draft.HasCapturedWeight1 : draft.HasCapturedWeight2;
+
+        if (!hasCapture || !recordedAt.HasValue || weight is null)
+            throw new InvalidOperationException($"Chưa có dữ liệu cân lần {sequence} hợp lệ để lưu.");
+
+        var grams = WeightStorageMapper.ToGrams(weight);
+        if (!grams.HasValue)
+            throw new InvalidOperationException($"Không thể chuyển đổi trọng lượng lần {sequence}.");
 
         return new WeighEvent
         {
             WeighTicketId = ticketId,
             Sequence = sequence,
-            OriginalWeightGrams = WeightStorageMapper.ToGrams(weight)!.Value,
-            RecordedAt = recordedAt,
+            OriginalWeightGrams = grams.Value,
+            RecordedAt = recordedAt.Value,
             PhotoPath = IsLockedPhoto(draft, sequence)
                 ? (sequence == 1 ? draft.DraftWeight1PhotoPath : draft.DraftWeight2PhotoPath)
                 : null,
@@ -418,47 +432,95 @@ public sealed class WeighTicketService
     private async Task ApplyDraftMetadataAsync(
         WeighTicket ticket,
         WeighTicketDraft draft,
+        bool preserveExistingMetadataWhenEmpty,
         CancellationToken cancellationToken)
     {
-        ticket.Notes = NullIfWhiteSpace(draft.DraftNotes);
-        ticket.UnitPriceVndPerKg = WeightStorageMapper.ToVndPerKg(draft.DraftUnitPrice);
+        ticket.Notes = ResolveOptionalText(draft.DraftNotes, preserveExistingMetadataWhenEmpty, ticket.Notes);
+        ticket.UnitPriceVndPerKg = draft.DraftUnitPrice.HasValue
+            ? WeightStorageMapper.ToVndPerKg(draft.DraftUnitPrice)
+            : preserveExistingMetadataWhenEmpty
+                ? ticket.UnitPriceVndPerKg
+                : null;
 
-        if (NullIfWhiteSpace(draft.DraftCustomer) is { } customerName)
+        var customerName = ResolveOptionalText(
+            draft.DraftCustomer,
+            preserveExistingMetadataWhenEmpty,
+            ticket.CustomerNameSnapshot);
+        if (customerName is { } resolvedCustomer)
         {
-            var customer = await _customerRepository.UpsertAsync(customerName, cancellationToken);
-            ticket.CustomerId = customer.Id;
-            ticket.CustomerNameSnapshot = customer.Name;
+            try
+            {
+                var customer = await _customerRepository.UpsertAsync(resolvedCustomer, cancellationToken);
+                ticket.CustomerId = customer.Id;
+                ticket.CustomerNameSnapshot = customer.Name;
+            }
+            catch
+            {
+                ticket.CustomerId = null;
+                ticket.CustomerNameSnapshot = TextNormalizer.CollapseSpaces(resolvedCustomer.Trim());
+            }
         }
-        else
+        else if (!preserveExistingMetadataWhenEmpty)
         {
             ticket.CustomerId = null;
             ticket.CustomerNameSnapshot = null;
         }
 
-        if (NullIfWhiteSpace(draft.DraftCargoType) is { } cargoTypeName)
+        var cargoTypeName = ResolveOptionalText(
+            draft.DraftCargoType,
+            preserveExistingMetadataWhenEmpty,
+            ticket.CargoTypeNameSnapshot);
+        if (cargoTypeName is { } resolvedCargo)
         {
-            var cargoType = await _cargoTypeRepository.UpsertAsync(cargoTypeName, cancellationToken);
+            var cargoType = await _cargoTypeRepository.UpsertAsync(resolvedCargo, cancellationToken);
             ticket.CargoTypeId = cargoType.Id;
             ticket.CargoTypeNameSnapshot = cargoType.Name;
         }
-        else
+        else if (!preserveExistingMetadataWhenEmpty)
         {
             ticket.CargoTypeId = null;
             ticket.CargoTypeNameSnapshot = null;
         }
 
-        if (NullIfWhiteSpace(draft.DraftVehicle) is { } plate)
+        var plate = ResolveOptionalText(
+            draft.DraftVehicle,
+            preserveExistingMetadataWhenEmpty,
+            ticket.LicensePlateSnapshot);
+        if (plate is { } resolvedPlate)
         {
-            var vehicle = await _vehicleRepository.UpsertAsync(plate, ticket.CustomerId, cancellationToken);
-            ticket.VehicleId = vehicle.Id;
-            ticket.LicensePlateSnapshot = vehicle.PlateNumber;
+            var displayPlate = PlateNormalizer.FormatDisplay(resolvedPlate);
+            var activeVehicle = await _vehicleRepository.FindActiveByPlateAsync(displayPlate, cancellationToken);
+            if (activeVehicle is not null)
+            {
+                activeVehicle.LastUsedAt = DateTimeOffset.Now;
+                activeVehicle.LastCustomerId = ticket.CustomerId;
+                ticket.VehicleId = activeVehicle.Id;
+                ticket.LicensePlateSnapshot = activeVehicle.PlateNumber;
+            }
+            else if (await _vehicleRepository.FindByPlateAsync(displayPlate, cancellationToken) is null)
+            {
+                var vehicle = await _vehicleRepository.UpsertAsync(displayPlate, ticket.CustomerId, cancellationToken);
+                ticket.VehicleId = vehicle.Id;
+                ticket.LicensePlateSnapshot = vehicle.PlateNumber;
+            }
+            else
+            {
+                ticket.VehicleId = null;
+                ticket.LicensePlateSnapshot = displayPlate;
+            }
         }
-        else
+        else if (!preserveExistingMetadataWhenEmpty)
         {
             ticket.VehicleId = null;
             ticket.LicensePlateSnapshot = null;
         }
     }
+
+    private static string? ResolveOptionalText(
+        string? draftValue,
+        bool preserveExistingWhenEmpty,
+        string? existingValue) =>
+        NullIfWhiteSpace(draftValue) ?? (preserveExistingWhenEmpty ? NullIfWhiteSpace(existingValue) : null);
 
     private static void ApplyCalculations(WeighTicket ticket, WeighTicketDraft draft)
     {
@@ -476,11 +538,18 @@ public sealed class WeighTicketService
         if (NullIfWhiteSpace(draft.DraftCustomer) is not { } name)
             return [];
 
-        var similar = await _customerRepository.FindSimilarAsync(name, 5, cancellationToken);
-        return similar
-            .Where(c => !string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))
-            .Select(c => $"Tên khách '{name}' gần giống '{c.Name}'.")
-            .ToList();
+        try
+        {
+            var similar = await _customerRepository.FindSimilarAsync(name, 5, cancellationToken);
+            return similar
+                .Where(c => !string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))
+                .Select(c => $"Tên khách '{name}' gần giống '{c.Name}'.")
+                .ToList();
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     private async Task<IReadOnlyList<WeighTicketListItem>> GetFilteredListItemsAsync(

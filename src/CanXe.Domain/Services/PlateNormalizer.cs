@@ -19,4 +19,12 @@ public static class PlateNormalizer
 
         return builder.ToString();
     }
+
+    public static string FormatDisplay(string? plate)
+    {
+        if (string.IsNullOrWhiteSpace(plate))
+            return string.Empty;
+
+        return plate.Trim().ToUpperInvariant();
+    }
 }

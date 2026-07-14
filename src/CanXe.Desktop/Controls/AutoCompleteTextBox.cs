@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using CanXe.Application.Models;
+using CanXe.Desktop;
 using CanXe.Domain.Services;
 
 namespace CanXe.Desktop.Controls;
@@ -39,6 +40,7 @@ public class AutoCompleteTextBox : Control
     private ListBox? _listBox;
     private bool _isCommitting;
     private bool _moveFocusAfterCommit;
+    private bool _suppressTextEvents;
 
     static AutoCompleteTextBox()
     {
@@ -112,6 +114,7 @@ public class AutoCompleteTextBox : Control
 
     public event EventHandler? TextChangedByUser;
     public event EventHandler? ItemCommitted;
+    public event EventHandler? HistoryRequested;
 
     public static void CloseAllDropDowns()
     {
@@ -123,6 +126,46 @@ public class AutoCompleteTextBox : Control
     {
         _textBox?.Focus();
         _textBox?.SelectAll();
+    }
+
+    /// <summary>
+    /// Force inner TextBox to match bound Text after programmatic ViewModel updates.
+    /// Template binding can lag behind when load/reset happens in the same dispatcher tick.
+    /// </summary>
+    public void RefreshDisplayText()
+    {
+        if (_textBox is null)
+            return;
+
+        _suppressTextEvents = true;
+        try
+        {
+            var target = Text ?? string.Empty;
+            if (!string.Equals(_textBox.Text, target, StringComparison.Ordinal))
+                _textBox.Text = target;
+        }
+        finally
+        {
+            _suppressTextEvents = false;
+        }
+    }
+
+    public void OpenHistoryDropDown()
+    {
+        if (!IsVisible || !IsEnabled || SuppressDropDown || !IsOwnerWindowActive())
+            return;
+
+        var items = GetItems();
+
+        foreach (var other in ActiveInstances.Where(x => x != this))
+            other.ClosePopup();
+
+        if (items.Count == 0)
+            return;
+
+        IsDropDownOpen = true;
+        HighlightedIndex = 0;
+        SyncListSelection();
     }
 
     public override void OnApplyTemplate()
@@ -137,18 +180,10 @@ public class AutoCompleteTextBox : Control
 
         if (_textBox is not null)
         {
-            _textBox.TextChanged += (_, _) =>
-            {
-                if (_isCommitting)
-                    return;
-
-                Text = _textBox.Text;
-                TextChangedByUser?.Invoke(this, EventArgs.Empty);
-                SelectedItem = null;
-                HighlightedIndex = -1;
-                UpdatePopupState();
-            };
+            RefreshDisplayText();
+            _textBox.PreviewTextInput += (_, _) => TextChangedByUser?.Invoke(this, EventArgs.Empty);
             _textBox.GotFocus += (_, _) => ClosePopup();
+            _textBox.MouseDoubleClick += OnTextBoxMouseDoubleClick;
             _textBox.PreviewKeyDown += OnTextBoxPreviewKeyDown;
             _textBox.LostFocus += (_, e) =>
             {
@@ -186,6 +221,20 @@ public class AutoCompleteTextBox : Control
                 window.StateChanged -= OnOwnerWindowStateChanged;
             };
         }
+    }
+
+    private void OnTextBoxMouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        try
+        {
+            HistoryRequested?.Invoke(this, EventArgs.Empty);
+        }
+        catch (Exception ex)
+        {
+            AppExceptionLogger.WriteError("AutoCompleteTextBox.HistoryRequested", ex);
+        }
+
+        e.Handled = true;
     }
 
     private void OnOwnerWindowDeactivated(object? sender, EventArgs e) => ClosePopup();
@@ -258,7 +307,7 @@ public class AutoCompleteTextBox : Control
             if (suggestion.IsNewEntryOption)
                 CommitText(Text.Trim(), suggestion, moveFocus);
             else
-                CommitText(suggestion.PrimaryText, suggestion, moveFocus);
+                CommitText(suggestion.PrimaryText ?? string.Empty, suggestion, moveFocus);
             return;
         }
 
@@ -268,6 +317,7 @@ public class AutoCompleteTextBox : Control
     private void CommitText(string text, object? selectedItem, bool moveFocus)
     {
         _isCommitting = true;
+        _suppressTextEvents = true;
         try
         {
             Text = text;
@@ -282,6 +332,7 @@ public class AutoCompleteTextBox : Control
         finally
         {
             _isCommitting = false;
+            _suppressTextEvents = false;
             _moveFocusAfterCommit = false;
         }
     }
@@ -303,7 +354,10 @@ public class AutoCompleteTextBox : Control
 
     private List<object> GetItems()
     {
-        var items = ItemsSource?.Cast<object>().ToList() ?? [];
+        if (ItemsSource is null)
+            return [];
+
+        var items = ItemsSource.Cast<object>().Where(i => i is not null).ToList();
         var limit = AutocompleteDropDownPolicy.LimitItemCount(items.Count);
         return items.Take(limit).ToList();
     }
@@ -314,7 +368,7 @@ public class AutoCompleteTextBox : Control
         return window is { IsActive: true, WindowState: not WindowState.Minimized };
     }
 
-    private void UpdatePopupState(bool selectFirst = false)
+    private void UpdatePopupState()
     {
         if (!IsVisible || !IsEnabled || !IsOwnerWindowActive())
         {
@@ -339,14 +393,19 @@ public class AutoCompleteTextBox : Control
             if (HighlightedIndex < 0 && items.Count > 0)
                 HighlightedIndex = 0;
         }
-        else if (!shouldOpen)
+        else
             HighlightedIndex = -1;
     }
 
     private static void OnTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        if (d is AutoCompleteTextBox box && box._textBox is not null && box._textBox.Text != (string?)e.NewValue)
-            box._textBox.Text = (string?)e.NewValue ?? string.Empty;
+        if (d is not AutoCompleteTextBox box || box._isCommitting || box._suppressTextEvents)
+            return;
+
+        box.RefreshDisplayText();
+        box.SelectedItem = null;
+        box.HighlightedIndex = -1;
+        box.UpdatePopupState();
     }
 
     private static void OnItemsSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

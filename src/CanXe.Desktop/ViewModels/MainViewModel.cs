@@ -8,6 +8,7 @@ using CanXe.Application.Models;
 using CanXe.Application.Services;
 using CanXe.Domain.Models;
 using CanXe.Domain.Services;
+using CanXe.Desktop.Controls;
 using CanXe.Desktop.Services;
 using CanXe.Infrastructure.Logging;
 using CanXe.ScaleProtocol.Core;
@@ -32,6 +33,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly IPrintNotificationService _printNotificationService;
     private readonly ITicketDeleteService _ticketDeleteService;
     private readonly IDeveloperAuthorizationService _developerAuthorization;
+    private readonly ICatalogService _catalogService;
     private readonly AppSettings _settings;
     private readonly bool _developerModeEnabled;
     private readonly AppPaths _appPaths;
@@ -47,6 +49,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private bool _cargoEditedAfterAutoFill;
     private bool _suppressAutoFillEditTracking;
     private WeighTicketDetailDto? _lastSavedTicketDetail;
+    private int? _lastCompletedTicketId;
+    private int? _lastPrintableTicketId;
     private CancellationTokenSource? _toastCts;
     private bool _unitPriceIsEditing;
 
@@ -65,9 +69,12 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         IPrintNotificationService printNotificationService,
         ITicketDeleteService ticketDeleteService,
         IDeveloperAuthorizationService developerAuthorization,
+        ICatalogService catalogService,
         AppSettings settings,
         SettingsViewModel settingsViewModel,
         DeveloperViewModel developerViewModel,
+        CatalogViewModel catalogViewModel,
+        ReportViewModel reportViewModel,
         AppPaths appPaths)
     {
         _weighTicketService = weighTicketService;
@@ -84,11 +91,14 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _printNotificationService = printNotificationService;
         _ticketDeleteService = ticketDeleteService;
         _developerAuthorization = developerAuthorization;
+        _catalogService = catalogService;
         _settings = settings;
         _developerModeEnabled = settings.DeveloperMode;
         _appPaths = appPaths;
         Settings = settingsViewModel;
         Developer = developerViewModel;
+        Catalog = catalogViewModel;
+        Report = reportViewModel;
         Settings.StationSettingsSaved += (_, dto) => OnStationSettingsSaved(dto);
         _scaleService.WeightChanged += OnScaleWeightChanged;
         if (_hardwareScale is not null)
@@ -145,6 +155,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     public SettingsViewModel Settings { get; }
     public DeveloperViewModel Developer { get; }
+    public CatalogViewModel Catalog { get; }
+    public ReportViewModel Report { get; }
 
     public bool IsWeighTicketSectionVisible => ActiveSection == AppNavigationSection.WeighTicket;
     public bool IsCatalogSectionVisible => ActiveSection == AppNavigationSection.Catalog;
@@ -170,6 +182,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(IsNavReportActive));
         OnPropertyChanged(nameof(IsNavSettingsActive));
         OnPropertyChanged(nameof(IsNavDeveloperActive));
+        if (value == AppNavigationSection.Catalog)
+            _ = Catalog.InitializeAsync();
+        else if (value == AppNavigationSection.Report)
+            _ = Report.InitializeAsync();
     }
 
     [ObservableProperty] private bool _isDeveloperPanelAvailable;
@@ -608,86 +624,194 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    [RelayCommand]
+    [ObservableProperty] private bool _isSaving;
+
+    [RelayCommand(CanExecute = nameof(CanSaveTicket))]
     private async Task SaveAsync()
     {
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        SyncDraftFromBindings();
-        StatusMessage = "ĐANG LƯU...";
-
-        var filter = BuildCurrentFilter();
-        var dbSw = System.Diagnostics.Stopwatch.StartNew();
-        var result = await _weighTicketService.SaveAsync(_draft, filter);
-        dbSw.Stop();
-
-        if (!result.Success)
-        {
-            StatusMessage = result.ErrorMessage ?? "Lưu thất bại.";
-            OperatorActionLogger.WritePerformance("SaveTicket", $"total={sw.ElapsedMilliseconds}ms db={dbSw.ElapsedMilliseconds}ms result=fail");
+        if (IsSaving)
             return;
-        }
 
-        var displayNumber = result.SavedTicket!.DisplayNumber;
-        var savedId = result.SavedTicket.Id;
-        LastSavedTicketDisplayNumber = displayNumber;
+        IsSaving = true;
+        SaveCommand.NotifyCanExecuteChanged();
 
-        if (result.WorkflowState == WeighTicketWorkflowState.AwaitingSecondWeigh)
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
         {
-            _draft = await _weighTicketService.LoadTicketForContinuationAsync(savedId);
-            LoadBindingsFromDraft();
-            FormMode = TicketFormMode.AwaitingSecondWeigh;
-            ActiveTicketId = savedId;
-            ViewingTicketNumber = displayNumber;
-            IsPreviewDisplayNumber = false;
-            CaptureFormSnapshot();
-            UpdateButtonStates();
-            UpdateButtonLabels();
-        }
-        else
-        {
-            await ResetDraftAsync();
-        }
+            SyncDraftFromBindings();
+            StatusMessage = "ĐANG LƯU...";
+            var wasContinuationSave = _draft.ExistingTicketId.HasValue;
+            WeighWorkflowLogger.Write("SAVE_DRAFT_REQUESTED",
+                BuildSaveDraftStateSummary());
+            WeighWorkflowLogger.Write(
+                _draft.ExistingTicketId.HasValue ? "SAVE_SECOND_WEIGH_STARTED" : "SAVE_FIRST_WEIGH_STARTED",
+                $"TicketId={_draft.ExistingTicketId?.ToString() ?? "new"}");
 
-        if (result.IsVisibleInCurrentFilter && result.SavedTicket is not null)
-        {
-            var existing = Tickets.FirstOrDefault(t => t.Id == savedId);
-            if (existing is not null)
-                Tickets.Remove(existing);
-            Tickets.Insert(0, result.SavedTicket);
-            await RefreshSummaryOnlyAsync();
-        }
-        else
-        {
-            _ = RefreshSummaryOnlyAsync();
-        }
+            var learnCustomer = NullIfWhiteSpace(_draft.DraftCustomer);
+            var learnPlate = NullIfWhiteSpace(_draft.DraftVehicle);
+            var learnCargo = NullIfWhiteSpace(_draft.DraftCargoType);
 
-        _ = Task.Run(async () =>
-        {
-            _lastSavedTicketDetail = await _weighTicketService.GetTicketDetailAsync(savedId);
-        });
+            var filter = BuildCurrentFilter();
+            var dbSw = System.Diagnostics.Stopwatch.StartNew();
+            var result = await _weighTicketService.SaveAsync(_draft, filter);
+            dbSw.Stop();
 
-        OperatorActionLogger.WritePerformance("SaveTicket",
-            $"total={sw.ElapsedMilliseconds}ms db={dbSw.ElapsedMilliseconds}ms historyRefresh=deferred statsRefresh=incremental");
+            if (!result.Success)
+            {
+                WeighWorkflowLogger.Write("SAVE_DRAFT_VALIDATION_FAILED", result.ErrorMessage ?? "unknown");
+                StatusMessage = result.ErrorMessage ?? "Lưu thất bại.";
+                MessageBox.Show(
+                    result.ErrorMessage ?? "Không thể lưu phiếu cân.",
+                    "Lỗi lưu phiếu",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                OperatorActionLogger.WritePerformance("SaveTicket", $"total={sw.ElapsedMilliseconds}ms db={dbSw.ElapsedMilliseconds}ms result=fail");
+                return;
+            }
 
-        if (result.IsVisibleInCurrentFilter)
-        {
+            var displayNumber = result.SavedTicket!.DisplayNumber;
+            var savedId = result.SavedTicket.Id;
+            LastSavedTicketDisplayNumber = displayNumber;
+
+            if (result.WorkflowState == WeighTicketWorkflowState.AwaitingSecondWeigh)
+            {
+                _isApplyingTicketToForm = true;
+                SuppressAutocomplete = true;
+                try
+                {
+                    _draft = await _weighTicketService.LoadTicketForContinuationAsync(savedId);
+                    LoadBindingsFromDraft(skipAutocompleteRefresh: true);
+                    FormMode = TicketFormMode.AwaitingSecondWeigh;
+                    ActiveTicketId = savedId;
+                    ViewingTicketNumber = displayNumber;
+                    IsPreviewDisplayNumber = false;
+                    CaptureFormSnapshot();
+                    UpdateButtonStates();
+                    UpdateButtonLabels();
+                }
+                finally
+                {
+                    SuppressAutocomplete = false;
+                    _isApplyingTicketToForm = false;
+                    _focusService.RefreshAutocompleteDisplays();
+                }
+
+                WeighWorkflowLogger.Write("SAVE_FIRST_WEIGH_COMPLETED", $"TicketId={savedId}");
+                WeighWorkflowLogger.Write("SAVE_NEW_TICKET_WITH_WEIGHT1", $"TicketId={savedId}");
+            }
+            else
+            {
+                _lastCompletedTicketId = savedId;
+                _lastPrintableTicketId = savedId;
+                try
+                {
+                    _lastSavedTicketDetail = await _weighTicketService.GetTicketDetailAsync(savedId);
+                }
+                catch (Exception ex)
+                {
+                    WeighWorkflowLogger.Write("SAVE_DETAIL_LOAD_FAILED", ex.Message);
+                    AppExceptionLogger.WriteError("SaveAsync.GetTicketDetailAsync", ex, BuildSaveDraftStateSummary());
+                }
+
+                WeighWorkflowLogger.Write("SAVE_SECOND_WEIGH_COMPLETED", $"TicketId={savedId}");
+                if (_draft.HasCapturedWeight1 && _draft.HasCapturedWeight2 && !_draft.ExistingTicketId.HasValue)
+                    WeighWorkflowLogger.Write("SAVE_NEW_TICKET_WITH_WEIGHT1_WEIGHT2", $"TicketId={savedId}");
+                WeighWorkflowLogger.Write("SAVE_FULL_DRAFT_COMPLETED", $"TicketId={savedId}");
+                WeighWorkflowLogger.Write("PRINT_TARGET_SET_LAST_COMPLETED", $"TicketId={savedId}");
+                await ResetToNewDraftAsync("save-completed");
+                WeighWorkflowLogger.Write("FORM_RESET_AFTER_COMPLETED_SAVE", $"AfterTicketId={savedId}");
+                WeighWorkflowLogger.Write("FORM_RESET_FOR_NEW_TICKET", $"AfterTicketId={savedId}");
+                if (wasContinuationSave)
+                    WeighWorkflowLogger.Write("SAVE_CONTINUATION_PRESERVE_METADATA", $"TicketId={savedId}");
+            }
+
+            if (result.SavedTicket is not null)
+            {
+                try
+                {
+                    var existing = Tickets.FirstOrDefault(t => t.Id == savedId);
+                    if (existing is not null)
+                        Tickets.Remove(existing);
+                    Tickets.Insert(0, result.SavedTicket);
+                    WeighWorkflowLogger.Write("SAVE_COLLECTION_INSERTED", $"TicketId={savedId}");
+                    await RefreshSummaryOnlyAsync();
+                }
+                catch (Exception ex)
+                {
+                    WeighWorkflowLogger.Write("SAVE_COLLECTION_INSERT_FAILED", ex.Message);
+                    AppExceptionLogger.WriteError("SaveAsync.CollectionUpdate", ex, BuildSaveDraftStateSummary());
+                }
+            }
+            else
+            {
+                await RefreshSummaryOnlyAsync();
+            }
+
+            try
+            {
+                await _catalogService.LearnFromTicketAsync(learnCustomer, learnPlate, learnCargo);
+            }
+            catch (Exception ex)
+            {
+                WeighWorkflowLogger.Write("CATALOG_AUTO_LEARN_FAILED", ex.Message);
+                AppExceptionLogger.WriteError("SaveAsync.AutoLearn", ex, BuildSaveDraftStateSummary());
+            }
+
+            OperatorActionLogger.WritePerformance("SaveTicket",
+                $"total={sw.ElapsedMilliseconds}ms db={dbSw.ElapsedMilliseconds}ms historyRefresh=inline statsRefresh=incremental");
+
             if (result.SimilarCustomerWarnings.Count > 0)
                 StatusMessage = string.Join(" ", result.SimilarCustomerWarnings);
             else if (result.WorkflowState == WeighTicketWorkflowState.AwaitingSecondWeigh)
                 StatusMessage = $"Đã lưu phiếu {displayNumber}. CHỜ CÂN LẦN 2 — bấm LẤY CÂN LẦN 2.";
             else
-                StatusMessage = $"Đã lưu phiếu {displayNumber}.";
+                StatusMessage = $"Đã hoàn tất phiếu {displayNumber}. Sẵn sàng cân xe mới.";
 
-            await FlashHighlightTicketAsync(savedId, scrollToTop: true);
+            if (!result.IsVisibleInCurrentFilter)
+                StatusMessage += " (phiếu không khớp bộ lọc danh sách hiện tại)";
+
+            try
+            {
+                await FlashHighlightTicketAsync(savedId, scrollToTop: true);
+                _focusService.FocusCustomerField();
+            }
+            catch (Exception ex)
+            {
+                WeighWorkflowLogger.Write("SAVE_POST_UI_FAILED", ex.Message);
+                AppExceptionLogger.WriteError("SaveAsync.PostSaveUi", ex, BuildSaveDraftStateSummary());
+            }
         }
-        else
+        catch (Exception ex)
         {
-            StatusMessage =
-                $"Đã lưu phiếu {displayNumber} nhưng phiếu không nằm trong bộ lọc hiện tại.";
+            WeighWorkflowLogger.Write("SAVE_EXCEPTION", ex.GetType().Name);
+            AppExceptionLogger.WriteError("SaveAsync", ex, BuildSaveDraftStateSummary());
+            AppExceptionLogger.MarkSaveErrorHandled();
+            StatusMessage = "Không thể lưu phiếu cân.";
+            MessageBox.Show(
+                "KHÔNG THỂ LƯU PHIẾU\nĐã xảy ra lỗi khi lưu phiếu cân. Vui lòng thử lại hoặc gửi log cho kỹ thuật.",
+                "Lỗi lưu phiếu",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            OperatorActionLogger.WritePerformance("SaveTicket", $"total={sw.ElapsedMilliseconds}ms result=exception");
         }
-
-        _focusService.FocusCustomerField();
+        finally
+        {
+            IsSaving = false;
+            SaveCommand.NotifyCanExecuteChanged();
+        }
     }
+
+    private bool CanSaveTicket() => !IsSaving;
+
+    private static string BuildSaveDraftStateSummary(WeighTicketDraft? draft = null) =>
+        draft is null
+            ? "draft=null"
+            : $"TicketId={draft.ExistingTicketId?.ToString() ?? "new"} Weight1Captured={draft.HasCapturedWeight1} Weight2Captured={draft.HasCapturedWeight2} Customer={(string.IsNullOrWhiteSpace(draft.DraftCustomer) ? "empty" : "set")} Plate={(string.IsNullOrWhiteSpace(draft.DraftVehicle) ? "empty" : "set")} Cargo={(string.IsNullOrWhiteSpace(draft.DraftCargoType) ? "empty" : "set")} UnitPrice={(draft.DraftUnitPrice.HasValue ? "set" : "empty")}";
+
+    private string BuildSaveDraftStateSummary() => BuildSaveDraftStateSummary(_draft);
+
+    private static string? NullIfWhiteSpace(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private async Task RefreshSummaryOnlyAsync()
     {
@@ -707,8 +831,19 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [RelayCommand]
     private async Task CancelAsync()
     {
+        if (IsFormDirty())
+        {
+            var confirm = MessageBox.Show(
+                "Dữ liệu đang nhập chưa lưu. Bạn có muốn hủy bỏ không?",
+                "Xác nhận hủy",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (confirm != MessageBoxResult.Yes)
+                return;
+        }
+
         _weighTicketService.CancelDraft(_draft);
-        await ResetDraftAsync();
+        await ResetToNewDraftAsync("cancel");
         StatusMessage = "Đã hủy nhập liệu.";
         _focusService.FocusCustomerField();
     }
@@ -823,18 +958,18 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         var dirty = IsFormDirty();
 
-        if (ActiveTicketId is int activeId)
+        if (FormMode == TicketFormMode.Editing && EditingTicketId is long editId)
+            return new ResolvedPrintTicket((int)editId, "ActiveTicket", dirty);
+
+        if (ActiveTicketId is int activeId &&
+            FormMode is TicketFormMode.Viewing or TicketFormMode.AwaitingSecondWeigh)
             return new ResolvedPrintTicket(activeId, "ActiveTicket", dirty);
 
-        if (SelectedTicket is { } selected)
-            return new ResolvedPrintTicket(selected.Id, "SelectedTicket", dirty);
+        if (FormMode == TicketFormMode.Creating && _lastCompletedTicketId is int completedId)
+            return new ResolvedPrintTicket(completedId, "LastCompletedTicket", false);
 
-        if (FormMode == TicketFormMode.Editing && EditingTicketId is long editId)
-            return new ResolvedPrintTicket((int)editId, "EditingTicket", dirty);
-
-        if (_lastSavedTicketDetail is not null &&
-            (ActiveTicketId == _lastSavedTicketDetail.Id || SelectedTicket?.Id == _lastSavedTicketDetail.Id))
-            return new ResolvedPrintTicket(_lastSavedTicketDetail.Id, "LastSaved", dirty);
+        if (FormMode == TicketFormMode.Creating && _lastSavedTicketDetail is not null)
+            return new ResolvedPrintTicket(_lastSavedTicketDetail.Id, "LastSavedTicket", false);
 
         return null;
     }
@@ -843,10 +978,13 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         var resolved = ResolvePrintTicketCore();
         if (resolved is null)
+        {
+            _printCommandLogger.Log("PrintTargetSource=None PrintTargetId=null");
             return null;
+        }
 
         _printCommandLogger.Log(
-            $"TICKET_RESOLVED ResolvedTicketSource={resolved.Value.Source} ResolvedTicketId={resolved.Value.TicketId}");
+            $"PrintTargetSource={resolved.Value.Source} PrintTargetId={resolved.Value.TicketId}");
         return resolved;
     }
 
@@ -967,6 +1105,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         try
         {
             _selectionLoadCts?.Cancel();
+            _isApplyingTicketToForm = true;
+            SuppressAutocomplete = true;
             _draft = await _weighTicketService.LoadTicketForEditAsync(item.Id);
             FormMode = TicketFormMode.Editing;
             IsEditingExistingTicket = true;
@@ -979,7 +1119,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             WeightOverrideReasonOther = null;
             DevWeight1Text = _draft.DraftWeight1?.ToString("N0", CultureInfo.CurrentCulture);
             DevWeight2Text = _draft.DraftWeight2?.ToString("N0", CultureInfo.CurrentCulture);
-            LoadBindingsFromDraft();
+            LoadBindingsFromDraft(skipAutocompleteRefresh: true);
             CaptureFormSnapshot();
             UpdateWeightOverrideUi();
             UpdateButtonStates();
@@ -989,6 +1129,12 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         catch (Exception ex)
         {
             StatusMessage = ex.Message;
+        }
+        finally
+        {
+            SuppressAutocomplete = false;
+            _isApplyingTicketToForm = false;
+            _focusService.RefreshAutocompleteDisplays();
         }
     }
 
@@ -1011,7 +1157,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         var updatedId = result.UpdatedTicket!.Id;
         var displayNumber = result.UpdatedTicket.DisplayNumber;
-        await ResetDraftAsync();
+        await ResetToNewDraftAsync("update-completed");
         await RefreshListAsync();
         await FlashHighlightTicketAsync(updatedId, scrollToTop: false);
         StatusMessage = $"Đã cập nhật phiếu {displayNumber}.";
@@ -1022,7 +1168,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private async Task ExitEditAsync()
     {
         _weighTicketService.CancelDraft(_draft);
-        await ResetDraftAsync();
+        await ResetToNewDraftAsync("exit-edit");
         StatusMessage = "Đã thoát chế độ chỉnh sửa.";
         _focusService.FocusCustomerField();
     }
@@ -1089,6 +1235,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         if (!_suppressAutoFillEditTracking && !string.IsNullOrWhiteSpace(_lastAutoFilledPlate))
             _customerEditedAfterAutoFill = true;
+        if (SuppressAutocomplete)
+            return;
         _ = DebouncedSearchAsync(() => _customerSearchCts, cts => _customerSearchCts = cts, SearchCustomersAsync);
     }
 
@@ -1096,11 +1244,18 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         if (!_suppressAutoFillEditTracking && !string.IsNullOrWhiteSpace(_lastAutoFilledPlate))
             _cargoEditedAfterAutoFill = true;
+        if (SuppressAutocomplete)
+            return;
         _ = DebouncedSearchAsync(() => _cargoSearchCts, cts => _cargoSearchCts = cts, SearchCargoTypesAsync);
     }
 
-    partial void OnNotesChanged(string? value) => _ = DebouncedSearchAsync(
-        () => _notesSearchCts, cts => _notesSearchCts = cts, SearchNotesAsync);
+    partial void OnNotesChanged(string? value)
+    {
+        if (SuppressAutocomplete)
+            return;
+        _ = DebouncedSearchAsync(
+            () => _notesSearchCts, cts => _notesSearchCts = cts, SearchNotesAsync);
+    }
 
     partial void OnLicensePlateChanged(string? value)
     {
@@ -1110,6 +1265,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
+        if (SuppressAutocomplete)
+            return;
         _ = DebouncedSearchAsync(() => _vehicleSearchCts, cts => _vehicleSearchCts = cts, SearchVehiclesAsync);
     }
 
@@ -1174,6 +1331,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                 break;
             case AutocompleteField.CargoType:
                 CargoTypeName = text;
+                _ = ApplyCargoDefaultUnitPriceIfEmptyAsync(text);
                 _focusService.FocusUnitPriceField();
                 break;
             case AutocompleteField.Notes:
@@ -1181,6 +1339,66 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                     Notes = text;
                 break;
         }
+    }
+
+    public async Task ShowFieldHistoryAsync(AutocompleteField field, AutoCompleteTextBox box)
+    {
+        try
+        {
+            WeighWorkflowLogger.Write("INPUT_HISTORY_REQUESTED", $"field={field}");
+
+            IReadOnlyList<AutocompleteSuggestionItem> items = field switch
+            {
+                AutocompleteField.Customer => await _fastEntrySearch.GetCustomerHistoryAsync(),
+                AutocompleteField.Vehicle => await _fastEntrySearch.GetVehicleHistoryAsync(),
+                AutocompleteField.CargoType => await _fastEntrySearch.GetCargoTypeHistoryAsync(),
+                _ => Array.Empty<AutocompleteSuggestionItem>()
+            };
+
+            ObservableCollection<AutocompleteSuggestionItem>? target = field switch
+            {
+                AutocompleteField.Customer => CustomerSuggestions,
+                AutocompleteField.Vehicle => VehicleSuggestions,
+                AutocompleteField.CargoType => CargoTypeSuggestions,
+                AutocompleteField.Notes => NotesSuggestions,
+                _ => null
+            };
+
+            if (target is null)
+                return;
+
+            target.Clear();
+            foreach (var item in items)
+                target.Add(item);
+
+            if (items.Count == 0)
+            {
+                WeighWorkflowLogger.Write("INPUT_HISTORY_EMPTY", $"field={field}");
+                return;
+            }
+
+            box.OpenHistoryDropDown();
+            WeighWorkflowLogger.Write("INPUT_HISTORY_OPENED", $"field={field} count={items.Count}");
+        }
+        catch (Exception ex)
+        {
+            WeighWorkflowLogger.Write("INPUT_HISTORY_FAILED", $"field={field} type={ex.GetType().Name}");
+            AppExceptionLogger.WriteError($"ShowFieldHistoryAsync.{field}", ex);
+        }
+    }
+
+    private async Task ApplyCargoDefaultUnitPriceIfEmptyAsync(string cargoName)
+    {
+        if (!string.IsNullOrWhiteSpace(UnitPriceText))
+            return;
+
+        var defaultPrice = await _fastEntrySearch.GetCargoDefaultUnitPriceAsync(cargoName);
+        if (defaultPrice is not decimal price || price <= 0)
+            return;
+
+        UnitPriceText = UnitPriceInputHelper.FormatDisplay(price);
+        _draft.DraftUnitPrice = price;
+        UpdateDisplaysFromDraft();
     }
 
     public async Task OnVehiclePlateCommittedAsync(string? plate)
@@ -1296,6 +1514,11 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
         catch (TaskCanceledException)
         {
+        }
+        catch (Exception ex)
+        {
+            WeighWorkflowLogger.Write("DEBOUNCED_SEARCH_FAILED", ex.GetType().Name);
+            AppExceptionLogger.WriteError("DebouncedSearchAsync", ex);
         }
     }
 
@@ -1463,30 +1686,52 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         };
     }
 
-    private async Task ResetDraftAsync()
+    private async Task ResetToNewDraftAsync(string reason)
     {
+        WeighWorkflowLogger.Write("RESET_TO_NEW_DRAFT", $"reason={reason}");
+        _isResettingDraft = true;
+        SuppressAutocomplete = true;
         _selectionLoadCts?.Cancel();
-        _draft = new WeighTicketDraft();
-        DeveloperWeight1OverrideEnabled = false;
-        FormMode = TicketFormMode.Creating;
-        ActiveTicketId = null;
-        ViewingTicketNumber = null;
-        IsContinuationMode = false;
-        IsEditingExistingTicket = false;
-        EditingTicketId = null;
-        EditingTicketNumber = null;
-        IsDevWeightEditUnlocked = false;
-        DevWeight1Text = null;
-        DevWeight2Text = null;
-        WeightOverrideReasonCode = null;
-        WeightOverrideReasonOther = null;
-        IsWeightOverrideReasonPanelVisible = false;
-        IsManualWeightOverrideMessageVisible = false;
-        ClearFormSnapshot();
-        LoadBindingsFromDraft();
-        await RefreshPreviewDisplayNumberAsync();
-        UpdateButtonStates();
-        UpdateButtonLabels();
+        try
+        {
+            _draft = new WeighTicketDraft();
+            DeveloperWeight1OverrideEnabled = false;
+            FormMode = TicketFormMode.Creating;
+            ActiveTicketId = null;
+            ViewingTicketNumber = null;
+            IsContinuationMode = false;
+            IsEditingExistingTicket = false;
+            EditingTicketId = null;
+            EditingTicketNumber = null;
+            IsDevWeightEditUnlocked = false;
+            DevWeight1Text = null;
+            DevWeight2Text = null;
+            WeightOverrideReasonCode = null;
+            WeightOverrideReasonOther = null;
+            IsWeightOverrideReasonPanelVisible = false;
+            IsManualWeightOverrideMessageVisible = false;
+            CustomerName = null;
+            LicensePlate = null;
+            CargoTypeName = null;
+            UnitPriceText = null;
+            Notes = null;
+            CustomerSuggestions.Clear();
+            VehicleSuggestions.Clear();
+            CargoTypeSuggestions.Clear();
+            NotesSuggestions.Clear();
+            ClearFormSnapshot();
+            LoadBindingsFromDraft(skipAutocompleteRefresh: true);
+            await RefreshPreviewDisplayNumberAsync();
+            UpdateButtonStates();
+            UpdateButtonLabels();
+        }
+        finally
+        {
+            SuppressAutocomplete = false;
+            _isResettingDraft = false;
+            _focusService.RefreshAutocompleteDisplays();
+            WeighWorkflowLogger.Write("RESET_TO_NEW_DRAFT_COMPLETED", $"ticketNumber={DisplayNumber}");
+        }
     }
 
     private async Task RefreshPreviewDisplayNumberAsync()
@@ -1504,6 +1749,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void SyncDraftFromBindings()
     {
+        if (_isApplyingTicketToForm || _isResettingDraft)
+            return;
+
         _draft.DraftCustomer = CustomerName;
         _draft.DraftVehicle = LicensePlate;
         _draft.DraftCargoType = CargoTypeName;
@@ -1516,14 +1764,18 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         if (IsDevWeightEditUnlocked)
         {
-            _draft.DraftWeight1 = ParseDevWeight(DevWeight1Text);
-            _draft.DraftWeight2 = ParseDevWeight(DevWeight2Text);
+            var dev1 = ParseDevWeight(DevWeight1Text);
+            var dev2 = ParseDevWeight(DevWeight2Text);
+            if (dev1.HasValue)
+                _draft.DraftWeight1 = dev1;
+            if (dev2.HasValue)
+                _draft.DraftWeight2 = dev2;
         }
     }
 
     private static decimal? ParseUnitPrice(string? text) => UnitPriceInputHelper.Parse(text);
 
-    private void LoadBindingsFromDraft()
+    private void LoadBindingsFromDraft(bool skipAutocompleteRefresh = false)
     {
         SuppressAutocomplete = true;
         try
@@ -1547,6 +1799,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         finally
         {
             SuppressAutocomplete = false;
+            if (!skipAutocompleteRefresh)
+                _focusService.RefreshAutocompleteDisplays();
         }
     }
 

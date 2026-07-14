@@ -17,6 +17,10 @@ public interface IWeighTicketRepository
     Task<int> GetCargoUsageCountAsync(string cargoTypeName, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<string>> SearchRecentNotesAsync(string searchTerm, int maxResults = 5, CancellationToken cancellationToken = default);
     Task<VehicleUsageContext?> GetVehicleUsageContextAsync(string normalizedPlate, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> GetRecentCustomerNamesAsync(int maxResults = 50, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> GetRecentLicensePlatesAsync(int maxResults = 50, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> GetRecentCargoTypeNamesAsync(int maxResults = 50, CancellationToken cancellationToken = default);
+    Task<decimal?> GetRecentUnitPriceForCargoAsync(string cargoTypeName, CancellationToken cancellationToken = default);
     Task UpdateTicketEditAsync(
         WeighTicket ticket,
         IReadOnlyList<WeighEvent> events,
@@ -30,21 +34,42 @@ public interface ICustomerRepository
 {
     Task<IReadOnlyList<Customer>> SearchAsync(string searchTerm, int maxResults = 10, CancellationToken cancellationToken = default);
     Task<Customer?> FindByNormalizedNameAsync(string normalizedName, CancellationToken cancellationToken = default);
+    Task<Customer?> FindActiveByNormalizedNameAsync(string normalizedName, CancellationToken cancellationToken = default);
     Task<Customer> UpsertAsync(string name, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Customer>> FindSimilarAsync(string name, int maxResults = 5, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Customer>> ListCatalogAsync(string? search, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> ListActiveNamesForHistoryAsync(int maxResults = 50, CancellationToken cancellationToken = default);
+    Task<Customer?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<Customer> SaveCatalogAsync(Customer customer, CancellationToken cancellationToken = default);
+    Task SoftDeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task<int> CountTicketUsageAsync(int customerId, CancellationToken cancellationToken = default);
 }
 
 public interface ICargoTypeRepository
 {
     Task<IReadOnlyList<CargoType>> SearchAsync(string searchTerm, int maxResults = 10, CancellationToken cancellationToken = default);
     Task<CargoType?> FindByNormalizedNameAsync(string normalizedName, CancellationToken cancellationToken = default);
+    Task<CargoType?> FindActiveByNormalizedNameAsync(string normalizedName, CancellationToken cancellationToken = default);
     Task<CargoType> UpsertAsync(string name, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CargoType>> ListCatalogAsync(string? search, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> ListActiveNamesForHistoryAsync(int maxResults = 50, CancellationToken cancellationToken = default);
+    Task<CargoType?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<CargoType> SaveCatalogAsync(CargoType cargoType, CancellationToken cancellationToken = default);
+    Task SoftDeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task<int> CountTicketUsageAsync(int cargoTypeId, CancellationToken cancellationToken = default);
 }
 
 public interface IVehicleRepository
 {
     Task<Vehicle?> FindByPlateAsync(string plateNumber, CancellationToken cancellationToken = default);
+    Task<Vehicle?> FindActiveByPlateAsync(string plateNumber, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Vehicle>> SearchAsync(string searchTerm, int maxResults = 10, CancellationToken cancellationToken = default);
     Task<Vehicle> UpsertAsync(string plateNumber, int? customerId, CancellationToken cancellationToken = default);
     Task<VehicleSuggestion?> GetSuggestionForPlateAsync(string plateNumber, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Vehicle>> ListCatalogAsync(string? search, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> ListActivePlatesForHistoryAsync(int maxResults = 50, CancellationToken cancellationToken = default);
+    Task<Vehicle?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<Vehicle> SaveCatalogAsync(Vehicle vehicle, CancellationToken cancellationToken = default);
+    Task SoftDeleteAsync(int id, CancellationToken cancellationToken = default);
+    Task<int> CountTicketUsageAsync(int vehicleId, CancellationToken cancellationToken = default);
 }

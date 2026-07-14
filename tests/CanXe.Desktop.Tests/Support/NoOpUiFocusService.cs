@@ -15,4 +15,6 @@ public sealed class NoOpUiFocusService : IUiFocusService
     public void FocusNotesField() { }
 
     public void HighlightTicketRow(int ticketId, bool scrollToTop) { }
+
+    public void RefreshAutocompleteDisplays() { }
 }

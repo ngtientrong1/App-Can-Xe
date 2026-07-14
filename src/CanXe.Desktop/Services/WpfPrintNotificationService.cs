@@ -47,6 +47,41 @@ public sealed class WpfPrintNotificationService(PrintCommandLogger commandLogger
       cancellationToken);
   }
 
+  public Task ShowCatalogDeleteSuccessToastAsync(CancellationToken cancellationToken = default)
+  {
+    var jobId = Interlocked.Increment(ref _toastJobSequence);
+    var owner = ResolveOwnerWindow();
+    return _toastHost.ShowMessageAsync(
+      owner,
+      jobId,
+      "ĐÃ XÓA KHỎI DANH MỤC",
+      string.Empty,
+      DefaultSuccessToastDuration,
+      commandLogger,
+      "CATALOG_DELETE_TOAST_SHOWN",
+      "CATALOG_DELETE_TOAST_AUTO_DISMISSED",
+      cancellationToken);
+  }
+
+  public Task ShowExportSuccessToastAsync(string? filePath, CancellationToken cancellationToken = default)
+  {
+    var jobId = Interlocked.Increment(ref _toastJobSequence);
+    var owner = ResolveOwnerWindow();
+    var detail = string.IsNullOrWhiteSpace(filePath)
+      ? string.Empty
+      : filePath;
+    return _toastHost.ShowMessageAsync(
+      owner,
+      jobId,
+      "ĐÃ XUẤT FILE EXCEL",
+      detail,
+      DefaultSuccessToastDuration,
+      commandLogger,
+      "EXPORT_TOAST_SHOWN",
+      "EXPORT_TOAST_AUTO_DISMISSED",
+      cancellationToken);
+  }
+
   public void ShowPrintError(string? detailMessage)
   {
     RunOnUiThread(() =>

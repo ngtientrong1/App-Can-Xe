@@ -46,6 +46,8 @@ public sealed class DesktopTestHost : IAsyncDisposable
         services.AddSingleton<IWeighTicketPrintService, WpfWeighTicketPrintService>();
         services.AddScoped<SettingsViewModel>();
         services.AddScoped<DeveloperViewModel>();
+        services.AddScoped<CatalogViewModel>();
+        services.AddScoped<ReportViewModel>();
         Provider = services.BuildServiceProvider();
     }
 
@@ -81,9 +83,12 @@ public sealed class DesktopTestHost : IAsyncDisposable
             Provider.GetRequiredService<IPrintNotificationService>(),
             scope.GetRequiredService<ITicketDeleteService>(),
             scope.GetRequiredService<IDeveloperAuthorizationService>(),
+            scope.GetRequiredService<ICatalogService>(),
             Settings,
             settingsViewModel,
             scope.GetRequiredService<DeveloperViewModel>(),
+            scope.GetRequiredService<CatalogViewModel>(),
+            scope.GetRequiredService<ReportViewModel>(),
             AppPaths);
         return (_activeViewModel, settingsViewModel);
     }
@@ -113,9 +118,12 @@ public sealed class DesktopTestHost : IAsyncDisposable
             printNotificationService,
             scope.GetRequiredService<ITicketDeleteService>(),
             scope.GetRequiredService<IDeveloperAuthorizationService>(),
+            scope.GetRequiredService<ICatalogService>(),
             Settings,
             settingsViewModel,
             scope.GetRequiredService<DeveloperViewModel>(),
+            scope.GetRequiredService<CatalogViewModel>(),
+            scope.GetRequiredService<ReportViewModel>(),
             AppPaths);
         return (_activeViewModel, settingsViewModel);
     }

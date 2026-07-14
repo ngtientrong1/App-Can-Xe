@@ -90,6 +90,22 @@ public partial class MainWindow : Window
 
             vm.OnSuggestionCommitted(field, box.SelectedItem as AutocompleteSuggestionItem, box.Text);
         };
+
+        box.HistoryRequested += (_, _) =>
+        {
+            if (DataContext is not MainViewModel vm)
+                return;
+
+            _ = vm.ShowFieldHistoryAsync(field, box);
+        };
+    }
+
+    public void RefreshAutocompleteDisplays()
+    {
+        CustomerField.RefreshDisplayText();
+        VehicleField.RefreshDisplayText();
+        CargoField.RefreshDisplayText();
+        NotesField.RefreshDisplayText();
     }
 
     public void FocusCustomerField() => CustomerField.FocusInput();
@@ -138,7 +154,7 @@ public partial class MainWindow : Window
             return;
 
         if (sender is DataGrid { SelectedItem: WeighTicketListItem item })
-            await vm.OpenTicketFromListCommand.ExecuteAsync(item);
+            await vm.OpenTicketFromDoubleClickAsync(item);
     }
 
     private void DeleteTicketButton_OnPreviewMouseDoubleClick(object sender, MouseButtonEventArgs e) =>

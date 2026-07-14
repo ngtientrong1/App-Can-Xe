@@ -8,4 +8,6 @@ public interface IUiFocusService
     void FocusUnitPriceField();
     void FocusNotesField();
     void HighlightTicketRow(int ticketId, bool scrollToTop);
+
+    void RefreshAutocompleteDisplays();
 }

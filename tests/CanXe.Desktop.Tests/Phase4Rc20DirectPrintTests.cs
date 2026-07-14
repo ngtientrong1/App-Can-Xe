@@ -18,6 +18,7 @@ public sealed class Phase4Rc20DirectPrintTests
         var notification = new RecordingPrintNotificationService();
         var (vm, _) = await host.CreateMainViewModelForBindingSmokeAsync(workflow, notification);
 
+        vm.FormMode = TicketFormMode.Viewing;
         vm.ActiveTicketId = 5;
         await vm.ExecuteMainPrintAsync();
 

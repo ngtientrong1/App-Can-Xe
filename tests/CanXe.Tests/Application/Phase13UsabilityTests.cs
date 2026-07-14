@@ -57,7 +57,7 @@ public class Phase13UsabilityTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Save_OnlyWeight2_CreatesSingleEvent()
+    public async Task Save_OnlyWeight2_WithoutWeight1_FailsForNewTicket()
     {
         var service = CreateService();
         var scale = CreateScale();
@@ -68,8 +68,8 @@ public class Phase13UsabilityTests : IAsyncLifetime
         await service.CaptureWeightAsync(draft, 2);
         var save = await service.SaveAsync(draft);
 
-        Assert.True(save.Success);
-        Assert.Equal(9200m, save.SavedTicket!.NetWeightKg);
+        Assert.False(save.Success);
+        Assert.Contains("cân lần 1", save.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

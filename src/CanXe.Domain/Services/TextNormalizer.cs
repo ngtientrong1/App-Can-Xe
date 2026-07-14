@@ -34,4 +34,12 @@ public static class TextNormalizer
 
         return Normalize(source).Contains(normalizedSearch, StringComparison.Ordinal);
     }
+
+    public static string CollapseSpaces(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        return string.Join(' ', value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    }
 }

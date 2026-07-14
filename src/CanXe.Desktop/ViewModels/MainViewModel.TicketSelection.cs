@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using CanXe.Application.Models;
+using CanXe.Infrastructure.Logging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -27,6 +28,9 @@ public sealed partial class MainViewModel
     private int _selectionRequestVersion;
     private CancellationTokenSource? _selectionLoadCts;
     private bool _suppressSelectionChange;
+    private bool _isOpeningTicketFromDoubleClick;
+    private bool _isApplyingTicketToForm;
+    private bool _isResettingDraft;
     private WeighTicketListItem? _selectionAnchorItem;
     private int _deleteInProgressTicketId;
 
@@ -63,18 +67,31 @@ public sealed partial class MainViewModel
 
     partial void OnSelectedTicketChanged(WeighTicketListItem? value)
     {
-        if (_suppressSelectionChange)
+        if (_suppressSelectionChange || _isOpeningTicketFromDoubleClick)
+        {
+            if (_isOpeningTicketFromDoubleClick)
+                WeighWorkflowLogger.Write("SELECTION_CHANGED_SKIPPED_DURING_DOUBLE_CLICK", $"ticketId={value?.Id.ToString() ?? "null"}");
             return;
+        }
 
         PrintTicketCommand.NotifyCanExecuteChanged();
         ViewTicketCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
-    public async Task OpenTicketFromListAsync(WeighTicketListItem? item)
+    public async Task OpenTicketFromListAsync(WeighTicketListItem? item) =>
+        await OpenTicketFromListCoreAsync(item, isFromDoubleClick: false);
+
+    public async Task OpenTicketFromDoubleClickAsync(WeighTicketListItem? item) =>
+        await OpenTicketFromListCoreAsync(item, isFromDoubleClick: true);
+
+    private async Task OpenTicketFromListCoreAsync(WeighTicketListItem? item, bool isFromDoubleClick)
     {
         if (item is null)
             return;
+
+        if (isFromDoubleClick)
+            WeighWorkflowLogger.Write("OPEN_TICKET_DOUBLE_CLICK", $"ticketId={item.Id}");
 
         if (IsFormDirty())
         {
@@ -89,10 +106,10 @@ public sealed partial class MainViewModel
             }
         }
 
-        await LoadSelectedTicketAsync(item);
+        await LoadSelectedTicketAsync(item, isFromDoubleClick);
     }
 
-    private async Task LoadSelectedTicketAsync(WeighTicketListItem item)
+    private async Task LoadSelectedTicketAsync(WeighTicketListItem item, bool isFromDoubleClick = false)
     {
         var requestVersion = ++_selectionRequestVersion;
         _selectionLoadCts?.Cancel();
@@ -100,24 +117,62 @@ public sealed partial class MainViewModel
         _selectionLoadCts = new CancellationTokenSource();
         var ct = _selectionLoadCts.Token;
 
+        _isOpeningTicketFromDoubleClick = isFromDoubleClick;
+        _suppressSelectionChange = true;
         try
         {
             WeighTicketDraft draft;
             TicketFormMode mode;
             if (item.EventCount is > 0 and < 2)
             {
+                WeighWorkflowLogger.Write("LOAD_TICKET_DETAIL_STARTED", $"ticketId={item.Id} kind=continuation");
                 draft = await _weighTicketService.LoadTicketForContinuationAsync(item.Id, ct);
                 mode = TicketFormMode.AwaitingSecondWeigh;
+                WeighWorkflowLogger.Write(
+                    "LOAD_TICKET_DETAIL_COMPLETED",
+                    $"ticketId={item.Id} hasCustomer={Flag(draft.DraftCustomer)} hasPlate={Flag(draft.DraftVehicle)} hasCargo={Flag(draft.DraftCargoType)} hasPrice={draft.DraftUnitPrice.HasValue}");
             }
             else
             {
+                WeighWorkflowLogger.Write("LOAD_TICKET_DETAIL_STARTED", $"ticketId={item.Id} kind=view");
                 draft = await _weighTicketService.LoadTicketForViewAsync(item.Id, ct);
                 mode = TicketFormMode.Viewing;
+                WeighWorkflowLogger.Write(
+                    "LOAD_TICKET_DETAIL_COMPLETED",
+                    $"ticketId={item.Id} hasCustomer={Flag(draft.DraftCustomer)} hasPlate={Flag(draft.DraftVehicle)} hasCargo={Flag(draft.DraftCargoType)} hasPrice={draft.DraftUnitPrice.HasValue}");
             }
 
             if (ct.IsCancellationRequested || requestVersion != _selectionRequestVersion)
                 return;
 
+            await ApplyTicketDetailToFormAsync(draft, mode, item, isFromDoubleClick ? "double-click" : "open-list");
+        }
+        catch (OperationCanceledException)
+        {
+            // superseded by a newer open request
+        }
+        catch (Exception ex)
+        {
+            if (requestVersion == _selectionRequestVersion)
+                StatusMessage = ex.Message;
+        }
+        finally
+        {
+            _isOpeningTicketFromDoubleClick = false;
+            _suppressSelectionChange = false;
+        }
+    }
+
+    private Task ApplyTicketDetailToFormAsync(
+        WeighTicketDraft draft,
+        TicketFormMode mode,
+        WeighTicketListItem item,
+        string reason)
+    {
+        _isApplyingTicketToForm = true;
+        SuppressAutocomplete = true;
+        try
+        {
             _weighTicketService.CancelDraft(_draft);
             _draft = draft;
             FormMode = mode;
@@ -131,26 +186,33 @@ public sealed partial class MainViewModel
             DevWeight2Text = _draft.DraftWeight2?.ToString("N0", CultureInfo.CurrentCulture);
             WeightOverrideReasonCode = null;
             WeightOverrideReasonOther = null;
-            LoadBindingsFromDraft();
+            IsWeightOverrideReasonPanelVisible = false;
+            IsManualWeightOverrideMessageVisible = false;
+
+            LoadBindingsFromDraft(skipAutocompleteRefresh: true);
             CaptureFormSnapshot();
             UpdateWeightOverrideUi();
             UpdateButtonStates();
             UpdateButtonLabels();
 
+            WeighWorkflowLogger.Write("APPLY_TICKET_DETAIL_TO_FORM", $"mode={mode} ticketId={item.Id} reason={reason}");
+
             StatusMessage = mode == TicketFormMode.AwaitingSecondWeigh
                 ? $"Đang tiếp tục phiếu {item.DisplayNumber} (CHỜ CÂN LẦN 2). Bấm LẤY CÂN LẦN 2."
                 : $"Đang xem phiếu {item.DisplayNumber}.";
         }
-        catch (OperationCanceledException)
+        finally
         {
-            // superseded by a newer open request
+            SuppressAutocomplete = false;
+            _isApplyingTicketToForm = false;
+            _focusService.RefreshAutocompleteDisplays();
         }
-        catch (Exception ex)
-        {
-            if (requestVersion == _selectionRequestVersion)
-                StatusMessage = ex.Message;
-        }
+
+        return Task.CompletedTask;
     }
+
+    private static string Flag(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "no" : "yes";
 
     [RelayCommand]
     private async Task UnlockViewForEditAsync()
@@ -170,6 +232,12 @@ public sealed partial class MainViewModel
 
     private bool IsFormDirty()
     {
+        if (_isApplyingTicketToForm || _isResettingDraft)
+            return false;
+
+        if (FormMode == TicketFormMode.Viewing)
+            return false;
+
         if (FormMode is TicketFormMode.Browsing or TicketFormMode.Creating)
             return HasUnsavedDraftContent();
 
@@ -278,7 +346,7 @@ public sealed partial class MainViewModel
     private async Task ExitViewAsync()
     {
         _weighTicketService.CancelDraft(_draft);
-        await ResetDraftAsync();
+        await ResetToNewDraftAsync("exit-view");
         StatusMessage = "Đã đóng phiếu đang xem.";
         _focusService.FocusCustomerField();
     }
@@ -341,7 +409,7 @@ public sealed partial class MainViewModel
             if (ActiveTicketId == item.Id)
             {
                 _weighTicketService.CancelDraft(_draft);
-                await ResetDraftAsync();
+                await ResetToNewDraftAsync("delete-active-ticket");
             }
 
             await RefreshFooterSummaryAsync();

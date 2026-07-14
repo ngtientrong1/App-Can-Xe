@@ -94,7 +94,7 @@ public sealed class FastEntrySearchService
 
             items.Add(new AutocompleteSuggestionItem
             {
-                PrimaryText = vehicle.PlateNumber,
+                PrimaryText = vehicle.PlateNumber ?? string.Empty,
                 SecondaryText = secondary,
                 TertiaryText = tertiary,
                 Tag = vehicle
@@ -149,6 +149,77 @@ public sealed class FastEntrySearchService
     {
         var notes = await _ticketRepository.SearchRecentNotesAsync(searchTerm, 5, cancellationToken);
         return notes.Select(n => new AutocompleteSuggestionItem { PrimaryText = n }).ToList();
+    }
+
+    public async Task<IReadOnlyList<AutocompleteSuggestionItem>> GetCustomerHistoryAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var catalog = await _customerRepository.ListActiveNamesForHistoryAsync(50, cancellationToken);
+        if (catalog.Count > 0)
+            return BuildHistoryItems(catalog);
+        return await BuildHistoryItemsAsync(_ticketRepository.GetRecentCustomerNamesAsync(50, cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<AutocompleteSuggestionItem>> GetVehicleHistoryAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var catalog = await _vehicleRepository.ListActivePlatesForHistoryAsync(50, cancellationToken);
+        if (catalog.Count > 0)
+            return BuildHistoryItems(catalog);
+        return await BuildHistoryItemsAsync(_ticketRepository.GetRecentLicensePlatesAsync(50, cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<AutocompleteSuggestionItem>> GetCargoTypeHistoryAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var catalog = await _cargoTypeRepository.ListActiveNamesForHistoryAsync(50, cancellationToken);
+        if (catalog.Count > 0)
+            return BuildHistoryItems(catalog);
+        return await BuildHistoryItemsAsync(_ticketRepository.GetRecentCargoTypeNamesAsync(50, cancellationToken));
+    }
+
+    public async Task<decimal?> GetCargoDefaultUnitPriceAsync(
+        string cargoName,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(cargoName))
+            return null;
+
+        var normalized = TextNormalizer.Normalize(cargoName.Trim());
+        var cargo = await _cargoTypeRepository.FindActiveByNormalizedNameAsync(normalized, cancellationToken);
+        if (cargo?.DefaultUnitPriceVndPerKg is int catalogPrice and > 0)
+            return catalogPrice;
+
+        return await _ticketRepository.GetRecentUnitPriceForCargoAsync(cargoName, cancellationToken);
+    }
+
+    public Task<decimal?> GetRecentUnitPriceForCargoAsync(
+        string cargoTypeName,
+        CancellationToken cancellationToken = default) =>
+        GetCargoDefaultUnitPriceAsync(cargoTypeName, cancellationToken);
+
+    private static IReadOnlyList<AutocompleteSuggestionItem> BuildHistoryItems(IReadOnlyList<string> values) =>
+        values
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => new AutocompleteSuggestionItem
+            {
+                PrimaryText = v,
+                SecondaryText = "Danh mục"
+            })
+            .ToList();
+
+    private static async Task<IReadOnlyList<AutocompleteSuggestionItem>> BuildHistoryItemsAsync(
+        Task<IReadOnlyList<string>> valuesTask)
+    {
+        var values = await valuesTask;
+        return values
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => new AutocompleteSuggestionItem
+            {
+                PrimaryText = v,
+                SecondaryText = "Dùng gần đây"
+            })
+            .ToList();
     }
 
     private static void AppendNewEntryOption(List<AutocompleteSuggestionItem> items, string searchTerm)

@@ -58,6 +58,9 @@ public static class DependencyInjection
         services.AddScoped<TicketDeleteService>();
         services.AddScoped<ITicketDeleteService>(sp => sp.GetRequiredService<TicketDeleteService>());
         services.AddSingleton<IDeveloperAuthorizationService, DeveloperAuthorizationService>();
+        services.AddScoped<IReportService, ReportService>();
+        services.AddSingleton<IExcelReportExporter, ExcelReportExporter>();
+        services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<StationSettingsService>();
         services.AddScoped<PrintSettingsService>();
 

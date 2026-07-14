@@ -6,6 +6,8 @@
         xmlns:conv="clr-namespace:CanXe.Desktop.Converters"
         xmlns:ctrl="clr-namespace:CanXe.Desktop.Controls"
         xmlns:models="clr-namespace:CanXe.Application.Models;assembly=CanXe.Application"
+        xmlns:reports="clr-namespace:CanXe.Desktop.Views.Reports"
+        xmlns:catalogs="clr-namespace:CanXe.Desktop.Views.Catalogs"
         mc:Ignorable="d"
         x:Name="RootWindow"
         Title="CanXe — Cân xe"
@@ -638,16 +640,14 @@
                 <DataGridTextColumn Header="Ghi chú" Binding="{Binding Notes, TargetNullValue=—}" Width="*" MinWidth="120" DisplayIndex="11"
                                     ElementStyle="{StaticResource GridCellText}"/>
                 <DataGridTextColumn Header="Trạng thái" Binding="{Binding WorkflowStatusText}" Width="Auto" MinWidth="108" MaxWidth="140" DisplayIndex="12"/>
-                <DataGridTemplateColumn Header="XÓA" Width="72" DisplayIndex="13"
+                <DataGridTemplateColumn Header="" Width="44" DisplayIndex="13"
                                         Visibility="{Binding DataContext.IsDeveloperDeleteVisible, RelativeSource={RelativeSource AncestorType=Window}}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="XÓA"
+                            <Button Style="{StaticResource CanXeHistoryDeleteButtonStyle}"
                                     Command="{Binding DataContext.DeleteTicketCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                     CommandParameter="{Binding}"
-                                    PreviewMouseDoubleClick="DeleteTicketButton_OnPreviewMouseDoubleClick"
-                                    ToolTip="Xóa phiếu cân — chỉ dành cho Nhà phát triển"
-                                    Padding="8,2" Margin="0"/>
+                                    PreviewMouseDoubleClick="DeleteTicketButton_OnPreviewMouseDoubleClick"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -692,30 +692,9 @@
         </Grid>
 
         <!-- Section: DANH MỤC -->
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
-                      Visibility="{Binding IsCatalogSectionVisible, Converter={StaticResource BoolToVis}}">
-            <StackPanel Margin="8">
-                <TextBlock Text="DANH MỤC" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
-                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,8">
-                    <StackPanel>
-                        <TextBlock Text="Khách hàng" Style="{StaticResource SectionHeaderTextStyle}"/>
-                        <TextBlock Text="Quản lý danh sách khách hàng — giai đoạn tiếp theo." Foreground="{StaticResource TextSecondaryBrush}"/>
-                    </StackPanel>
-                </Border>
-                <Border Style="{StaticResource CardBorder}" Margin="0,0,0,8">
-                    <StackPanel>
-                        <TextBlock Text="Biển số xe" Style="{StaticResource SectionHeaderTextStyle}"/>
-                        <TextBlock Text="Danh sách biển số được tạo tự động khi nhập phiếu." Foreground="{StaticResource TextSecondaryBrush}"/>
-                    </StackPanel>
-                </Border>
-                <Border Style="{StaticResource CardBorder}">
-                    <StackPanel>
-                        <TextBlock Text="Loại hàng" Style="{StaticResource SectionHeaderTextStyle}"/>
-                        <TextBlock Text="Danh sách loại hàng được tạo tự động khi nhập phiếu." Foreground="{StaticResource TextSecondaryBrush}"/>
-                    </StackPanel>
-                </Border>
-            </StackPanel>
-        </ScrollViewer>
+        <Grid Grid.Row="2" Visibility="{Binding IsCatalogSectionVisible, Converter={StaticResource BoolToVis}}">
+            <catalogs:CatalogView DataContext="{Binding Catalog}"/>
+        </Grid>
 
         <!-- Section: THIẾT BỊ -->
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
@@ -799,12 +778,7 @@
 
         <!-- Section: BÁO CÁO -->
         <Grid Grid.Row="2" Visibility="{Binding IsReportSectionVisible, Converter={StaticResource BoolToVis}}">
-            <StackPanel Margin="8">
-                <TextBlock Text="BÁO CÁO" FontSize="22" FontWeight="Bold" Margin="0,0,0,8"/>
-                <TextBlock Text="Dùng bộ lọc và tổng hợp trên màn PHIẾU CÂN. Xuất Excel sẽ có ở giai đoạn sau." TextWrapping="Wrap"
-                           Foreground="{StaticResource TextSecondaryBrush}"/>
-                <Button Content="XUẤT EXCEL (DISABLED)" Style="{StaticResource FilterButton}" IsEnabled="False" Margin="0,12,0,0"/>
-            </StackPanel>
+            <reports:ReportView DataContext="{Binding Report}"/>
         </Grid>
 
         <!-- Section: CÀI ĐẶT -->

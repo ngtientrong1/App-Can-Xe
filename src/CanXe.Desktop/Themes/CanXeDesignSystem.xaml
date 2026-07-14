@@ -203,6 +203,99 @@
         <Setter Property="Foreground" Value="White"/>
     </Style>
 
+    <Geometry x:Key="CanXeTrashIconGeometry">M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z</Geometry>
+    <Geometry x:Key="CanXePencilIconGeometry">M14.06,9.02L14.97,9.93L8.16,16.74L7.25,15.83L14.06,9.02M17.66,3.03C17.41,2.78 17.04,2.78 16.79,3.03L15.13,4.7L18.3,7.87L19.97,6.2C20.22,5.95 20.22,5.58 19.97,5.33L17.66,3.03M3,17.25V21H6.75L17.81,9.94L14.64,6.77L3,17.25Z</Geometry>
+
+    <Style x:Key="CanXeCatalogEditButtonStyle" TargetType="Button">
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="Margin" Value="0,0,4,0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="ToolTip" Value="Sửa"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}">
+                        <Viewbox Width="15" Height="15" Stretch="Uniform">
+                            <Path Data="{StaticResource CanXePencilIconGeometry}"
+                                  Fill="{StaticResource SecondaryTextBrush}"/>
+                        </Viewbox>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#E3F2FD"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="#90CAF9"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#BBDEFB"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="#64B5F6"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CanXeCatalogDeleteButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeHistoryDeleteButtonStyle}">
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="ToolTip" Value="Xóa khỏi danh mục"/>
+    </Style>
+
+    <Style x:Key="CanXeHistoryDeleteButtonStyle" TargetType="Button">
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="ToolTip" Value="Xóa phiếu cân"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Root"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}">
+                        <Viewbox Width="15" Height="15" Stretch="Uniform">
+                            <Path Data="{StaticResource CanXeTrashIconGeometry}"
+                                  Fill="{StaticResource SecondaryTextBrush}"/>
+                        </Viewbox>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#FFEBEE"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="#EF9A9A"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="#FFCDD2"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="#E57373"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="CanXeSecondaryToggleButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource CanXeToggleButtonBase}">
         <Setter Property="Background" Value="#ECEFF1"/>
         <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>

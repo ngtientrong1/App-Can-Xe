@@ -6,6 +6,7 @@ using CanXe.Application.Interfaces;
 using CanXe.Desktop.Services;
 using CanXe.Desktop.ViewModels;
 using CanXe.Infrastructure;
+using CanXe.Infrastructure.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -20,6 +21,8 @@ public partial class App : System.Windows.Application
         try
         {
             base.OnStartup(e);
+
+            RegisterGlobalExceptionHandlers(this);
 
             var appData = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -48,6 +51,8 @@ public partial class App : System.Windows.Application
                     services.AddSingleton<IWeighTicketPrintService, WpfWeighTicketPrintService>();
                     services.AddSingleton<SettingsViewModel>();
                     services.AddSingleton<DeveloperViewModel>();
+                    services.AddSingleton<CatalogViewModel>();
+                    services.AddSingleton<ReportViewModel>();
                     services.AddSingleton<MainViewModel>();
                     services.AddSingleton<MainWindow>();
                 })
@@ -101,5 +106,42 @@ public partial class App : System.Windows.Application
         {
             PropertyNameCaseInsensitive = true
         }) ?? new AppSettings();
+    }
+
+    private static void RegisterGlobalExceptionHandlers(App app)
+    {
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
+            {
+                AppExceptionLogger.WriteError("AppDomain.UnhandledException", ex);
+                WeighWorkflowLogger.Write("UNHANDLED_EXCEPTION", ex.GetType().Name);
+            }
+        };
+
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            AppExceptionLogger.WriteError("TaskScheduler.UnobservedTaskException", e.Exception);
+            WeighWorkflowLogger.Write("UNOBSERVED_TASK_EXCEPTION", e.Exception.GetType().Name);
+            e.SetObserved();
+        };
+
+        app.DispatcherUnhandledException += (_, e) =>
+        {
+            if (AppExceptionLogger.ConsumeSaveErrorHandled())
+            {
+                e.Handled = true;
+                return;
+            }
+
+            AppExceptionLogger.WriteError("DispatcherUnhandledException", e.Exception);
+            WeighWorkflowLogger.Write("DISPATCHER_UNHANDLED_EXCEPTION", e.Exception.GetType().Name);
+            MessageBox.Show(
+                "Đã xảy ra lỗi không mong muốn. Chi tiết đã được ghi vào errors.log.",
+                "CanXe — Lỗi",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            e.Handled = true;
+        };
     }
 }

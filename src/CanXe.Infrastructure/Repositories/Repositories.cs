@@ -190,6 +190,77 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
         return distinct;
     }
 
+    public async Task<IReadOnlyList<string>> GetRecentCustomerNamesAsync(
+        int maxResults = 50,
+        CancellationToken cancellationToken = default) =>
+        await GetRecentDistinctFieldValuesAsync(
+            t => t.CustomerNameSnapshot,
+            maxResults,
+            cancellationToken);
+
+    public async Task<IReadOnlyList<string>> GetRecentLicensePlatesAsync(
+        int maxResults = 50,
+        CancellationToken cancellationToken = default) =>
+        await GetRecentDistinctFieldValuesAsync(
+            t => t.LicensePlateSnapshot,
+            maxResults,
+            cancellationToken);
+
+    public async Task<IReadOnlyList<string>> GetRecentCargoTypeNamesAsync(
+        int maxResults = 50,
+        CancellationToken cancellationToken = default) =>
+        await GetRecentDistinctFieldValuesAsync(
+            t => t.CargoTypeNameSnapshot,
+            maxResults,
+            cancellationToken);
+
+    public async Task<decimal?> GetRecentUnitPriceForCargoAsync(
+        string cargoTypeName,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(cargoTypeName))
+            return null;
+
+        var term = cargoTypeName.Trim();
+        var tickets = await _db.WeighTickets
+            .Where(t => !t.IsDeleted &&
+                        t.CargoTypeNameSnapshot == term &&
+                        t.UnitPriceVndPerKg != null &&
+                        t.UnitPriceVndPerKg > 0)
+            .ToListAsync(cancellationToken);
+
+        var latest = tickets
+            .OrderByDescending(t => t.TicketDateTime)
+            .FirstOrDefault();
+
+        return latest?.UnitPriceVndPerKg;
+    }
+
+    private async Task<IReadOnlyList<string>> GetRecentDistinctFieldValuesAsync(
+        Func<WeighTicket, string?> selector,
+        int maxResults,
+        CancellationToken cancellationToken)
+    {
+        var tickets = await _db.WeighTickets
+            .Where(t => !t.IsDeleted)
+            .ToListAsync(cancellationToken);
+
+        return tickets
+            .Select(t => new { Value = selector(t), t.TicketDateTime })
+            .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+            .GroupBy(x => x.Value!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => new
+            {
+                Value = g.First().Value!.Trim(),
+                LastUsed = g.Max(x => x.TicketDateTime)
+            })
+            .OrderByDescending(x => x.LastUsed)
+            .ThenBy(x => x.Value, StringComparer.OrdinalIgnoreCase)
+            .Take(maxResults)
+            .Select(x => x.Value)
+            .ToList();
+    }
+
     public async Task<VehicleUsageContext?> GetVehicleUsageContextAsync(
         string normalizedPlate,
         CancellationToken cancellationToken = default)
@@ -336,14 +407,14 @@ public sealed class CustomerRepository : ICustomerRepository
         var normalized = TextNormalizer.Normalize(searchTerm);
         if (normalized.Length == 0)
             return (await _db.Customers
-            .Where(c => c.IsActive)
-            .ToListAsync(cancellationToken))
-            .OrderByDescending(c => c.LastUsedAt)
-            .Take(maxResults)
-            .ToList();
+                .Where(c => c.IsActive && !c.IsDeleted)
+                .ToListAsync(cancellationToken))
+                .OrderByDescending(c => c.LastUsedAt)
+                .Take(maxResults)
+                .ToList();
 
         return (await _db.Customers
-            .Where(c => c.IsActive && c.NormalizedName.Contains(normalized))
+            .Where(c => c.IsActive && !c.IsDeleted && c.NormalizedName.Contains(normalized))
             .ToListAsync(cancellationToken))
             .OrderByDescending(c => c.LastUsedAt)
             .Take(maxResults)
@@ -355,25 +426,47 @@ public sealed class CustomerRepository : ICustomerRepository
         CancellationToken cancellationToken = default) =>
         _db.Customers.FirstOrDefaultAsync(c => c.NormalizedName == normalizedName, cancellationToken);
 
+    public Task<Customer?> FindActiveByNormalizedNameAsync(
+        string normalizedName,
+        CancellationToken cancellationToken = default) =>
+        _db.Customers.FirstOrDefaultAsync(
+            c => c.NormalizedName == normalizedName && c.IsActive && !c.IsDeleted,
+            cancellationToken);
+
     public async Task<Customer> UpsertAsync(string name, CancellationToken cancellationToken = default)
     {
-        var trimmed = name.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Customer name is required.", nameof(name));
+
+        var trimmed = TextNormalizer.CollapseSpaces(name.Trim());
         var normalized = TextNormalizer.Normalize(trimmed);
-        var existing = await FindByNormalizedNameAsync(normalized, cancellationToken);
+        if (normalized.Length == 0)
+            throw new ArgumentException("Customer name is required after normalization.", nameof(name));
+
+        var existing = await FindActiveByNormalizedNameAsync(normalized, cancellationToken);
 
         if (existing is not null)
         {
             existing.LastUsedAt = DateTimeOffset.Now;
+            existing.UpdatedAt = DateTimeOffset.Now;
             await _db.SaveChangesAsync(cancellationToken);
             return existing;
         }
 
+        var now = DateTimeOffset.Now;
         var customer = new Customer
         {
             Name = trimmed,
             NormalizedName = normalized,
-            LastUsedAt = DateTimeOffset.Now,
-            IsActive = true
+            Phone = null,
+            Address = null,
+            Note = null,
+            LastUsedAt = now,
+            IsActive = true,
+            IsDeleted = false,
+            CreatedAt = now,
+            UpdatedAt = now,
+            DeletedAt = null
         };
         _db.Customers.Add(customer);
         await _db.SaveChangesAsync(cancellationToken);
@@ -393,12 +486,76 @@ public sealed class CustomerRepository : ICustomerRepository
         var prefix = normalized[..prefixLength];
 
         return (await _db.Customers
-            .Where(c => c.IsActive && c.NormalizedName.Contains(prefix))
+            .Where(c => c.IsActive && !c.IsDeleted && c.NormalizedName.Contains(prefix))
             .ToListAsync(cancellationToken))
             .OrderByDescending(c => c.LastUsedAt)
             .Take(maxResults)
             .ToList();
     }
+
+    public async Task<IReadOnlyList<Customer>> ListCatalogAsync(
+        string? search,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _db.Customers.Where(c => !c.IsDeleted).AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalized = TextNormalizer.Normalize(search);
+            query = query.Where(c => c.NormalizedName.Contains(normalized));
+        }
+
+        return (await query.ToListAsync(cancellationToken))
+            .OrderByDescending(c => c.LastUsedAt)
+            .ThenBy(c => c.Name)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<string>> ListActiveNamesForHistoryAsync(
+        int maxResults = 50,
+        CancellationToken cancellationToken = default) =>
+        (await _db.Customers
+            .Where(c => c.IsActive && !c.IsDeleted)
+            .OrderByDescending(c => c.LastUsedAt)
+            .ThenBy(c => c.Name)
+            .Take(maxResults)
+            .Select(c => c.Name)
+            .ToListAsync(cancellationToken));
+
+    public Task<Customer?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+        _db.Customers.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, cancellationToken);
+
+    public async Task<Customer> SaveCatalogAsync(Customer customer, CancellationToken cancellationToken = default)
+    {
+        customer.UpdatedAt = DateTimeOffset.Now;
+        if (customer.Id == 0)
+        {
+            customer.CreatedAt = DateTimeOffset.Now;
+            _db.Customers.Add(customer);
+        }
+        else
+        {
+            _db.Customers.Update(customer);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return customer;
+    }
+
+    public async Task SoftDeleteAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var row = await _db.Customers.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (row is null)
+            return;
+
+        row.IsDeleted = true;
+        row.IsActive = false;
+        row.DeletedAt = DateTimeOffset.Now;
+        row.UpdatedAt = DateTimeOffset.Now;
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public Task<int> CountTicketUsageAsync(int customerId, CancellationToken cancellationToken = default) =>
+        _db.WeighTickets.CountAsync(t => !t.IsDeleted && t.CustomerId == customerId, cancellationToken);
 }
 
 public sealed class CargoTypeRepository : ICargoTypeRepository
@@ -415,13 +572,13 @@ public sealed class CargoTypeRepository : ICargoTypeRepository
         var normalized = TextNormalizer.Normalize(searchTerm);
         if (normalized.Length == 0)
             return await _db.CargoTypes
-                .Where(c => c.IsActive)
+                .Where(c => c.IsActive && !c.IsDeleted)
                 .OrderBy(c => c.Name)
                 .Take(maxResults)
                 .ToListAsync(cancellationToken);
 
         return await _db.CargoTypes
-            .Where(c => c.IsActive && c.NormalizedName.Contains(normalized))
+            .Where(c => c.IsActive && !c.IsDeleted && c.NormalizedName.Contains(normalized))
             .OrderBy(c => c.Name)
             .Take(maxResults)
             .ToListAsync(cancellationToken);
@@ -432,24 +589,102 @@ public sealed class CargoTypeRepository : ICargoTypeRepository
         CancellationToken cancellationToken = default) =>
         _db.CargoTypes.FirstOrDefaultAsync(c => c.NormalizedName == normalizedName, cancellationToken);
 
+    public Task<CargoType?> FindActiveByNormalizedNameAsync(
+        string normalizedName,
+        CancellationToken cancellationToken = default) =>
+        _db.CargoTypes.FirstOrDefaultAsync(
+            c => c.NormalizedName == normalizedName && c.IsActive && !c.IsDeleted,
+            cancellationToken);
+
     public async Task<CargoType> UpsertAsync(string name, CancellationToken cancellationToken = default)
     {
-        var trimmed = name.Trim();
+        var trimmed = TextNormalizer.CollapseSpaces(name.Trim());
         var normalized = TextNormalizer.Normalize(trimmed);
-        var existing = await FindByNormalizedNameAsync(normalized, cancellationToken);
+        var existing = await FindActiveByNormalizedNameAsync(normalized, cancellationToken);
         if (existing is not null)
+        {
+            existing.LastUsedAt = DateTimeOffset.Now;
+            await _db.SaveChangesAsync(cancellationToken);
             return existing;
+        }
 
         var cargoType = new CargoType
         {
             Name = trimmed,
             NormalizedName = normalized,
-            IsActive = true
+            IsActive = true,
+            Unit = "kg",
+            LastUsedAt = DateTimeOffset.Now,
+            CreatedAt = DateTimeOffset.Now
         };
         _db.CargoTypes.Add(cargoType);
         await _db.SaveChangesAsync(cancellationToken);
         return cargoType;
     }
+
+    public async Task<IReadOnlyList<CargoType>> ListCatalogAsync(
+        string? search,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _db.CargoTypes.Where(c => !c.IsDeleted).AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalized = TextNormalizer.Normalize(search);
+            query = query.Where(c => c.NormalizedName.Contains(normalized));
+        }
+
+        return (await query.ToListAsync(cancellationToken))
+            .OrderByDescending(c => c.LastUsedAt)
+            .ThenBy(c => c.Name)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<string>> ListActiveNamesForHistoryAsync(
+        int maxResults = 50,
+        CancellationToken cancellationToken = default) =>
+        (await _db.CargoTypes
+            .Where(c => c.IsActive && !c.IsDeleted)
+            .OrderByDescending(c => c.LastUsedAt)
+            .ThenBy(c => c.Name)
+            .Take(maxResults)
+            .Select(c => c.Name)
+            .ToListAsync(cancellationToken));
+
+    public Task<CargoType?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+        _db.CargoTypes.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, cancellationToken);
+
+    public async Task<CargoType> SaveCatalogAsync(CargoType cargoType, CancellationToken cancellationToken = default)
+    {
+        cargoType.UpdatedAt = DateTimeOffset.Now;
+        if (cargoType.Id == 0)
+        {
+            cargoType.CreatedAt = DateTimeOffset.Now;
+            _db.CargoTypes.Add(cargoType);
+        }
+        else
+        {
+            _db.CargoTypes.Update(cargoType);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return cargoType;
+    }
+
+    public async Task SoftDeleteAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var row = await _db.CargoTypes.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (row is null)
+            return;
+
+        row.IsDeleted = true;
+        row.IsActive = false;
+        row.DeletedAt = DateTimeOffset.Now;
+        row.UpdatedAt = DateTimeOffset.Now;
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public Task<int> CountTicketUsageAsync(int cargoTypeId, CancellationToken cancellationToken = default) =>
+        _db.WeighTickets.CountAsync(t => !t.IsDeleted && t.CargoTypeId == cargoTypeId, cancellationToken);
 }
 
 public sealed class VehicleRepository : IVehicleRepository
@@ -467,6 +702,16 @@ public sealed class VehicleRepository : IVehicleRepository
             .FirstOrDefaultAsync(v => v.NormalizedPlateNumber == normalized, cancellationToken);
     }
 
+    public Task<Vehicle?> FindActiveByPlateAsync(
+        string plateNumber,
+        CancellationToken cancellationToken = default)
+    {
+        var normalized = PlateNormalizer.Normalize(plateNumber);
+        return _db.Vehicles.FirstOrDefaultAsync(
+            v => v.NormalizedPlateNumber == normalized && v.IsActive && !v.IsDeleted,
+            cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Vehicle>> SearchAsync(
         string searchTerm,
         int maxResults = 10,
@@ -474,14 +719,17 @@ public sealed class VehicleRepository : IVehicleRepository
     {
         var normalized = PlateNormalizer.Normalize(searchTerm);
         if (normalized.Length == 0)
-            return (await _db.Vehicles.Include(v => v.LastCustomer).ToListAsync(cancellationToken))
+            return (await _db.Vehicles
+                .Include(v => v.LastCustomer)
+                .Where(v => v.IsActive && !v.IsDeleted)
+                .ToListAsync(cancellationToken))
                 .OrderByDescending(v => v.LastUsedAt)
                 .Take(maxResults)
                 .ToList();
 
         return (await _db.Vehicles
             .Include(v => v.LastCustomer)
-            .Where(v => v.NormalizedPlateNumber.Contains(normalized))
+            .Where(v => v.IsActive && !v.IsDeleted && v.NormalizedPlateNumber.Contains(normalized))
             .ToListAsync(cancellationToken))
             .OrderByDescending(v => v.LastUsedAt)
             .Take(maxResults)
@@ -492,16 +740,17 @@ public sealed class VehicleRepository : IVehicleRepository
         string plateNumber,
         CancellationToken cancellationToken = default)
     {
-        var vehicle = await _db.Vehicles
-            .Include(v => v.LastCustomer)
-            .FirstOrDefaultAsync(v => v.NormalizedPlateNumber == PlateNormalizer.Normalize(plateNumber), cancellationToken);
-
+        var vehicle = await FindActiveByPlateAsync(plateNumber, cancellationToken);
         if (vehicle is null)
             return null;
 
+        vehicle = await _db.Vehicles
+            .Include(v => v.LastCustomer)
+            .FirstOrDefaultAsync(v => v.Id == vehicle.Id, cancellationToken);
+
         return new VehicleSuggestion
         {
-            PlateNumber = vehicle.PlateNumber,
+            PlateNumber = vehicle!.PlateNumber,
             LastCustomerName = vehicle.LastCustomer?.Name
         };
     }
@@ -511,9 +760,9 @@ public sealed class VehicleRepository : IVehicleRepository
         int? customerId,
         CancellationToken cancellationToken = default)
     {
-        var trimmed = plateNumber.Trim().ToUpperInvariant();
+        var trimmed = PlateNormalizer.FormatDisplay(plateNumber);
         var normalized = PlateNormalizer.Normalize(trimmed);
-        var existing = await FindByPlateAsync(trimmed, cancellationToken);
+        var existing = await FindActiveByPlateAsync(trimmed, cancellationToken);
 
         if (existing is not null)
         {
@@ -528,10 +777,77 @@ public sealed class VehicleRepository : IVehicleRepository
             PlateNumber = trimmed,
             NormalizedPlateNumber = normalized,
             LastCustomerId = customerId,
-            LastUsedAt = DateTimeOffset.Now
+            LastUsedAt = DateTimeOffset.Now,
+            IsActive = true,
+            CreatedAt = DateTimeOffset.Now
         };
         _db.Vehicles.Add(vehicle);
         await _db.SaveChangesAsync(cancellationToken);
         return vehicle;
     }
+
+    public async Task<IReadOnlyList<Vehicle>> ListCatalogAsync(
+        string? search,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _db.Vehicles.Include(v => v.LastCustomer).Where(v => !v.IsDeleted).AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var normalized = PlateNormalizer.Normalize(search);
+            query = query.Where(v => v.NormalizedPlateNumber.Contains(normalized));
+        }
+
+        return (await query.ToListAsync(cancellationToken))
+            .OrderByDescending(v => v.LastUsedAt)
+            .ThenBy(v => v.PlateNumber)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<string>> ListActivePlatesForHistoryAsync(
+        int maxResults = 50,
+        CancellationToken cancellationToken = default) =>
+        (await _db.Vehicles
+            .Where(v => v.IsActive && !v.IsDeleted)
+            .OrderByDescending(v => v.LastUsedAt)
+            .ThenBy(v => v.PlateNumber)
+            .Take(maxResults)
+            .Select(v => v.PlateNumber)
+            .ToListAsync(cancellationToken));
+
+    public Task<Vehicle?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+        _db.Vehicles.Include(v => v.LastCustomer)
+            .FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted, cancellationToken);
+
+    public async Task<Vehicle> SaveCatalogAsync(Vehicle vehicle, CancellationToken cancellationToken = default)
+    {
+        vehicle.UpdatedAt = DateTimeOffset.Now;
+        if (vehicle.Id == 0)
+        {
+            vehicle.CreatedAt = DateTimeOffset.Now;
+            _db.Vehicles.Add(vehicle);
+        }
+        else
+        {
+            _db.Vehicles.Update(vehicle);
+        }
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return vehicle;
+    }
+
+    public async Task SoftDeleteAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var row = await _db.Vehicles.FirstOrDefaultAsync(v => v.Id == id, cancellationToken);
+        if (row is null)
+            return;
+
+        row.IsDeleted = true;
+        row.IsActive = false;
+        row.DeletedAt = DateTimeOffset.Now;
+        row.UpdatedAt = DateTimeOffset.Now;
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    public Task<int> CountTicketUsageAsync(int vehicleId, CancellationToken cancellationToken = default) =>
+        _db.WeighTickets.CountAsync(t => !t.IsDeleted && t.VehicleId == vehicleId, cancellationToken);
 }

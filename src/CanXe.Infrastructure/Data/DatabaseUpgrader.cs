@@ -14,6 +14,7 @@ public static class DatabaseUpgrader
     public const string Phase4Rc11MigrationId = "202606300001_Phase4_Rc11_PrintRenderingMode";
     public const string Phase4Rc18MigrationId = "202606300002_Phase4_Rc18_PrintLayoutMode";
     public const string Phase4Rc23MigrationId = "202606300003_Phase4_Rc23_A4TwoUpAndSoftDelete";
+    public const string Phase5Rc6MigrationId = "202607040006_Phase5_Rc6_CatalogFields";
 
     public static async Task UpgradeAsync(CanXeDbContext db, string databasePath, CancellationToken cancellationToken = default)
     {
@@ -37,6 +38,8 @@ public static class DatabaseUpgrader
             await RecordMigrationAsync(db, Phase4Rc18MigrationId, cancellationToken);
             await ApplyPhase4Rc23A4TwoUpAndSoftDeleteAsync(db, cancellationToken);
             await RecordMigrationAsync(db, Phase4Rc23MigrationId, cancellationToken);
+            await ApplyPhase5Rc6CatalogFieldsAsync(db, cancellationToken);
+            await RecordMigrationAsync(db, Phase5Rc6MigrationId, cancellationToken);
             return;
         }
 
@@ -64,6 +67,8 @@ public static class DatabaseUpgrader
         await RecordMigrationAsync(db, Phase4Rc18MigrationId, cancellationToken);
         await ApplyPhase4Rc23A4TwoUpAndSoftDeleteAsync(db, cancellationToken);
         await RecordMigrationAsync(db, Phase4Rc23MigrationId, cancellationToken);
+        await ApplyPhase5Rc6CatalogFieldsAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase5Rc6MigrationId, cancellationToken);
     }
 
     public static void BackupDatabase(string databasePath)
@@ -186,6 +191,7 @@ public static class DatabaseUpgrader
         await AddColumnIfMissingAsync(db, "WeighEvents", "OverrideReason", "TEXT NULL", cancellationToken);
         await AddColumnIfMissingAsync(db, "WeighEvents", "OverrideAt", "TEXT NULL", cancellationToken);
         await AddColumnIfMissingAsync(db, "WeighEvents", "OverrideBy", "TEXT NULL", cancellationToken);
+        await AddColumnIfMissingAsync(db, "WeighEvents", "RawScaleData", "TEXT NULL", cancellationToken);
     }
 
     private static async Task ApplyPhase16AuditLogsAsync(CanXeDbContext db, CancellationToken cancellationToken)
@@ -372,17 +378,14 @@ public static class DatabaseUpgrader
 
     private static async Task ApplyPhase4Rc23A4TwoUpAndSoftDeleteAsync(CanXeDbContext db, CancellationToken cancellationToken)
     {
-        if (await TableExistsAsync(db, "WeighTickets", cancellationToken)
-            && !await ColumnExistsAsync(db, "WeighTickets", "IsDeleted", cancellationToken))
+        if (await TableExistsAsync(db, "WeighTickets", cancellationToken))
         {
+            await AddColumnIfMissingAsync(db, "WeighTickets", "IsDeleted", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
+            await AddColumnIfMissingAsync(db, "WeighTickets", "DeletedAt", "TEXT NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "WeighTickets", "DeletedBy", "TEXT NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "WeighTickets", "DeleteReason", "TEXT NULL", cancellationToken);
             await db.Database.ExecuteSqlRawAsync(
-                """
-                ALTER TABLE WeighTickets ADD COLUMN IsDeleted INTEGER NOT NULL DEFAULT 0;
-                ALTER TABLE WeighTickets ADD COLUMN DeletedAt TEXT NULL;
-                ALTER TABLE WeighTickets ADD COLUMN DeletedBy TEXT NULL;
-                ALTER TABLE WeighTickets ADD COLUMN DeleteReason TEXT NULL;
-                CREATE INDEX IF NOT EXISTS IX_WeighTickets_IsDeleted ON WeighTickets (IsDeleted);
-                """,
+                "CREATE INDEX IF NOT EXISTS IX_WeighTickets_IsDeleted ON WeighTickets (IsDeleted);",
                 cancellationToken);
         }
 
@@ -395,6 +398,61 @@ public static class DatabaseUpgrader
                 WHERE PrintLayoutMode IS NULL
                    OR PrintLayoutMode = ''
                    OR PrintLayoutMode = 'A5SingleTicket';
+                """,
+                cancellationToken);
+        }
+    }
+
+    private static async Task ApplyPhase5Rc6CatalogFieldsAsync(CanXeDbContext db, CancellationToken cancellationToken)
+    {
+        if (await TableExistsAsync(db, "Customers", cancellationToken))
+        {
+            await AddColumnIfMissingAsync(db, "Customers", "Phone", "TEXT NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "Customers", "Address", "TEXT NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "Customers", "Note", "TEXT NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "Customers", "IsDeleted", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
+            await AddColumnIfMissingAsync(db, "Customers", "CreatedAt", "TEXT NOT NULL DEFAULT ''", cancellationToken);
+            await AddColumnIfMissingAsync(db, "Customers", "UpdatedAt", "TEXT NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "Customers", "DeletedAt", "TEXT NULL", cancellationToken);
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                UPDATE Customers SET CreatedAt = COALESCE(datetime(LastUsedAt), datetime('now'))
+                WHERE CreatedAt = '' OR CreatedAt IS NULL;
+                """,
+                cancellationToken);
+        }
+
+        if (await TableExistsAsync(db, "Vehicles", cancellationToken))
+        {
+            await AddColumnIfMissingAsync(db, "Vehicles", "OwnerName", "TEXT NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "Vehicles", "Note", "TEXT NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "Vehicles", "IsActive", "INTEGER NOT NULL DEFAULT 1", cancellationToken);
+            await AddColumnIfMissingAsync(db, "Vehicles", "IsDeleted", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
+            await AddColumnIfMissingAsync(db, "Vehicles", "CreatedAt", "TEXT NOT NULL DEFAULT ''", cancellationToken);
+            await AddColumnIfMissingAsync(db, "Vehicles", "UpdatedAt", "TEXT NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "Vehicles", "DeletedAt", "TEXT NULL", cancellationToken);
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                UPDATE Vehicles SET CreatedAt = COALESCE(datetime(LastUsedAt), datetime('now'))
+                WHERE CreatedAt = '' OR CreatedAt IS NULL;
+                """,
+                cancellationToken);
+        }
+
+        if (await TableExistsAsync(db, "CargoTypes", cancellationToken))
+        {
+            await AddColumnIfMissingAsync(db, "CargoTypes", "DefaultUnitPriceVndPerKg", "INTEGER NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "CargoTypes", "Unit", "TEXT NOT NULL DEFAULT 'kg'", cancellationToken);
+            await AddColumnIfMissingAsync(db, "CargoTypes", "Note", "TEXT NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "CargoTypes", "LastUsedAt", "TEXT NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "CargoTypes", "IsDeleted", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
+            await AddColumnIfMissingAsync(db, "CargoTypes", "CreatedAt", "TEXT NOT NULL DEFAULT ''", cancellationToken);
+            await AddColumnIfMissingAsync(db, "CargoTypes", "UpdatedAt", "TEXT NULL", cancellationToken);
+            await AddColumnIfMissingAsync(db, "CargoTypes", "DeletedAt", "TEXT NULL", cancellationToken);
+            await db.Database.ExecuteSqlRawAsync(
+                """
+                UPDATE CargoTypes SET CreatedAt = datetime('now') WHERE CreatedAt = '' OR CreatedAt IS NULL;
+                UPDATE CargoTypes SET Unit = 'kg' WHERE Unit IS NULL OR Unit = '';
                 """,
                 cancellationToken);
         }
