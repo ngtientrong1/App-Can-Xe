@@ -202,7 +202,12 @@ public sealed class Phase7Rc3ThemeBrandingUiTests
         "ToastBackgroundBrush",
         "ButtonSecondaryBackgroundBrush",
         "DisabledBackgroundBrush",
-        "DisabledTextBrush"
+        "DisabledTextBrush",
+        "TabItemBackgroundBrush",
+        "TabItemSelectedBackgroundBrush",
+        "TabItemHoverBackgroundBrush",
+        "ComboBoxDropdownBackgroundBrush",
+        "DatePickerBackgroundBrush"
     ];
 }
 

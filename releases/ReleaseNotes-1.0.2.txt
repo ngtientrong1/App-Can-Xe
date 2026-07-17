@@ -1,0 +1,9 @@
+Cân Xe Tiến Trọng 1.0.2
+
+Hotfix:
+- Gắn icon app chuẩn cho exe, cửa sổ, taskbar, shortcut, installer
+- Sửa dark mode: Tab Danh mục và control lọc Báo cáo (DatePicker, ComboBox, TextBox)
+
+Lưu ý:
+- Dữ liệu vẫn lưu tại %LocalAppData%\CanXe
+- Cài đặt/cập nhật không xóa dữ liệu cũ

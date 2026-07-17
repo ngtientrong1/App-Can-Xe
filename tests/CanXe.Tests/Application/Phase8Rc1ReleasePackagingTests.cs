@@ -8,12 +8,12 @@ namespace CanXe.Tests.Application;
 public sealed class Phase8Rc1ReleasePackagingTests
 {
     [Fact]
-    public void Desktop_Version_Is_1_0_1()
+    public void Desktop_Version_Is_1_0_2()
     {
         var csproj = ResolveFile(Path.Combine("src", "CanXe.Desktop", "CanXe.Desktop.csproj"));
         var text = File.ReadAllText(csproj);
-        Assert.Contains("<Version>1.0.1</Version>", text, StringComparison.Ordinal);
-        Assert.Contains("<InformationalVersion>1.0.1</InformationalVersion>", text, StringComparison.Ordinal);
+        Assert.Contains("<Version>1.0.2</Version>", text, StringComparison.Ordinal);
+        Assert.Contains("<InformationalVersion>1.0.2</InformationalVersion>", text, StringComparison.Ordinal);
         Assert.Contains("Cân Xe Tiến Trọng", text, StringComparison.Ordinal);
     }
 
@@ -34,8 +34,8 @@ public sealed class Phase8Rc1ReleasePackagingTests
     {
         var iss = ResolveFile(Path.Combine("installer", "CanXeTienTrong.iss"));
         var text = File.ReadAllText(iss);
-        Assert.Contains("#define MyAppVersion \"1.0.1\"", text, StringComparison.Ordinal);
-        Assert.Contains("CanXeTienTrong-Setup-1.0.1", text, StringComparison.Ordinal);
+        Assert.Contains("#define MyAppVersion \"1.0.2\"", text, StringComparison.Ordinal);
+        Assert.Contains("CanXeTienTrong-Setup-1.0.2", text, StringComparison.Ordinal);
         Assert.Contains(@"publish\win10-x64\*", text, StringComparison.Ordinal);
         Assert.Contains("DestDir: \"{app}\"", text, StringComparison.Ordinal);
         Assert.DoesNotContain("DestDir: \"{localappdata}", text, StringComparison.OrdinalIgnoreCase);
@@ -46,9 +46,9 @@ public sealed class Phase8Rc1ReleasePackagingTests
     [Fact]
     public void ReleaseNotes_Exist()
     {
-        var notes = ResolveFile(Path.Combine("releases", "ReleaseNotes-1.0.1.txt"));
+        var notes = ResolveFile(Path.Combine("releases", "ReleaseNotes-1.0.2.txt"));
         var text = File.ReadAllText(notes);
-        Assert.Contains("Cân Xe Tiến Trọng 1.0.1", text, StringComparison.Ordinal);
+        Assert.Contains("Cân Xe Tiến Trọng 1.0.2", text, StringComparison.Ordinal);
         Assert.Contains("%LocalAppData%\\CanXe", text, StringComparison.Ordinal);
     }
 

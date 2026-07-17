@@ -11,6 +11,7 @@
         mc:Ignorable="d"
         x:Name="RootWindow"
         Title="Cân Xe Tiến Trọng"
+        Icon="pack://application:,,,/CanXe.Desktop;component/Assets/canxe-tien-trong.ico"
         MinWidth="1280"
         MinHeight="720"
         WindowState="Maximized"

@@ -90,4 +90,10 @@
     <SolidColorBrush x:Key="EditBannerBackgroundBrush" Color="#FFF3E0"/>
     <SolidColorBrush x:Key="EditBannerBorderBrush" Color="#FFB74D"/>
     <SolidColorBrush x:Key="EditBannerForegroundBrush" Color="#E65100"/>
+
+    <SolidColorBrush x:Key="TabItemBackgroundBrush" Color="#F5F7FA"/>
+    <SolidColorBrush x:Key="TabItemSelectedBackgroundBrush" Color="#E8F1FB"/>
+    <SolidColorBrush x:Key="TabItemHoverBackgroundBrush" Color="#EEF2F6"/>
+    <SolidColorBrush x:Key="ComboBoxDropdownBackgroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="DatePickerBackgroundBrush" Color="#FFFFFF"/>
 </ResourceDictionary>

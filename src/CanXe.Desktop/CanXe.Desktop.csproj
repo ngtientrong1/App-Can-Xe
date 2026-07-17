@@ -17,14 +17,19 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>1.0.1</Version>
-    <InformationalVersion>1.0.1</InformationalVersion>
+    <ApplicationIcon>Assets\canxe-tien-trong.ico</ApplicationIcon>
+    <Version>1.0.2</Version>
+    <InformationalVersion>1.0.2</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>Cân Xe Tiến Trọng</Product>
     <AssemblyTitle>Cân Xe Tiến Trọng</AssemblyTitle>
     <AssemblyProduct>Cân Xe Tiến Trọng</AssemblyProduct>
     <Company>Tien Trong</Company>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\canxe-tien-trong.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Update="appsettings.json">
