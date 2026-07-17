@@ -92,7 +92,7 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
 
         return TicketListSorter.SortNewestFirst(
             results,
-            t => t.TicketDateTime,
+            t => t.CreatedAt != default ? t.CreatedAt : t.TicketDateTime,
             t => t.SequenceNumber,
             t => t.Id)
             .Take(filter.MaxResults > 0 ? filter.MaxResults : 200)
@@ -270,7 +270,7 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
             return null;
 
         var vehicle = await _db.Vehicles
-            .FirstOrDefaultAsync(v => v.NormalizedPlateNumber == normalized, cancellationToken);
+            .FirstOrDefaultAsync(v => v.NormalizedPlateNumber == normalized && v.IsActive && !v.IsDeleted, cancellationToken);
 
         if (vehicle is null)
             return null;
@@ -286,23 +286,38 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
         if (tickets.Count == 0)
             return null;
 
-        var frequent = FrequentCargoTypeResolver.Resolve(
-            tickets.Select(t => new CargoUsageTicketRow(
-                t.CargoTypeId,
-                t.CargoTypeNameSnapshot,
-                t.TicketDateTime)).ToList());
+        var activeCargoTickets = new List<CargoUsageTicketRow>();
+        foreach (var ticket in tickets)
+        {
+            if (await IsActiveCargoReferenceAsync(ticket.CargoTypeId, ticket.CargoTypeNameSnapshot, cancellationToken))
+            {
+                activeCargoTickets.Add(new CargoUsageTicketRow(
+                    ticket.CargoTypeId,
+                    ticket.CargoTypeNameSnapshot,
+                    ticket.TicketDateTime));
+            }
+        }
 
         var recentWithCustomer = tickets.FirstOrDefault(t =>
             t.CustomerId.HasValue || !string.IsNullOrWhiteSpace(t.CustomerNameSnapshot));
 
-        var recentCustomerId = recentWithCustomer?.CustomerId;
-        var recentCustomerName = recentWithCustomer?.CustomerNameSnapshot;
+        int? recentCustomerId = null;
+        string? recentCustomerName = null;
+        if (recentWithCustomer is not null &&
+            await IsActiveCustomerReferenceAsync(
+                recentWithCustomer.CustomerId,
+                recentWithCustomer.CustomerNameSnapshot,
+                cancellationToken))
+        {
+            recentCustomerId = recentWithCustomer.CustomerId;
+            recentCustomerName = recentWithCustomer.CustomerNameSnapshot;
+        }
 
         if (string.IsNullOrWhiteSpace(recentCustomerName) && vehicle.LastCustomerId.HasValue)
         {
             var lastCustomer = await _db.Customers
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Id == vehicle.LastCustomerId.Value, cancellationToken);
+                .FirstOrDefaultAsync(c => c.Id == vehicle.LastCustomerId.Value && c.IsActive && !c.IsDeleted, cancellationToken);
             if (lastCustomer is not null)
             {
                 recentCustomerId = lastCustomer.Id;
@@ -313,19 +328,82 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
         var recentWithCargo = tickets.FirstOrDefault(t =>
             t.CargoTypeId.HasValue || !string.IsNullOrWhiteSpace(t.CargoTypeNameSnapshot));
 
+        int? recentCargoTypeId = null;
+        string? recentCargoTypeName = null;
+        if (recentWithCargo is not null &&
+            await IsActiveCargoReferenceAsync(
+                recentWithCargo.CargoTypeId,
+                recentWithCargo.CargoTypeNameSnapshot,
+                cancellationToken))
+        {
+            recentCargoTypeId = recentWithCargo.CargoTypeId;
+            recentCargoTypeName = recentWithCargo.CargoTypeNameSnapshot;
+        }
+
+        var frequentResult = FrequentCargoTypeResolver.Resolve(activeCargoTickets);
+        int? frequentCargoTypeId = frequentResult?.CargoTypeId;
+        string? frequentCargoTypeName = frequentResult?.CargoTypeName;
+        var frequentUsageCount = frequentResult?.UsageCount ?? 0;
+
+        if (frequentCargoTypeName is not null &&
+            !await IsActiveCargoReferenceAsync(frequentCargoTypeId, frequentCargoTypeName, cancellationToken))
+        {
+            frequentCargoTypeId = null;
+            frequentCargoTypeName = null;
+            frequentUsageCount = 0;
+        }
+
         return new VehicleUsageContext
         {
             VehicleId = vehicle.Id,
             PlateNumber = vehicle.PlateNumber,
             RecentCustomerId = recentCustomerId,
             RecentCustomerName = recentCustomerName,
-            RecentCargoTypeId = recentWithCargo?.CargoTypeId,
-            RecentCargoTypeName = recentWithCargo?.CargoTypeNameSnapshot,
-            FrequentCargoTypeId = frequent?.CargoTypeId,
-            FrequentCargoTypeName = frequent?.CargoTypeName,
-            FrequentCargoUsageCount = frequent?.UsageCount ?? 0,
+            RecentCargoTypeId = recentCargoTypeId,
+            RecentCargoTypeName = recentCargoTypeName,
+            FrequentCargoTypeId = frequentCargoTypeId,
+            FrequentCargoTypeName = frequentCargoTypeName,
+            FrequentCargoUsageCount = frequentUsageCount,
             LastUsedAt = tickets.Max(t => t.TicketDateTime)
         };
+    }
+
+    private async Task<bool> IsActiveCustomerReferenceAsync(
+        int? customerId,
+        string? customerName,
+        CancellationToken cancellationToken)
+    {
+        if (customerId.HasValue)
+        {
+            return await _db.Customers.AsNoTracking()
+                .AnyAsync(c => c.Id == customerId.Value && c.IsActive && !c.IsDeleted, cancellationToken);
+        }
+
+        if (string.IsNullOrWhiteSpace(customerName))
+            return false;
+
+        var normalized = TextNormalizer.Normalize(customerName);
+        return await _db.Customers.AsNoTracking()
+            .AnyAsync(c => c.NormalizedName == normalized && c.IsActive && !c.IsDeleted, cancellationToken);
+    }
+
+    private async Task<bool> IsActiveCargoReferenceAsync(
+        int? cargoTypeId,
+        string? cargoTypeName,
+        CancellationToken cancellationToken)
+    {
+        if (cargoTypeId.HasValue)
+        {
+            return await _db.CargoTypes.AsNoTracking()
+                .AnyAsync(c => c.Id == cargoTypeId.Value && c.IsActive && !c.IsDeleted, cancellationToken);
+        }
+
+        if (string.IsNullOrWhiteSpace(cargoTypeName))
+            return false;
+
+        var normalized = TextNormalizer.Normalize(cargoTypeName);
+        return await _db.CargoTypes.AsNoTracking()
+            .AnyAsync(c => c.NormalizedName == normalized && c.IsActive && !c.IsDeleted, cancellationToken);
     }
 
     public async Task UpdateTicketEditAsync(

@@ -618,6 +618,7 @@
         <Setter Property="FontSize" Value="16"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Padding" Value="10,10"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="Background" Value="{DynamicResource DataGridHeaderBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>

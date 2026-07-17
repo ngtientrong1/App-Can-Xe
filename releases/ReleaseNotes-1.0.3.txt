@@ -1,0 +1,11 @@
+Cân Xe Tiến Trọng 1.0.3
+
+Hotfix:
+- Khóa thứ tự danh sách phiếu cân khi cập nhật cân lần 2 (không nhảy lên đầu)
+- Tối ưu độ rộng/căn cột danh sách phiếu cân
+- Gợi ý/auto-fill chỉ dùng danh mục còn active (bỏ qua loại hàng/khách/xe đã xóa)
+
+Lưu ý:
+- Dữ liệu vẫn lưu tại %LocalAppData%\CanXe
+- Cài đặt/cập nhật không xóa dữ liệu cũ
+- Phiếu lịch sử vẫn giữ snapshot text cũ

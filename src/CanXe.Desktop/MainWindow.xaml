@@ -46,6 +46,13 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
         </Style>
+        <Style x:Key="CenterAlignedCell" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+        </Style>
         <Style x:Key="GridCellText" TargetType="TextBlock">
             <Setter Property="FontSize" Value="16"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -741,30 +748,33 @@
                   TabIndex="-1"
                   MouseDoubleClick="TicketsGrid_OnMouseDoubleClick">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Ngày giờ" Binding="{Binding TicketDateTime, StringFormat=dd/MM/yyyy HH:mm}" Width="130" DisplayIndex="0"/>
-                <DataGridTextColumn Header="Số phiếu" Binding="{Binding DisplayNumber}" Width="72" DisplayIndex="1"/>
-                <DataGridTextColumn Header="Biển số" Binding="{Binding LicensePlate, TargetNullValue=—}" Width="95" DisplayIndex="2"
-                                    ElementStyle="{StaticResource GridCellText}"/>
-                <DataGridTextColumn Header="Khách hàng" Binding="{Binding CustomerName, TargetNullValue=—}" Width="*" DisplayIndex="3"
+                <DataGridTextColumn Header="Ngày giờ" Binding="{Binding TicketDateTime, StringFormat=dd/MM/yyyy HH:mm}" Width="132" DisplayIndex="0"
+                                    ElementStyle="{StaticResource CenterAlignedCell}"/>
+                <DataGridTextColumn Header="Số phiếu" Binding="{Binding DisplayNumber}" Width="76" DisplayIndex="1"
+                                    ElementStyle="{StaticResource CenterAlignedCell}"/>
+                <DataGridTextColumn Header="Biển số" Binding="{Binding LicensePlate, TargetNullValue=—}" Width="108" DisplayIndex="2"
+                                    ElementStyle="{StaticResource CenterAlignedCell}"/>
+                <DataGridTextColumn Header="Khách hàng" Binding="{Binding CustomerName, TargetNullValue=—}" Width="2*" DisplayIndex="3"
                                     MinWidth="160" ElementStyle="{StaticResource GridCellText}"/>
-                <DataGridTextColumn Header="Loại hàng" Binding="{Binding CargoTypeName, TargetNullValue=—}" Width="*" DisplayIndex="4"
-                                    MinWidth="130" ElementStyle="{StaticResource GridCellText}"/>
-                <DataGridTextColumn Header="Tổng" Binding="{Binding GrossWeightKg, StringFormat=N0, TargetNullValue=—}" Width="72" DisplayIndex="5"
-                                    ElementStyle="{StaticResource RightAlignedCell}"/>
-                <DataGridTextColumn Header="Bì" Binding="{Binding TareWeightKg, StringFormat=N0, TargetNullValue=—}" Width="68" DisplayIndex="6"
-                                    ElementStyle="{StaticResource RightAlignedCell}"/>
-                <DataGridTextColumn Header="Hàng" Binding="{Binding NetWeightKg, StringFormat=N0, TargetNullValue=—}" Width="72" DisplayIndex="7"
-                                    ElementStyle="{StaticResource RightAlignedCell}"/>
-                <DataGridTextColumn Header="KL tính tiền" Binding="{Binding BillableWeightKg, StringFormat=N0, TargetNullValue=—}" Width="95" DisplayIndex="8"
-                                    ElementStyle="{StaticResource RightAlignedCell}"/>
-                <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPriceVndPerKg, StringFormat=N0, TargetNullValue=—}" Width="85" DisplayIndex="9"
-                                    ElementStyle="{StaticResource RightAlignedCell}"/>
-                <DataGridTextColumn Header="Thành tiền" Binding="{Binding TotalAmountVnd, StringFormat=N0, TargetNullValue=—}" Width="100" DisplayIndex="10"
-                                    ElementStyle="{StaticResource RightAlignedCell}"/>
-                <DataGridTextColumn Header="Ghi chú" Binding="{Binding Notes, TargetNullValue=—}" Width="*" MinWidth="120" DisplayIndex="11"
+                <DataGridTextColumn Header="Loại hàng" Binding="{Binding CargoTypeName, TargetNullValue=—}" Width="140" DisplayIndex="4"
+                                    MinWidth="120" ElementStyle="{StaticResource GridCellText}"/>
+                <DataGridTextColumn Header="Tổng" Binding="{Binding GrossWeightKg, StringFormat=N0, TargetNullValue=—}" Width="84" DisplayIndex="5"
+                                    ElementStyle="{StaticResource CenterAlignedCell}"/>
+                <DataGridTextColumn Header="Bì" Binding="{Binding TareWeightKg, StringFormat=N0, TargetNullValue=—}" Width="72" DisplayIndex="6"
+                                    ElementStyle="{StaticResource CenterAlignedCell}"/>
+                <DataGridTextColumn Header="Hàng" Binding="{Binding NetWeightKg, StringFormat=N0, TargetNullValue=—}" Width="84" DisplayIndex="7"
+                                    ElementStyle="{StaticResource CenterAlignedCell}"/>
+                <DataGridTextColumn Header="KL tính tiền" Binding="{Binding BillableWeightKg, StringFormat=N0, TargetNullValue=—}" Width="96" DisplayIndex="8"
+                                    ElementStyle="{StaticResource CenterAlignedCell}"/>
+                <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPriceVndPerKg, StringFormat=N0, TargetNullValue=—}" Width="96" DisplayIndex="9"
+                                    ElementStyle="{StaticResource CenterAlignedCell}"/>
+                <DataGridTextColumn Header="Thành tiền" Binding="{Binding TotalAmountVnd, StringFormat=N0, TargetNullValue=—}" Width="108" DisplayIndex="10"
+                                    ElementStyle="{StaticResource CenterAlignedCell}"/>
+                <DataGridTextColumn Header="Ghi chú" Binding="{Binding Notes, TargetNullValue=—}" Width="*" MinWidth="150" DisplayIndex="11"
                                     ElementStyle="{StaticResource GridCellText}"/>
-                <DataGridTextColumn Header="Trạng thái" Binding="{Binding WorkflowStatusText}" Width="Auto" MinWidth="108" MaxWidth="140" DisplayIndex="12"/>
-                <DataGridTemplateColumn Header="" Width="44" DisplayIndex="13"
+                <DataGridTextColumn Header="Trạng thái" Binding="{Binding WorkflowStatusText}" Width="132" DisplayIndex="12"
+                                    ElementStyle="{StaticResource CenterAlignedCell}"/>
+                <DataGridTemplateColumn Header="" Width="48" DisplayIndex="13"
                                         Visibility="{Binding DataContext.IsDeveloperDeleteVisible, RelativeSource={RelativeSource AncestorType=Window}}">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

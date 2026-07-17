@@ -749,11 +749,11 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             {
                 try
                 {
-                    var existing = Tickets.FirstOrDefault(t => t.Id == savedId);
-                    if (existing is not null)
-                        Tickets.Remove(existing);
-                    Tickets.Insert(0, result.SavedTicket);
-                    WeighWorkflowLogger.Write("SAVE_COLLECTION_INSERTED", $"TicketId={savedId}");
+                    UpsertSavedTicketInList(
+                        result.SavedTicket,
+                        TicketListCollectionPolicy.TreatSavedTicketAsNewListEntry(wasContinuationSave));
+                    WeighWorkflowLogger.Write("SAVE_COLLECTION_UPSERTED",
+                        $"TicketId={savedId} NewEntry={!wasContinuationSave}");
                     await RefreshSummaryOnlyAsync();
                 }
                 catch (Exception ex)
@@ -846,6 +846,42 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         FooterTotalBillable = $"{result.TotalBillableWeightKg:N0} kg";
         FooterTotalAmount = $"{result.TotalAmountVnd:N0} VNĐ";
         FooterMissingPriceCount = result.MissingPriceCount.ToString(CultureInfo.CurrentCulture);
+    }
+
+    private void UpsertSavedTicketInList(WeighTicketListItem savedTicket, bool treatAsNewListEntry)
+    {
+        var index = -1;
+        for (var i = 0; i < Tickets.Count; i++)
+        {
+            if (Tickets[i].Id == savedTicket.Id)
+            {
+                index = i;
+                break;
+            }
+        }
+
+        if (treatAsNewListEntry)
+        {
+            if (index >= 0)
+                Tickets.RemoveAt(index);
+            Tickets.Insert(0, savedTicket);
+            return;
+        }
+
+        if (index >= 0)
+            Tickets[index] = savedTicket;
+        else
+            InsertTicketAtSortedPosition(savedTicket);
+    }
+
+    private void InsertTicketAtSortedPosition(WeighTicketListItem savedTicket)
+    {
+        var insertIndex = TicketListCollectionPolicy.FindInsertIndex(
+            Tickets,
+            savedTicket,
+            item => item.TicketDateTime,
+            item => item.Id);
+        Tickets.Insert(insertIndex, savedTicket);
     }
 
     [RelayCommand]
@@ -1636,12 +1672,16 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private async Task RefreshListAsync()
     {
+        var selectedId = SelectedTicket?.Id;
         var filter = BuildCurrentFilter();
         var result = await _weighTicketService.GetFilteredWithSummaryAsync(filter);
 
         Tickets.Clear();
         foreach (var item in result.Items)
             Tickets.Add(item);
+
+        if (selectedId.HasValue)
+            SelectedTicket = Tickets.FirstOrDefault(t => t.Id == selectedId.Value);
 
         ActiveFilterChips.Clear();
         foreach (var chip in ActiveFilterChipBuilder.Build(filter, _activeQuickRangeLabel))
