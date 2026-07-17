@@ -9,6 +9,7 @@ using CanXe.Desktop.Services;
 using CanXe.Desktop.Tests.Support;
 using CanXe.Desktop.ViewModels;
 using CanXe.Infrastructure;
+using CanXe.Infrastructure.Logging;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CanXe.Desktop.Tests;
@@ -79,9 +80,7 @@ public sealed class Phase4Rc20MainWindowPrintTests
             "dataContext=MainViewModel command=AsyncRelayCommand canExecute=True " +
             "activeTicketId=7 selectedTicketId=null formMode=Viewing isDirty=False isPrinting=False");
 
-        var logPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CanXe", "Logs", "print-command.log");
+        var logPath = CanXeLogPaths.GetLogFile("print-command.log");
         var text = File.ReadAllText(logPath);
         Assert.Contains("MAIN_PRINT_BUTTON_CLICK_RECEIVED", text);
         Assert.Contains("button=MainPrintButton", text);

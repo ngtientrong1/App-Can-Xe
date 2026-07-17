@@ -89,6 +89,8 @@ public sealed class WeighTicketService
             draft.DraftWeight1PhotoStatus = w1.PhotoCaptureSucceeded ? DraftPhotoStatus.Valid : DraftPhotoStatus.Failed;
             draft.IsWeight1LockedFromSavedTicket = true;
             draft.SavedWeight1EventId = w1.Id;
+            draft.DraftWeight1InputSource = w1.InputSource;
+            draft.DraftWeight1ManualReason = w1.ManualReason;
         }
 
         var w2 = ticket.Events.FirstOrDefault(e => e.Sequence == 2);
@@ -100,6 +102,8 @@ public sealed class WeighTicketService
             draft.DraftWeight2PhotoStatus = w2.PhotoCaptureSucceeded ? DraftPhotoStatus.Valid : DraftPhotoStatus.Failed;
             draft.IsWeight2LockedFromSavedTicket = true;
             draft.SavedWeight2EventId = w2.Id;
+            draft.DraftWeight2InputSource = w2.InputSource;
+            draft.DraftWeight2ManualReason = w2.ManualReason;
         }
 
         return draft;
@@ -156,6 +160,106 @@ public sealed class WeighTicketService
         {
             return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = ex.Message });
         }
+    }
+
+    public Task<CaptureWeightResult> CaptureManualWeightAsync(
+        WeighTicketDraft draft,
+        int sequence,
+        decimal weightKg,
+        string? reason,
+        StationUserRole createdByRole,
+        CancellationToken cancellationToken = default)
+    {
+        if (sequence is not (1 or 2))
+            return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Lần cân không hợp lệ." });
+
+        if (weightKg < 0)
+            return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Trọng lượng phải >= 0." });
+
+        // ManualReason is optional (Phase 6 rc2).
+
+        if (sequence == 1 && !DraftWorkflowRules.CanUpdateWeight1(
+                draft.IsWeight1LockedFromSavedTicket,
+                draft.DraftWeight2.HasValue,
+                draft.DeveloperWeight1OverrideEnabled))
+            return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Cân lần 1 đã khóa sau khi có cân lần 2." });
+
+        if (sequence == 1 && draft.IsWeight1LockedFromSavedTicket)
+            return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Không thể sửa cân lần 1 đã lưu." });
+
+        if (sequence == 2 && draft.IsWeight2LockedFromSavedTicket)
+            return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Không thể sửa cân lần 2 đã lưu." });
+
+        return ApplyAdminInlineWeightCore(draft, sequence, weightKg, createdByRole, reason, bypassSavedLock: false);
+    }
+
+    /// <summary>
+    /// Admin inline weight edit on draft/cards. When <paramref name="bypassSavedLock"/> is true,
+    /// locked saved events may be overwritten in-memory for a subsequent UpdateTicket save.
+    /// </summary>
+    public Task<CaptureWeightResult> ApplyAdminInlineWeightAsync(
+        WeighTicketDraft draft,
+        int sequence,
+        decimal weightKg,
+        StationUserRole createdByRole,
+        bool bypassSavedLock = false,
+        CancellationToken cancellationToken = default)
+    {
+        _ = cancellationToken;
+        if (sequence is not (1 or 2))
+            return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Lần cân không hợp lệ." });
+
+        if (weightKg < 0)
+            return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Trọng lượng phải >= 0." });
+
+        if (!bypassSavedLock)
+        {
+            if (sequence == 1 && !DraftWorkflowRules.CanUpdateWeight1(
+                    draft.IsWeight1LockedFromSavedTicket,
+                    draft.DraftWeight2.HasValue,
+                    draft.DeveloperWeight1OverrideEnabled))
+                return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Cân lần 1 đã khóa sau khi có cân lần 2." });
+
+            if (sequence == 1 && draft.IsWeight1LockedFromSavedTicket)
+                return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Không thể sửa cân lần 1 đã lưu." });
+
+            if (sequence == 2 && draft.IsWeight2LockedFromSavedTicket)
+                return Task.FromResult(new CaptureWeightResult { Success = false, ErrorMessage = "Không thể sửa cân lần 2 đã lưu." });
+        }
+
+        return ApplyAdminInlineWeightCore(draft, sequence, weightKg, createdByRole, reason: null, bypassSavedLock);
+    }
+
+    private static Task<CaptureWeightResult> ApplyAdminInlineWeightCore(
+        WeighTicketDraft draft,
+        int sequence,
+        decimal weightKg,
+        StationUserRole createdByRole,
+        string? reason,
+        bool bypassSavedLock)
+    {
+        var isUpdate = sequence == 1 ? draft.DraftWeight1.HasValue : draft.DraftWeight2.HasValue;
+        var existingAt = sequence == 1 ? draft.DraftWeight1RecordedAt : draft.DraftWeight2RecordedAt;
+        var recordedAt = existingAt ?? DateTimeOffset.Now;
+        var rounded = Math.Round(weightKg, 0, MidpointRounding.AwayFromZero);
+        var trimmedReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        draft.SetWeightDraft(
+            sequence,
+            rounded,
+            recordedAt,
+            WeighInputSource.Manual,
+            trimmedReason);
+        draft.DraftCreatedByRole = createdByRole;
+        if (bypassSavedLock)
+            draft.DeveloperWeightUnlockEnabled = true;
+
+        return Task.FromResult(new CaptureWeightResult
+        {
+            Success = true,
+            Sequence = sequence,
+            WeightKg = rounded,
+            IsUpdate = isUpdate
+        });
     }
 
     private decimal ReadCurrentWeightKg()
@@ -362,7 +466,10 @@ public sealed class WeighTicketService
                     RecordedAt = draft.DraftWeight1RecordedAt!.Value,
                     PhotoPath = draft.IsWeight1LockedFromSavedTicket ? draft.DraftWeight1PhotoPath : null,
                     PhotoCaptureSucceeded = false,
-                    PhotoErrorMessage = null
+                    PhotoErrorMessage = null,
+                    InputSource = draft.DraftWeight1InputSource,
+                    ManualReason = draft.DraftWeight1ManualReason,
+                    CreatedByRole = draft.DraftCreatedByRole
                 }, cancellationToken);
             }
 
@@ -377,7 +484,10 @@ public sealed class WeighTicketService
                     RecordedAt = draft.DraftWeight2RecordedAt!.Value,
                     PhotoPath = draft.IsWeight2LockedFromSavedTicket ? draft.DraftWeight2PhotoPath : null,
                     PhotoCaptureSucceeded = false,
-                    PhotoErrorMessage = null
+                    PhotoErrorMessage = null,
+                    InputSource = draft.DraftWeight2InputSource,
+                    ManualReason = draft.DraftWeight2ManualReason,
+                    CreatedByRole = draft.DraftCreatedByRole
                 }, cancellationToken);
             }
 
@@ -422,7 +532,10 @@ public sealed class WeighTicketService
                 ? (sequence == 1 ? draft.DraftWeight1PhotoPath : draft.DraftWeight2PhotoPath)
                 : null,
             PhotoCaptureSucceeded = false,
-            PhotoErrorMessage = null
+            PhotoErrorMessage = null,
+            InputSource = sequence == 1 ? draft.DraftWeight1InputSource : draft.DraftWeight2InputSource,
+            ManualReason = sequence == 1 ? draft.DraftWeight1ManualReason : draft.DraftWeight2ManualReason,
+            CreatedByRole = draft.DraftCreatedByRole
         };
     }
 

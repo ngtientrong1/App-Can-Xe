@@ -28,7 +28,24 @@ public static class StartupErrorLogger
         }
 
         builder.AppendLine(new string('-', 60));
-        File.AppendAllText(LogFilePath, builder.ToString(), Encoding.UTF8);
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                using var stream = new FileStream(
+                    LogFilePath,
+                    FileMode.Append,
+                    FileAccess.Write,
+                    FileShare.ReadWrite | FileShare.Delete);
+                using var writer = new StreamWriter(stream, Encoding.UTF8);
+                writer.Write(builder.ToString());
+                return;
+            }
+            catch (IOException) when (attempt < 2)
+            {
+                Thread.Sleep(50 + attempt * 50);
+            }
+        }
     }
 
     public static void EnsureLogDirectoryExists() => Directory.CreateDirectory(LogDirectory);

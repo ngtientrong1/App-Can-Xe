@@ -3,13 +3,13 @@ using System.Printing;
 using System.Windows;
 using CanXe.Application.Models;
 using CanXe.Domain.Services;
+using CanXe.Infrastructure.Logging;
 
 namespace CanXe.Desktop.Services;
 
 public sealed class WeighTicketPrintRenderingLogger
 {
-    private static string LogPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CanXe", "Logs", "print-rendering.log");
+    private static string LogPath => CanXeLogPaths.GetLogFile("print-rendering.log");
 
     public void LogJobStarted(WeighTicketPrintModel model, string printerName, string? driverName, PrintRenderingMode mode)
     {
@@ -132,8 +132,8 @@ public sealed class WeighTicketPrintRenderingLogger
         {
             var dir = Path.GetDirectoryName(LogPath)!;
             Directory.CreateDirectory(dir);
-            File.AppendAllLines(LogPath, lines);
-            File.AppendAllText(LogPath, Environment.NewLine);
+            SafeLogFileAppend.AppendLines(LogPath, lines);
+            SafeLogFileAppend.Append(LogPath, Environment.NewLine);
         }
         catch
         {

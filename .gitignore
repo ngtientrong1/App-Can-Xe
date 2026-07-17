@@ -27,6 +27,8 @@ TestResults/
 
 ## Release packages (local acceptance)
 *.zip
+releases/*.exe
+releases/*.zip
 
 ## Accidental shell artifacts
 /A
@@ -36,3 +38,6 @@ TestResults/
 ## OS
 Thumbs.db
 .DS_Store
+
+## Installer build cache
+installer/Output/

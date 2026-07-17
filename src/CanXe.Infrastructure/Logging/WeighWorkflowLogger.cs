@@ -4,14 +4,7 @@ namespace CanXe.Infrastructure.Logging;
 
 public static class WeighWorkflowLogger
 {
-    private static readonly object Gate = new();
-
-    public static string LogFilePath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CanXe",
-            "Logs",
-            "weigh-workflow.log");
+    public static string LogFilePath => CanXeLogPaths.GetLogFile("weigh-workflow.log");
 
     public static void Write(string milestone, string? detail = null)
     {
@@ -28,12 +21,7 @@ public static class WeighWorkflowLogger
 
             line.AppendLine();
 
-            lock (Gate)
-            {
-                var dir = Path.GetDirectoryName(LogFilePath)!;
-                Directory.CreateDirectory(dir);
-                File.AppendAllText(LogFilePath, line.ToString(), Encoding.UTF8);
-            }
+            SafeLogFileAppend.Append(LogFilePath, line.ToString());
         }
         catch
         {

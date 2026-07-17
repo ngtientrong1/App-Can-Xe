@@ -1,242 +1,167 @@
 <UserControl x:Class="CanXe.Desktop.Views.Catalogs.CatalogView"
-
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-
              xmlns:models="clr-namespace:CanXe.Application.Models;assembly=CanXe.Application"
-
+             xmlns:conv="clr-namespace:CanXe.Desktop.Converters"
              xmlns:local="clr-namespace:CanXe.Desktop.Views.Catalogs"
-
              VerticalAlignment="Stretch"
-
-             HorizontalAlignment="Stretch">
+             HorizontalAlignment="Stretch"
+             Foreground="{DynamicResource PrimaryTextBrush}">
 
     <UserControl.Resources>
-
-        <local:CatalogTabColumnVisibilityConverter x:Key="CatalogTabColumnVisibilityConverter"/>
-
+        <local:CatalogTabGridVisibilityConverter x:Key="CatalogTabGridVisibilityConverter"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
     </UserControl.Resources>
 
     <Grid Margin="8">
-
         <Grid.RowDefinitions>
-
             <RowDefinition Height="Auto"/>
-
             <RowDefinition Height="Auto"/>
-
             <RowDefinition Height="*"/>
-
         </Grid.RowDefinitions>
 
-
-
-        <TextBlock Grid.Row="0" Text="DANH MỤC" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
-
-
+        <TextBlock Grid.Row="0" Text="DANH MỤC" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"
+                   Foreground="{DynamicResource PrimaryTextBrush}"/>
 
         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Margin="0,0,0,8">
-
             <StackPanel>
-
                 <TabControl SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}" Margin="0,0,0,8">
-
                     <TabItem Header="Khách hàng"/>
-
                     <TabItem Header="Biển số xe"/>
-
                     <TabItem Header="Loại hàng"/>
-
                 </TabControl>
 
                 <Grid>
-
                     <Grid.ColumnDefinitions>
-
                         <ColumnDefinition Width="*"/>
-
                         <ColumnDefinition Width="Auto"/>
-
                         <ColumnDefinition Width="Auto"/>
-
                         <ColumnDefinition Width="Auto"/>
-
                     </Grid.ColumnDefinitions>
 
                     <TextBox Grid.Column="0" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-
                              Style="{StaticResource CanXeTextBoxStyle}" Margin="0,0,8,0"/>
 
                     <Button Grid.Column="1" Content="TÌM" Command="{Binding SearchCommand}" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
 
-                    <Button Grid.Column="2" Content="THÊM" Command="{Binding AddCommand}" Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,0,8,0"/>
+                    <Button Grid.Column="2" Content="THÊM" Command="{Binding AddCommand}"
+                            IsEnabled="{Binding IsCatalogEditEnabled}"
+                            Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,0,8,0"/>
 
                     <Button Grid.Column="3" Content="TẢI LẠI" Command="{Binding RefreshCommand}" Style="{StaticResource FilterButton}"/>
-
                 </Grid>
 
+                <TextBlock Text="{Binding CatalogAdminHint}"
+                           FontSize="12"
+                           Foreground="{DynamicResource MutedTextBrush}"
+                           Margin="0,6,0,0"
+                           Visibility="{Binding IsCatalogEditEnabled, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
             </StackPanel>
-
         </Border>
 
-
-
-        <DataGrid Grid.Row="2"
-
-                  ItemsSource="{Binding Rows}"
-
-                  SelectedItem="{Binding SelectedRow}"
-
-                  AutoGenerateColumns="False"
-
-                  IsReadOnly="True"
-
-                  Style="{StaticResource CanXeDataGridStyle}"
-
-                  VerticalAlignment="Stretch"
-
-                  ScrollViewer.VerticalScrollBarVisibility="Auto"
-
-                  EnableRowVirtualization="True"
-
-                  VirtualizingPanel.IsVirtualizing="True"
-
-                  VirtualizingPanel.VirtualizationMode="Recycling">
-
-            <DataGrid.Columns>
-
-                <DataGridTextColumn Header="Tên khách hàng" Binding="{Binding PrimaryName}" Width="*">
-
-                    <DataGridTextColumn.Visibility>
-
-                        <Binding Path="DataContext.SelectedTab" RelativeSource="{RelativeSource AncestorType=DataGrid}"
-
-                                 Converter="{StaticResource CatalogTabColumnVisibilityConverter}" ConverterParameter="CustomerName"/>
-
-                    </DataGridTextColumn.Visibility>
-
-                </DataGridTextColumn>
-
-                <DataGridTextColumn Header="Biển số" Binding="{Binding PrimaryName}" Width="120">
-
-                    <DataGridTextColumn.Visibility>
-
-                        <Binding Path="DataContext.SelectedTab" RelativeSource="{RelativeSource AncestorType=DataGrid}"
-
-                                 Converter="{StaticResource CatalogTabColumnVisibilityConverter}" ConverterParameter="VehiclePlate"/>
-
-                    </DataGridTextColumn.Visibility>
-
-                </DataGridTextColumn>
-
-                <DataGridTextColumn Header="Loại hàng" Binding="{Binding PrimaryName}" Width="*">
-
-                    <DataGridTextColumn.Visibility>
-
-                        <Binding Path="DataContext.SelectedTab" RelativeSource="{RelativeSource AncestorType=DataGrid}"
-
-                                 Converter="{StaticResource CatalogTabColumnVisibilityConverter}" ConverterParameter="CargoName"/>
-
-                    </DataGridTextColumn.Visibility>
-
-                </DataGridTextColumn>
-
-                <DataGridTextColumn Header="SĐT" Binding="{Binding Phone, TargetNullValue=—}" Width="120">
-
-                    <DataGridTextColumn.Visibility>
-
-                        <Binding Path="DataContext.SelectedTab" RelativeSource="{RelativeSource AncestorType=DataGrid}"
-
-                                 Converter="{StaticResource CatalogTabColumnVisibilityConverter}" ConverterParameter="CustomerPhone"/>
-
-                    </DataGridTextColumn.Visibility>
-
-                </DataGridTextColumn>
-
-                <DataGridTextColumn Header="Chủ xe / khách hàng" Binding="{Binding SecondaryName, TargetNullValue=—}" Width="160">
-
-                    <DataGridTextColumn.Visibility>
-
-                        <Binding Path="DataContext.SelectedTab" RelativeSource="{RelativeSource AncestorType=DataGrid}"
-
-                                 Converter="{StaticResource CatalogTabColumnVisibilityConverter}" ConverterParameter="VehicleOwner"/>
-
-                    </DataGridTextColumn.Visibility>
-
-                </DataGridTextColumn>
-
-                <DataGridTextColumn Header="Địa chỉ" Binding="{Binding Address, TargetNullValue=—}" Width="*">
-
-                    <DataGridTextColumn.Visibility>
-
-                        <Binding Path="DataContext.SelectedTab" RelativeSource="{RelativeSource AncestorType=DataGrid}"
-
-                                 Converter="{StaticResource CatalogTabColumnVisibilityConverter}" ConverterParameter="CustomerAddress"/>
-
-                    </DataGridTextColumn.Visibility>
-
-                </DataGridTextColumn>
-
-                <DataGridTextColumn Header="Đơn giá mặc định" Binding="{Binding DefaultUnitPrice, StringFormat=N0, TargetNullValue=—}" Width="120">
-
-                    <DataGridTextColumn.Visibility>
-
-                        <Binding Path="DataContext.SelectedTab" RelativeSource="{RelativeSource AncestorType=DataGrid}"
-
-                                 Converter="{StaticResource CatalogTabColumnVisibilityConverter}" ConverterParameter="CargoPrice"/>
-
-                    </DataGridTextColumn.Visibility>
-
-                </DataGridTextColumn>
-
-                <DataGridTextColumn Header="Đơn vị" Binding="{Binding Unit, TargetNullValue=—}" Width="80">
-
-                    <DataGridTextColumn.Visibility>
-
-                        <Binding Path="DataContext.SelectedTab" RelativeSource="{RelativeSource AncestorType=DataGrid}"
-
-                                 Converter="{StaticResource CatalogTabColumnVisibilityConverter}" ConverterParameter="CargoUnit"/>
-
-                    </DataGridTextColumn.Visibility>
-
-                </DataGridTextColumn>
-
-                <DataGridTextColumn Header="Ghi chú" Binding="{Binding Note, TargetNullValue=—}" Width="*"/>
-
-                <DataGridTextColumn Header="Số phiếu" Binding="{Binding TicketUsageCount}" Width="90"/>
-
-                <DataGridTextColumn Header="Dùng gần nhất" Binding="{Binding LastUsedAt, StringFormat=dd/MM/yyyy HH:mm, TargetNullValue=—}" Width="140"/>
-
-                <DataGridTemplateColumn Header="Hành động" Width="80">
-
-                    <DataGridTemplateColumn.CellTemplate>
-
-                        <DataTemplate>
-
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-
-                                <Button Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-
-                                        CommandParameter="{Binding}" Style="{StaticResource CanXeCatalogEditButtonStyle}"/>
-
-                                <Button Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-
-                                        CommandParameter="{Binding}" Style="{StaticResource CanXeCatalogDeleteButtonStyle}"/>
-
-                            </StackPanel>
-
-                        </DataTemplate>
-
-                    </DataGridTemplateColumn.CellTemplate>
-
-                </DataGridTemplateColumn>
-
-            </DataGrid.Columns>
-
-        </DataGrid>
-
+        <Grid Grid.Row="2">
+            <DataGrid x:Name="CustomerCatalogGrid"
+                      ItemsSource="{Binding Rows}"
+                      SelectedItem="{Binding SelectedRow}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      Style="{StaticResource CanXeDataGridStyle}"
+                      VerticalAlignment="Stretch"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      EnableRowVirtualization="True"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      Visibility="{Binding SelectedTab, Converter={StaticResource CatalogTabGridVisibilityConverter}, ConverterParameter=Customer}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Tên khách hàng" Binding="{Binding PrimaryName}" Width="*"/>
+                    <DataGridTextColumn Header="SĐT" Binding="{Binding Phone, TargetNullValue=—}" Width="120"/>
+                    <DataGridTextColumn Header="Ghi chú" Binding="{Binding Note, TargetNullValue=—}" Width="*"/>
+                    <DataGridTextColumn Header="Số phiếu" Binding="{Binding TicketUsageCount}" Width="90"/>
+                    <DataGridTextColumn Header="Dùng gần nhất" Binding="{Binding LastUsedAt, StringFormat=dd/MM/yyyy HH:mm, TargetNullValue=—}" Width="140"/>
+                    <DataGridTemplateColumn Header="Hành động" Width="88"
+                                            Visibility="{Binding DataContext.IsCatalogEditEnabled, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" Style="{StaticResource CanXeCatalogEditButtonStyle}"/>
+                                    <Button Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" Style="{StaticResource CanXeCatalogDeleteButtonStyle}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <DataGrid x:Name="VehicleCatalogGrid"
+                      ItemsSource="{Binding Rows}"
+                      SelectedItem="{Binding SelectedRow}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      Style="{StaticResource CanXeDataGridStyle}"
+                      VerticalAlignment="Stretch"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      EnableRowVirtualization="True"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      Visibility="{Binding SelectedTab, Converter={StaticResource CatalogTabGridVisibilityConverter}, ConverterParameter=Vehicle}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Biển số" Binding="{Binding PrimaryName}" Width="120"/>
+                    <DataGridTextColumn Header="Chủ xe / khách hàng" Binding="{Binding SecondaryName, TargetNullValue=—}" Width="160"/>
+                    <DataGridTextColumn Header="Ghi chú" Binding="{Binding Note, TargetNullValue=—}" Width="*"/>
+                    <DataGridTextColumn Header="Số phiếu" Binding="{Binding TicketUsageCount}" Width="90"/>
+                    <DataGridTextColumn Header="Dùng gần nhất" Binding="{Binding LastUsedAt, StringFormat=dd/MM/yyyy HH:mm, TargetNullValue=—}" Width="140"/>
+                    <DataGridTemplateColumn Header="Hành động" Width="88"
+                                            Visibility="{Binding DataContext.IsCatalogEditEnabled, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" Style="{StaticResource CanXeCatalogEditButtonStyle}"/>
+                                    <Button Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" Style="{StaticResource CanXeCatalogDeleteButtonStyle}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <DataGrid x:Name="CargoCatalogGrid"
+                      ItemsSource="{Binding Rows}"
+                      SelectedItem="{Binding SelectedRow}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      Style="{StaticResource CanXeDataGridStyle}"
+                      VerticalAlignment="Stretch"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      EnableRowVirtualization="True"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      Visibility="{Binding SelectedTab, Converter={StaticResource CatalogTabGridVisibilityConverter}, ConverterParameter=CargoType}">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Loại hàng" Binding="{Binding PrimaryName}" Width="*"/>
+                    <DataGridTextColumn Header="Đơn giá mặc định" Binding="{Binding DefaultUnitPrice, StringFormat=N0, TargetNullValue=—}" Width="120"/>
+                    <DataGridTextColumn Header="Đơn vị" Binding="{Binding Unit, TargetNullValue=—}" Width="80"/>
+                    <DataGridTextColumn Header="Ghi chú" Binding="{Binding Note, TargetNullValue=—}" Width="*"/>
+                    <DataGridTextColumn Header="Số phiếu" Binding="{Binding TicketUsageCount}" Width="90"/>
+                    <DataGridTextColumn Header="Dùng gần nhất" Binding="{Binding LastUsedAt, StringFormat=dd/MM/yyyy HH:mm, TargetNullValue=—}" Width="140"/>
+                    <DataGridTemplateColumn Header="Hành động" Width="88"
+                                            Visibility="{Binding DataContext.IsCatalogEditEnabled, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Command="{Binding DataContext.EditCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" Style="{StaticResource CanXeCatalogEditButtonStyle}"/>
+                                    <Button Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" Style="{StaticResource CanXeCatalogDeleteButtonStyle}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
     </Grid>
-
 </UserControl>
-

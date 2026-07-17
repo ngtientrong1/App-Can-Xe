@@ -4,7 +4,8 @@
              xmlns:models="clr-namespace:CanXe.Application.Models;assembly=CanXe.Application"
              xmlns:conv="clr-namespace:CanXe.Desktop.Converters"
              VerticalAlignment="Stretch"
-             HorizontalAlignment="Stretch">
+             HorizontalAlignment="Stretch"
+             Foreground="{DynamicResource PrimaryTextBrush}">
     <UserControl.Resources>
         <conv:VietnameseNumberConverter x:Key="VnNumberConverter"/>
     </UserControl.Resources>
@@ -16,7 +17,8 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="BÁO CÁO PHIẾU CÂN" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
+        <TextBlock Grid.Row="0" Text="BÁO CÁO PHIẾU CÂN" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"
+                   Foreground="{DynamicResource PrimaryTextBrush}"/>
 
         <Border Grid.Row="1" Style="{StaticResource CardBorder}" Margin="0,0,0,8">
             <StackPanel>
@@ -26,15 +28,15 @@
                         <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                        <TextBlock Text="Từ ngày" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                        <TextBlock Text="Từ ngày" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
                         <DatePicker SelectedDate="{Binding FromDate}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                        <TextBlock Text="Đến ngày" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                        <TextBlock Text="Đến ngày" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
                         <DatePicker SelectedDate="{Binding ToDate}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2">
-                        <TextBlock Text="Trạng thái" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                        <TextBlock Text="Trạng thái" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
                         <ComboBox SelectedValue="{Binding WorkflowFilter}" SelectedValuePath="Tag">
                             <ComboBoxItem Content="Tất cả" Tag="{x:Static models:ReportWorkflowFilter.All}"/>
                             <ComboBoxItem Content="Hoàn tất" Tag="{x:Static models:ReportWorkflowFilter.Completed}"/>
@@ -48,15 +50,15 @@
                         <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                        <TextBlock Text="Khách hàng" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                        <TextBlock Text="Khách hàng" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
                         <TextBox Text="{Binding CustomerKeyword}" Style="{StaticResource CanXeTextBoxStyle}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                        <TextBlock Text="Biển số xe" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                        <TextBlock Text="Biển số xe" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
                         <TextBox Text="{Binding LicensePlateKeyword}" Style="{StaticResource CanXeTextBoxStyle}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2">
-                        <TextBlock Text="Loại hàng" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                        <TextBlock Text="Loại hàng" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
                         <TextBox Text="{Binding CargoTypeKeyword}" Style="{StaticResource CanXeTextBoxStyle}"/>
                     </StackPanel>
                 </Grid>
@@ -71,38 +73,44 @@
         <UniformGrid Grid.Row="2" Columns="3" Rows="2" Margin="0,0,0,8">
             <Border Style="{StaticResource CanXeSummaryCardStyle}" Margin="0,0,6,6">
                 <StackPanel>
-                    <TextBlock Text="Số phiếu" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
-                    <TextBlock Text="{Binding SummaryTicketCount, Converter={StaticResource VnNumberConverter}, ConverterParameter=integer}" FontSize="22" FontWeight="Bold"/>
+                    <TextBlock Text="Số phiếu" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding SummaryTicketCount, Converter={StaticResource VnNumberConverter}, ConverterParameter=integer}" FontSize="22" FontWeight="Bold"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CanXeSummaryCardStyle}" Margin="3,0,3,6">
                 <StackPanel>
-                    <TextBlock Text="Tổng hàng (kg)" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
-                    <TextBlock Text="{Binding SummaryTotalNetKg, Converter={StaticResource VnNumberConverter}, ConverterParameter=weight}" FontSize="20" FontWeight="Bold"/>
+                    <TextBlock Text="Tổng hàng (kg)" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding SummaryTotalNetKg, Converter={StaticResource VnNumberConverter}, ConverterParameter=weight}" FontSize="20" FontWeight="Bold"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CanXeSummaryCardStyle}" Margin="6,0,0,6">
                 <StackPanel>
-                    <TextBlock Text="KL tính tiền" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
-                    <TextBlock Text="{Binding SummaryTotalBillableKg, Converter={StaticResource VnNumberConverter}, ConverterParameter=weight}" FontSize="20" FontWeight="Bold"/>
+                    <TextBlock Text="KL tính tiền" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding SummaryTotalBillableKg, Converter={StaticResource VnNumberConverter}, ConverterParameter=weight}" FontSize="20" FontWeight="Bold"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CanXeSummaryCardStyle}" Margin="0,0,6,0">
                 <StackPanel>
-                    <TextBlock Text="Tổng tiền" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
-                    <TextBlock Text="{Binding SummaryTotalAmountVnd, Converter={StaticResource VnNumberConverter}, ConverterParameter=money}" FontSize="20" FontWeight="Bold"/>
+                    <TextBlock Text="Tổng tiền" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding SummaryTotalAmountVnd, Converter={StaticResource VnNumberConverter}, ConverterParameter=money}" FontSize="20" FontWeight="Bold"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CanXeSummaryCardStyle}" Margin="3,0,3,0">
                 <StackPanel>
-                    <TextBlock Text="Chưa có giá" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
-                    <TextBlock Text="{Binding SummaryMissingPriceCount, Converter={StaticResource VnNumberConverter}, ConverterParameter=integer}" FontSize="20" FontWeight="Bold"/>
+                    <TextBlock Text="Chưa có giá" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding SummaryMissingPriceCount, Converter={StaticResource VnNumberConverter}, ConverterParameter=integer}" FontSize="20" FontWeight="Bold"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CanXeSummaryCardStyle}" Margin="6,0,0,0">
                 <StackPanel>
-                    <TextBlock Text="Chờ cân lần 2" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
-                    <TextBlock Text="{Binding SummaryAwaitingSecondWeighCount, Converter={StaticResource VnNumberConverter}, ConverterParameter=integer}" FontSize="20" FontWeight="Bold"/>
+                    <TextBlock Text="Chờ cân lần 2" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding SummaryAwaitingSecondWeighCount, Converter={StaticResource VnNumberConverter}, ConverterParameter=integer}" FontSize="20" FontWeight="Bold"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </StackPanel>
             </Border>
         </UniformGrid>

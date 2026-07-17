@@ -21,6 +21,7 @@ public sealed partial class MainViewModel
         string? DevWeight2);
 
     [ObservableProperty] private TicketFormMode _formMode = TicketFormMode.Creating;
+
     [ObservableProperty] private int? _activeTicketId;
     [ObservableProperty] private string? _viewingTicketNumber;
 
@@ -60,6 +61,7 @@ public sealed partial class MainViewModel
         UpdateButtonLabels();
         PrintTicketCommand.NotifyCanExecuteChanged();
         ViewTicketCommand.NotifyCanExecuteChanged();
+        RefreshAdminUiState();
     }
 
     partial void OnViewingTicketNumberChanged(string? value) =>
@@ -220,11 +222,19 @@ public sealed partial class MainViewModel
         if (FormMode != TicketFormMode.Viewing || ActiveTicketId is not int ticketId)
             return;
 
+        if (!EnsureAdminOrNotify(AdminPermission.CanEditCompletedTicket, "EDIT_COMPLETED_TICKET"))
+            return;
+
         var item = Tickets.FirstOrDefault(t => t.Id == ticketId) ?? SelectedTicket;
         if (item is null)
             return;
 
         await BeginEditTicketAsync(item);
+        AdminAuditLogger.Write(
+            "EDIT_COMPLETED_TICKET",
+            "STARTED",
+            "Admin",
+            ticketId: ticketId.ToString());
     }
 
     partial void OnSelectedTicketChanging(WeighTicketListItem? value) =>
@@ -242,7 +252,11 @@ public sealed partial class MainViewModel
             return HasUnsavedDraftContent();
 
         if (FormMode == TicketFormMode.Editing)
-            return IsDevWeightEditUnlocked && (HasDevWeightChanged() || HasMetadataChangedFromSnapshot());
+        {
+            if (IsDevWeightEditUnlocked)
+                return HasDevWeightChanged() || HasMetadataChangedFromSnapshot() || HasDraftWeightChangedFromSnapshot();
+            return HasMetadataChangedFromSnapshot() || HasDraftWeightChangedFromSnapshot();
+        }
 
         if (_formSnapshot is null)
             return HasUnsavedDraftContent();
@@ -360,10 +374,13 @@ public sealed partial class MainViewModel
         if (_deleteInProgressTicketId == item.Id)
             return;
 
+        if (!EnsureAdminOrNotify(AdminPermission.CanDeleteTicket, "DELETE_TICKET"))
+            return;
+
         if (!_developerAuthorization.CanDeleteTickets)
         {
             MessageBox.Show(
-                "Bạn không có quyền xóa phiếu cân.",
+                "Cần mở khóa Admin để thực hiện thao tác này.",
                 "CanXe",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
@@ -372,8 +389,8 @@ public sealed partial class MainViewModel
 
         var awaitingSecondWeigh = item.EventCount is > 0 and < 2;
         var message = awaitingSecondWeigh
-            ? $"Bạn có chắc muốn xóa phiếu {item.DisplayNumber}?\n\nPhiếu này đang chờ cân lần 2.\nXóa phiếu sẽ hủy quy trình cân đang dở.\n\nPhiếu sẽ bị ẩn khỏi danh sách vận hành.\nThao tác này chỉ dành cho Nhà phát triển."
-            : $"Bạn có chắc muốn xóa phiếu {item.DisplayNumber}?\n\nPhiếu sẽ bị ẩn khỏi danh sách vận hành.\nThao tác này chỉ dành cho Nhà phát triển.";
+            ? $"Bạn có chắc muốn xóa phiếu {item.DisplayNumber}?\n\nPhiếu này đang chờ cân lần 2.\nXóa phiếu sẽ hủy quy trình cân đang dở.\n\nPhiếu sẽ bị ẩn khỏi danh sách vận hành.\nThao tác này chỉ dành cho Admin."
+            : $"Bạn có chắc muốn xóa phiếu {item.DisplayNumber}?\n\nPhiếu sẽ bị ẩn khỏi danh sách vận hành.\nThao tác này chỉ dành cho Admin.";
 
         var confirm = MessageBox.Show(
             message,
@@ -415,6 +432,12 @@ public sealed partial class MainViewModel
             await RefreshFooterSummaryAsync();
             _ = _printNotificationService.ShowDeleteSuccessToastAsync(result.DisplayNumber);
             StatusMessage = $"Đã xóa phiếu {result.DisplayNumber}.";
+            AdminAuditLogger.Write(
+                "DELETE_TICKET",
+                "SUCCESS",
+                "Admin",
+                ticketId: item.Id.ToString(),
+                note: result.DisplayNumber);
         }
         finally
         {

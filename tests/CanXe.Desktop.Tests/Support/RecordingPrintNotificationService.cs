@@ -24,8 +24,13 @@ public sealed class RecordingPrintNotificationService : IPrintNotificationServic
     public Task ShowDeleteSuccessToastAsync(string? displayNumber, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
 
-    public Task ShowCatalogDeleteSuccessToastAsync(CancellationToken cancellationToken = default) =>
-        Task.CompletedTask;
+    public string? LastCatalogDeleteToast { get; private set; }
+
+    public Task ShowCatalogDeleteSuccessToastAsync(string? message = null, CancellationToken cancellationToken = default)
+    {
+        LastCatalogDeleteToast = string.IsNullOrWhiteSpace(message) ? "ĐÃ XÓA KHỎI DANH MỤC" : message.Trim();
+        return Task.CompletedTask;
+    }
 
     public Task ShowExportSuccessToastAsync(string? filePath, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;

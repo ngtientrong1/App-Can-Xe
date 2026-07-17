@@ -14,8 +14,6 @@ public static class OperatorActionLogger
 
 {
 
-    private static readonly object Gate = new();
-
     private static string? _lastTakeWeightOperationId;
 
     private static string? _lastTakeWeightAction;
@@ -34,17 +32,7 @@ public static class OperatorActionLogger
 
 
 
-    public static string LogFilePath =>
-
-        Path.Combine(
-
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-
-            "CanXe",
-
-            "Logs",
-
-            "operator-actions.log");
+    public static string LogFilePath => CanXeLogPaths.GetLogFile("operator-actions.log");
 
 
 
@@ -106,15 +94,7 @@ public static class OperatorActionLogger
 
 
 
-            lock (Gate)
-
-            {
-
-                Directory.CreateDirectory(Path.GetDirectoryName(LogFilePath)!);
-
-                File.AppendAllText(LogFilePath, builder.ToString(), Encoding.UTF8);
-
-            }
+            SafeLogFileAppend.Append(LogFilePath, builder.ToString());
 
         }
 
@@ -398,14 +378,7 @@ public static class OperatorActionLogger
         try
         {
             var line = $"{DateTimeOffset.Now:O} [{action}] {metrics}{Environment.NewLine}";
-            lock (Gate)
-            {
-                var dir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "CanXe", "Logs");
-                Directory.CreateDirectory(dir);
-                File.AppendAllText(Path.Combine(dir, "operator-performance.log"), line);
-            }
+            SafeLogFileAppend.Append(CanXeLogPaths.GetLogFile("operator-performance.log"), line);
         }
         catch
         {
@@ -414,5 +387,4 @@ public static class OperatorActionLogger
     }
 
 }
-
 

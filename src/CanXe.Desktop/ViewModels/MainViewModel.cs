@@ -69,6 +69,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         IPrintNotificationService printNotificationService,
         ITicketDeleteService ticketDeleteService,
         IDeveloperAuthorizationService developerAuthorization,
+        IAdminAuthorizationService adminAuthorization,
+        IUserPermissionService userPermissionService,
         ICatalogService catalogService,
         AppSettings settings,
         SettingsViewModel settingsViewModel,
@@ -109,8 +111,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                     NotifyDevDiagnosticsBindings();
                 });
         IsDeveloperPanelAvailable = settings.DeveloperMode && settings.ShowDeveloperTab;
-        IsDeveloperWeightUnlockVisible = settings.DeveloperMode && settings.DeveloperTicketEditEnabled;
-        IsDeveloperDeleteVisible = developerAuthorization.CanDeleteTickets;
+        IsDeveloperWeightUnlockVisible = false;
+        IsDeveloperDeleteVisible = false;
+        WireAdminServices(adminAuthorization, userPermissionService);
         foreach (var (code, label) in WeightOverrideReasons.All)
             WeightOverrideReasonOptions.Add(new WeightOverrideReasonOption(code, label));
     }
@@ -183,7 +186,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(IsNavSettingsActive));
         OnPropertyChanged(nameof(IsNavDeveloperActive));
         if (value == AppNavigationSection.Catalog)
+        {
+            // Fire-and-forget; Catalog.InitializeAsync must never throw to dispatcher.
             _ = Catalog.InitializeAsync();
+        }
         else if (value == AppNavigationSection.Report)
             _ = Report.InitializeAsync();
     }
@@ -334,6 +340,20 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         _focusService.FocusCustomerField();
         _ = AutoConnectScaleIfNeededAsync();
+        _ = ScheduleAutoBackupAsync();
+    }
+
+    private async Task ScheduleAutoBackupAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
+            await Settings.RunAutoBackupIfNeededAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            // Auto-backup must never surface to UI.
+        }
     }
 
     [RelayCommand]
@@ -1157,9 +1177,21 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         var updatedId = result.UpdatedTicket!.Id;
         var displayNumber = result.UpdatedTicket.DisplayNumber;
+        if (IsDevWeightEditUnlocked || string.Equals(WeightOverrideReasonCode, WeightOverrideReasons.AdminInline, StringComparison.Ordinal))
+        {
+            AdminAuditLogger.Write(
+                "ADMIN_WEIGHT_EDIT",
+                "SAVED",
+                "Admin",
+                ticketId: updatedId.ToString(),
+                note: "completed-ticket-update");
+        }
+
         await ResetToNewDraftAsync("update-completed");
         await RefreshListAsync();
         await FlashHighlightTicketAsync(updatedId, scrollToTop: false);
+        // Keep last updated ticket as print target (Phase 5 rc10 workflow).
+        _lastCompletedTicketId = updatedId;
         StatusMessage = $"Đã cập nhật phiếu {displayNumber}.";
         _focusService.FocusCustomerField();
     }
@@ -1176,7 +1208,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [RelayCommand]
     private void UnlockDevWeightEdit()
     {
-        if (!IsDeveloperWeightUnlockVisible || !IsEditingExistingTicket)
+        if (!EnsureAdminOrNotify(AdminPermission.CanEditCompletedTicket, "UNLOCK_WEIGHT_EDIT"))
+            return;
+
+        if (!IsEditingExistingTicket)
             return;
 
         IsDevWeightEditUnlocked = true;
@@ -1184,7 +1219,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         DevWeight1Text = _draft.DraftWeight1?.ToString("N0", CultureInfo.CurrentCulture);
         DevWeight2Text = _draft.DraftWeight2?.ToString("N0", CultureInfo.CurrentCulture);
         UpdateWeightOverrideUi();
-        StatusMessage = "DEV: đã mở khóa sửa trọng lượng.";
+        StatusMessage = "Admin: đã mở khóa sửa trọng lượng.";
+        _adminAuthorization.TouchAdminActivity();
     }
 
     [RelayCommand]
@@ -1436,7 +1472,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             CustomerName,
             CargoTypeName);
 
-        var filledAny = false;
         _suppressAutoFillEditTracking = true;
         SuppressAutocomplete = true;
         try
@@ -1447,7 +1482,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                 CustomerName = applied.CustomerName;
                 _draft.DraftCustomerId = applied.CustomerId;
                 _draft.DraftCustomer = applied.CustomerName;
-                filledAny = true;
             }
 
             if (applied.CargoTypeName is not null &&
@@ -1456,7 +1490,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                 CargoTypeName = applied.CargoTypeName;
                 _draft.DraftCargoTypeId = applied.CargoTypeId;
                 _draft.DraftCargoType = applied.CargoTypeName;
-                filledAny = true;
             }
         }
         finally
@@ -1466,9 +1499,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
 
         _lastAutoFilledPlate = normalizedPlate;
-
-        if (filledAny)
-            await ShowToastAsync("Đã tự điền khách hàng và loại hàng theo lịch sử xe");
+        // Auto-fill is silent — no toast/popup.
     }
 
     private async Task ShowToastAsync(string message)
@@ -1795,6 +1826,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             Notes = _draft.DraftNotes;
             DeveloperWeight1OverrideEnabled = _draft.DeveloperWeight1OverrideEnabled;
             UpdateDisplaysFromDraft();
+            UpdateWeightSourceDisplays();
         }
         finally
         {

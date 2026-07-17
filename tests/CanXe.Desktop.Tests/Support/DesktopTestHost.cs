@@ -5,6 +5,7 @@ using CanXe.Application.Services;
 using CanXe.Desktop.Services;
 using CanXe.Desktop.ViewModels;
 using CanXe.Infrastructure;
+using CanXe.Infrastructure.Logging;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CanXe.Desktop.Tests.Support;
@@ -14,6 +15,7 @@ public sealed class DesktopTestHost : IAsyncDisposable
     private readonly string _dbPath;
     private readonly string _photoRoot;
     private readonly bool _deleteOnDispose;
+    private readonly string? _logDir;
 
     public DesktopTestHost(
         AppSettings settings,
@@ -23,6 +25,10 @@ public sealed class DesktopTestHost : IAsyncDisposable
     {
         Settings = settings;
         _deleteOnDispose = deleteOnDispose;
+        _logDir = Path.Combine(Path.GetTempPath(), "CanXeTestLogs", "desktop-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(_logDir);
+        CanXeLogPaths.SetOverrideRoot(_logDir);
+        Environment.SetEnvironmentVariable("CANXE_LOG_DIR", _logDir);
         _dbPath = databasePath ?? Path.Combine(Path.GetTempPath(), $"canxe-desktop-test-{Guid.NewGuid():N}.db");
         _photoRoot = photoRootPath ?? Path.Combine(Path.GetTempPath(), $"canxe-desktop-photos-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_photoRoot);
@@ -44,6 +50,8 @@ public sealed class DesktopTestHost : IAsyncDisposable
         services.AddSingleton<IWeighTicketDocumentBuilder, WpfWeighTicketDocumentBuilder>();
         services.AddSingleton<IPrinterCapabilityService, PrinterCapabilityService>();
         services.AddSingleton<IWeighTicketPrintService, WpfWeighTicketPrintService>();
+        services.AddSingleton<ThemeService>();
+        services.AddSingleton<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
         services.AddScoped<SettingsViewModel>();
         services.AddScoped<DeveloperViewModel>();
         services.AddScoped<CatalogViewModel>();
@@ -83,6 +91,8 @@ public sealed class DesktopTestHost : IAsyncDisposable
             Provider.GetRequiredService<IPrintNotificationService>(),
             scope.GetRequiredService<ITicketDeleteService>(),
             scope.GetRequiredService<IDeveloperAuthorizationService>(),
+            Provider.GetRequiredService<IAdminAuthorizationService>(),
+            Provider.GetRequiredService<IUserPermissionService>(),
             scope.GetRequiredService<ICatalogService>(),
             Settings,
             settingsViewModel,
@@ -118,6 +128,8 @@ public sealed class DesktopTestHost : IAsyncDisposable
             printNotificationService,
             scope.GetRequiredService<ITicketDeleteService>(),
             scope.GetRequiredService<IDeveloperAuthorizationService>(),
+            Provider.GetRequiredService<IAdminAuthorizationService>(),
+            Provider.GetRequiredService<IUserPermissionService>(),
             scope.GetRequiredService<ICatalogService>(),
             Settings,
             settingsViewModel,
@@ -143,6 +155,12 @@ public sealed class DesktopTestHost : IAsyncDisposable
         {
             TryDelete(_dbPath);
             TryDeleteDirectory(_photoRoot);
+        }
+
+        if (_logDir is not null &&
+            string.Equals(CanXeLogPaths.LogsDirectory, _logDir, StringComparison.OrdinalIgnoreCase))
+        {
+            CanXeLogPaths.ClearOverrideRoot();
         }
     }
 

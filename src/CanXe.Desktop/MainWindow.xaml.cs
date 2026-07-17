@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using CanXe.Application.Models;
 using CanXe.Desktop.Controls;
 using CanXe.Desktop.Services;
@@ -155,6 +156,76 @@ public partial class MainWindow : Window
 
         if (sender is DataGrid { SelectedItem: WeighTicketListItem item })
             await vm.OpenTicketFromDoubleClickAsync(item);
+    }
+
+    private void Weight1Value_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || !vm.IsInlineWeightEditEnabled)
+            return;
+        vm.BeginInlineWeightEditCommand.Execute(1);
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            Weight1InlineEditBox.Focus();
+            Weight1InlineEditBox.SelectAll();
+        }), DispatcherPriority.Input);
+        e.Handled = true;
+    }
+
+    private void Weight2Value_OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || !vm.IsInlineWeightEditEnabled)
+            return;
+        vm.BeginInlineWeightEditCommand.Execute(2);
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            Weight2InlineEditBox.Focus();
+            Weight2InlineEditBox.SelectAll();
+        }), DispatcherPriority.Input);
+        e.Handled = true;
+    }
+
+    private async void Weight1InlineEdit_OnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+            return;
+        if (e.Key == Key.Enter)
+        {
+            await vm.ApplyInlineWeightEditCommand.ExecuteAsync(1);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            vm.CancelInlineWeightEditCommand.Execute(1);
+            e.Handled = true;
+        }
+    }
+
+    private async void Weight2InlineEdit_OnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+            return;
+        if (e.Key == Key.Enter)
+        {
+            await vm.ApplyInlineWeightEditCommand.ExecuteAsync(2);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            vm.CancelInlineWeightEditCommand.Execute(2);
+            e.Handled = true;
+        }
+    }
+
+    private async void Weight1InlineEdit_OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel { IsWeight1InlineEditing: true } vm)
+            await vm.ApplyInlineWeightEditCommand.ExecuteAsync(1);
+    }
+
+    private async void Weight2InlineEdit_OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel { IsWeight2InlineEditing: true } vm)
+            await vm.ApplyInlineWeightEditCommand.ExecuteAsync(2);
     }
 
     private void DeleteTicketButton_OnPreviewMouseDoubleClick(object sender, MouseButtonEventArgs e) =>

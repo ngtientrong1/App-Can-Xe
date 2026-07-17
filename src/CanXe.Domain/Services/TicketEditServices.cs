@@ -19,6 +19,8 @@ public static class WeightOverrideReasons
     public const string DocumentAdjust = "document_adjust";
     public const string WrongWeigh = "wrong_weigh";
     public const string Other = "other";
+    /// <summary>Auto-set when Admin edits weight inline (no user-entered reason required).</summary>
+    public const string AdminInline = "admin_inline";
 
     public static readonly IReadOnlyList<(string Code, string Label)> All =
     [
@@ -34,6 +36,9 @@ public static class WeightOverrideReasons
     {
         if (string.IsNullOrWhiteSpace(code))
             return null;
+
+        if (code == AdminInline)
+            return "Admin chỉnh sửa số cân";
 
         if (code == Other)
             return string.IsNullOrWhiteSpace(otherText) ? null : otherText.Trim();
@@ -66,6 +71,10 @@ public static class TicketEditValidator
     {
         if (string.IsNullOrWhiteSpace(reasonCode))
             return "Phải chọn lý do sửa trọng lượng.";
+
+        // Admin inline edits carry an automatic code — no extra text required.
+        if (string.Equals(reasonCode, WeightOverrideReasons.AdminInline, StringComparison.Ordinal))
+            return null;
 
         if (WeightOverrideReasons.RequiresOtherText(reasonCode) &&
             string.IsNullOrWhiteSpace(reasonOther))

@@ -1,30 +1,19 @@
 using System.Text;
+using CanXe.Infrastructure.Logging;
 
 namespace CanXe.Infrastructure.Diagnostics;
 
 public static class DiagnosticsLogger
 {
-    private static readonly object Gate = new();
-
-    public static string LogFilePath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CanXe",
-            "Logs",
-            "diagnostics.log");
+    public static string LogFilePath => CanXeLogPaths.GetLogFile("diagnostics.log");
 
     public static void Write(string message)
     {
         try
         {
-            lock (Gate)
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(LogFilePath)!);
-                File.AppendAllText(
-                    LogFilePath,
-                    $"{DateTimeOffset.Now:O} {Sanitize(message)}{Environment.NewLine}",
-                    Encoding.UTF8);
-            }
+            SafeLogFileAppend.AppendLine(
+                LogFilePath,
+                $"{DateTimeOffset.Now:O} {Sanitize(message)}");
         }
         catch
         {
@@ -38,27 +27,15 @@ public static class DiagnosticsLogger
 
 public static class ReleaseVerificationLogger
 {
-    private static readonly object Gate = new();
-
-    public static string LogFilePath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CanXe",
-            "Logs",
-            "release-verification.log");
+    public static string LogFilePath => CanXeLogPaths.GetLogFile("release-verification.log");
 
     public static void Write(string message)
     {
         try
         {
-            lock (Gate)
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(LogFilePath)!);
-                File.AppendAllText(
-                    LogFilePath,
-                    $"{DateTimeOffset.Now:O} {DiagnosticsLogger.Sanitize(message)}{Environment.NewLine}",
-                    Encoding.UTF8);
-            }
+            SafeLogFileAppend.AppendLine(
+                LogFilePath,
+                $"{DateTimeOffset.Now:O} {DiagnosticsLogger.Sanitize(message)}");
         }
         catch
         {

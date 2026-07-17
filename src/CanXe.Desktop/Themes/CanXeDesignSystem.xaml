@@ -1,47 +1,16 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Brushes -->
-    <SolidColorBrush x:Key="PageBackgroundBrush" Color="#F4F6F8"/>
-    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="CardBorderBrush" Color="#E3E8EE"/>
-    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#1A1D21"/>
-    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#5F6B7A"/>
-    <SolidColorBrush x:Key="AccentBlueBrush" Color="#1565C0"/>
-    <SolidColorBrush x:Key="AccentBlueLightBrush" Color="#E8F1FB"/>
-    <SolidColorBrush x:Key="SuccessGreenBrush" Color="#2E7D32"/>
-    <SolidColorBrush x:Key="WeightOrangeBrush" Color="#EF6C00"/>
-    <SolidColorBrush x:Key="DangerBrush" Color="#C62828"/>
-    <SolidColorBrush x:Key="SelectedRowBrush" Color="#E3F2FD"/>
-    <SolidColorBrush x:Key="NavActiveBackgroundBrush" Color="#E8F1FB"/>
-    <SolidColorBrush x:Key="FilterActiveBackgroundBrush" Color="#1565C0"/>
-    <SolidColorBrush x:Key="WeightStableBrush" Color="#2E7D32"/>
-    <SolidColorBrush x:Key="SummaryAccentBrush" Color="#4527A0"/>
-
-    <!-- Legacy aliases -->
-    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F4F6F8"/>
-    <SolidColorBrush x:Key="BorderLightBrush" Color="#E3E8EE"/>
-    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1A1D21"/>
-    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#5F6B7A"/>
-    <SolidColorBrush x:Key="PrimaryBrush" Color="#2E7D32"/>
-    <SolidColorBrush x:Key="AccentBrush" Color="#EF6C00"/>
-    <SolidColorBrush x:Key="PanelBrush" Color="#F8FAFC"/>
-    <SolidColorBrush x:Key="BorderBrush" Color="#E3E8EE"/>
-    <SolidColorBrush x:Key="NetHighlightBrush" Color="#1565C0"/>
-    <SolidColorBrush x:Key="ActionOrangeBrush" Color="#EF6C00"/>
-    <SolidColorBrush x:Key="CancelGrayBrush" Color="#546E7A"/>
-    <SolidColorBrush x:Key="ErrorRedBrush" Color="#C62828"/>
-
     <Style TargetType="Window">
         <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
-        <Setter Property="Background" Value="{StaticResource PageBackgroundBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource PageBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
     </Style>
 
     <!-- Card -->
     <Style x:Key="CanXeCardStyle" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="11"/>
         <Setter Property="Padding" Value="16"/>
@@ -51,7 +20,7 @@
     <Style x:Key="SectionHeaderTextStyle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="16"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
         <Setter Property="Margin" Value="0,0,0,6"/>
     </Style>
 
@@ -59,16 +28,16 @@
     <Style x:Key="CanXeTextBoxStyle" TargetType="TextBox">
         <Setter Property="FontSize" Value="20"/>
         <Setter Property="FontWeight" Value="Normal"/>
-        <Setter Property="Foreground" Value="#1F2937"/>
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="CaretBrush" Value="#111827"/>
-        <Setter Property="SelectionBrush" Value="#BFDBFE"/>
+        <Setter Property="Foreground" Value="{DynamicResource InputForegroundBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource InputCaretBrush}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource InputSelectionBrush}"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
         <Setter Property="Padding" Value="14,0,14,0"/>
         <Setter Property="MinHeight" Value="52"/>
         <Setter Property="Margin" Value="0,0,0,6"/>
-        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -93,7 +62,9 @@
         <Setter Property="FontSize" Value="17"/>
         <Setter Property="MinHeight" Value="48"/>
         <Setter Property="Padding" Value="10,8"/>
-        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource InputForegroundBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
     </Style>
     <Style TargetType="ComboBox" BasedOn="{StaticResource CanXeComboBoxStyle}"/>
 
@@ -112,7 +83,8 @@
                         <Border.Effect>
                             <DropShadowEffect ShadowDepth="1" BlurRadius="4" Opacity="0.18" Color="#000000"/>
                         </Border.Effect>
-                        <ContentPresenter x:Name="Content" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <ContentPresenter x:Name="Content" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -128,7 +100,9 @@
                             </Setter>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource DisabledBackgroundBrush}"/>
+                            <Setter TargetName="Bd" Property="Opacity" Value="1"/>
+                            <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
                             <Setter Property="Cursor" Value="Arrow"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -148,11 +122,14 @@
                     <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9"
                             BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
                             Padding="{TemplateBinding Padding}" MinHeight="{TemplateBinding MinHeight}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource DisabledBackgroundBrush}"/>
+                            <Setter TargetName="Bd" Property="Opacity" Value="1"/>
+                            <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -161,7 +138,7 @@
     </Style>
 
     <Style x:Key="CanXePrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
-        <Setter Property="Background" Value="{StaticResource AccentBlueBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AccentBlueBrush}"/>
         <Setter Property="Foreground" Value="White"/>
         <Setter Property="FontSize" Value="18"/>
         <Setter Property="MinHeight" Value="56"/>
@@ -169,7 +146,7 @@
     </Style>
 
     <Style x:Key="CanXeSuccessButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
-        <Setter Property="Background" Value="{StaticResource SuccessGreenBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource SuccessGreenBrush}"/>
         <Setter Property="Foreground" Value="White"/>
         <Setter Property="FontSize" Value="18"/>
         <Setter Property="MinHeight" Value="56"/>
@@ -177,7 +154,7 @@
     </Style>
 
     <Style x:Key="CanXeWeightButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
-        <Setter Property="Background" Value="{StaticResource WeightOrangeBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource WeightOrangeBrush}"/>
         <Setter Property="Foreground" Value="White"/>
         <Setter Property="FontSize" Value="19"/>
         <Setter Property="MinHeight" Value="60"/>
@@ -186,9 +163,9 @@
     </Style>
 
     <Style x:Key="CanXeSecondaryButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeButtonBase}">
-        <Setter Property="Background" Value="#ECEFF1"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="FontSize" Value="17"/>
         <Setter Property="MinHeight" Value="48"/>
@@ -199,7 +176,7 @@
     <Style x:Key="PrimaryActionButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXePrimaryButtonStyle}"/>
     <Style x:Key="SecondaryActionButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeSecondaryButtonStyle}"/>
     <Style x:Key="DangerActionButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeSecondaryButtonStyle}">
-        <Setter Property="Background" Value="{StaticResource DangerBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
         <Setter Property="Foreground" Value="White"/>
     </Style>
 
@@ -227,17 +204,17 @@
                             Padding="{TemplateBinding Padding}">
                         <Viewbox Width="15" Height="15" Stretch="Uniform">
                             <Path Data="{StaticResource CanXePencilIconGeometry}"
-                                  Fill="{StaticResource SecondaryTextBrush}"/>
+                                  Fill="{DynamicResource SecondaryTextBrush}"/>
                         </Viewbox>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="#E3F2FD"/>
-                            <Setter TargetName="Root" Property="BorderBrush" Value="#90CAF9"/>
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource IconEditHoverBackgroundBrush}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource IconEditHoverBorderBrush}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="#BBDEFB"/>
-                            <Setter TargetName="Root" Property="BorderBrush" Value="#64B5F6"/>
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource IconEditPressedBackgroundBrush}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource IconAccentBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Root" Property="Opacity" Value="0.45"/>
@@ -246,12 +223,6 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
-    </Style>
-
-    <Style x:Key="CanXeCatalogDeleteButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeHistoryDeleteButtonStyle}">
-        <Setter Property="Width" Value="32"/>
-        <Setter Property="Height" Value="32"/>
-        <Setter Property="ToolTip" Value="Xóa khỏi danh mục"/>
     </Style>
 
     <Style x:Key="CanXeHistoryDeleteButtonStyle" TargetType="Button">
@@ -275,17 +246,17 @@
                             Padding="{TemplateBinding Padding}">
                         <Viewbox Width="15" Height="15" Stretch="Uniform">
                             <Path Data="{StaticResource CanXeTrashIconGeometry}"
-                                  Fill="{StaticResource SecondaryTextBrush}"/>
+                                  Fill="{DynamicResource SecondaryTextBrush}"/>
                         </Viewbox>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="#FFEBEE"/>
-                            <Setter TargetName="Root" Property="BorderBrush" Value="#EF9A9A"/>
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource IconDeleteHoverBackgroundBrush}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource IconDeleteHoverBorderBrush}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Root" Property="Background" Value="#FFCDD2"/>
-                            <Setter TargetName="Root" Property="BorderBrush" Value="#E57373"/>
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource IconDeletePressedBackgroundBrush}"/>
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource DangerBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Root" Property="Opacity" Value="0.45"/>
@@ -296,10 +267,16 @@
         </Setter>
     </Style>
 
+    <Style x:Key="CanXeCatalogDeleteButtonStyle" TargetType="Button" BasedOn="{StaticResource CanXeHistoryDeleteButtonStyle}">
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="ToolTip" Value="Xóa"/>
+    </Style>
+
     <Style x:Key="CanXeSecondaryToggleButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource CanXeToggleButtonBase}">
-        <Setter Property="Background" Value="#ECEFF1"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource ButtonSecondaryBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="FontSize" Value="17"/>
         <Setter Property="MinHeight" Value="48"/>
@@ -322,7 +299,7 @@
         <Setter Property="FontSize" Value="19"/>
     </Style>
     <Style x:Key="CancelButton" TargetType="Button" BasedOn="{StaticResource CanXeSecondaryButtonStyle}">
-        <Setter Property="Background" Value="{StaticResource CancelGrayBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource CancelGrayBrush}"/>
         <Setter Property="Foreground" Value="White"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="MinHeight" Value="60"/>
@@ -339,7 +316,7 @@
         <Setter Property="Padding" Value="18,12"/>
         <Setter Property="Margin" Value="0,0,4,0"/>
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
         <Setter Property="BorderThickness" Value="0,0,0,3"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
     </Style>
@@ -351,9 +328,9 @@
         <Setter Property="MinHeight" Value="44"/>
         <Setter Property="Padding" Value="14,10"/>
         <Setter Property="Margin" Value="0,0,6,0"/>
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
     </Style>
     <Style x:Key="FilterButton" TargetType="Button" BasedOn="{StaticResource CanXeFilterTabStyle}"/>
@@ -364,12 +341,12 @@
         <Setter Property="MinHeight" Value="72"/>
         <Setter Property="Padding" Value="4,8"/>
         <Setter Property="Margin" Value="0,0,0,8"/>
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="FontSize" Value="11"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource SecondaryTextBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
     </Style>
 
     <!-- Segmented mode -->
@@ -379,22 +356,22 @@
         <Setter Property="MinHeight" Value="44"/>
         <Setter Property="Padding" Value="10,8"/>
         <Setter Property="Margin" Value="0,0,6,6"/>
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Style.Triggers>
             <Trigger Property="IsChecked" Value="True">
-                <Setter Property="Background" Value="{StaticResource AccentBlueLightBrush}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
-                <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource AccentBlueLightBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
             </Trigger>
         </Style.Triggers>
     </Style>
 
     <Style x:Key="CanXeStatusBadgeStyle" TargetType="Border">
-        <Setter Property="Background" Value="#E8F5E9"/>
-        <Setter Property="BorderBrush" Value="#C8E6C9"/>
+        <Setter Property="Background" Value="{DynamicResource StatusBadgeBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource StatusBadgeBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="16"/>
         <Setter Property="Padding" Value="12,6"/>
@@ -405,12 +382,12 @@
         <Setter Property="FontSize" Value="16"/>
         <Setter Property="RowHeight" Value="46"/>
         <Setter Property="ColumnHeaderHeight" Value="46"/>
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource DataGridBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="GridLinesVisibility" Value="Horizontal"/>
-        <Setter Property="HorizontalGridLinesBrush" Value="#EEF2F6"/>
-        <Setter Property="AlternatingRowBackground" Value="#FAFBFC"/>
+        <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource DataGridGridLineBrush}"/>
+        <Setter Property="AlternatingRowBackground" Value="{DynamicResource DataGridAlternateRowBackgroundBrush}"/>
         <Setter Property="HeadersVisibility" Value="Column"/>
     </Style>
     <Style TargetType="DataGrid" BasedOn="{StaticResource CanXeDataGridStyle}"/>
@@ -419,16 +396,63 @@
         <Setter Property="FontSize" Value="16"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Padding" Value="10,10"/>
-        <Setter Property="Background" Value="#F5F7FA"/>
-        <Setter Property="Foreground" Value="{StaticResource PrimaryTextBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource DataGridHeaderBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
     </Style>
     <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource CanXeDataGridHeaderStyle}"/>
 
+    <Style x:Key="CanXeDataGridCellStyle" TargetType="DataGridCell">
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+                <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style TargetType="DataGridCell" BasedOn="{StaticResource CanXeDataGridCellStyle}"/>
+
+    <Style x:Key="CanXeDataGridRowStyle" TargetType="DataGridRow">
+        <Setter Property="Background" Value="{DynamicResource DataGridRowBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+    </Style>
+    <Style TargetType="DataGridRow" BasedOn="{StaticResource CanXeDataGridRowStyle}"/>
+
+    <Style TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+        <Setter Property="FontSize" Value="15"/>
+        <Setter Property="Margin" Value="0,2,0,2"/>
+    </Style>
+
+    <Style TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+        <Setter Property="FontSize" Value="15"/>
+    </Style>
+
+    <Style TargetType="TabItem">
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+        <Setter Property="FontSize" Value="15"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="12,8"/>
+    </Style>
+
+    <Style TargetType="PasswordBox">
+        <Setter Property="Foreground" Value="{DynamicResource InputForegroundBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource InputCaretBrush}"/>
+        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="FontSize" Value="16"/>
+    </Style>
+
     <!-- Footer summary card -->
     <Style x:Key="CanXeSummaryCardStyle" TargetType="Border">
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="10"/>
         <Setter Property="Padding" Value="10,8"/>

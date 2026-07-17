@@ -213,14 +213,12 @@ public class Phase4PerformanceTests
   [Fact]
   public void OperatorActionLogger_WritesPerformanceMetrics()
   {
-    OperatorActionLogger.WritePerformance("TestAction", "total=10ms");
-    var logDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "CanXe", "Logs");
-    var path = Path.Combine(logDir, "operator-performance.log");
-    Assert.True(File.Exists(path));
+    var marker = "TestAction-" + Guid.NewGuid().ToString("N");
+    OperatorActionLogger.WritePerformance(marker, "total=10ms");
+    var path = CanXeLogPaths.GetLogFile("operator-performance.log");
+    Assert.True(File.Exists(path), $"missing log at {path}");
     var text = File.ReadAllText(path);
-    Assert.Contains("[TestAction]", text);
+    Assert.Contains($"[{marker}]", text);
   }
 }
 

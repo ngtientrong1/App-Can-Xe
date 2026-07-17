@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text;
+using CanXe.Infrastructure.Logging;
 
 namespace CanXe.Desktop;
 
@@ -10,9 +11,9 @@ public static class AppExceptionLogger
 
     public static string LogDirectory => StartupErrorLogger.LogDirectory;
 
-    public static string AppLogPath => Path.Combine(LogDirectory, "app.log");
+    public static string AppLogPath => CanXeLogPaths.GetLogFile("app.log");
 
-    public static string ErrorsLogPath => Path.Combine(LogDirectory, "errors.log");
+    public static string ErrorsLogPath => CanXeLogPaths.GetLogFile("errors.log");
 
     public static void WriteError(string action, Exception exception, string? context = null)
     {
@@ -58,9 +59,9 @@ public static class AppExceptionLogger
             lock (Gate)
             {
                 StartupErrorLogger.EnsureLogDirectoryExists();
-                File.AppendAllText(path, text, Encoding.UTF8);
+                SafeLogFileAppend.Append(path, text);
                 if (!text.EndsWith(Environment.NewLine, StringComparison.Ordinal))
-                    File.AppendAllText(path, Environment.NewLine, Encoding.UTF8);
+                    SafeLogFileAppend.Append(path, Environment.NewLine);
             }
         }
         catch

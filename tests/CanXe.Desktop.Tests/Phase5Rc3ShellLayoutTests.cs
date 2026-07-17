@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using CanXe.Application.Configuration;
 using CanXe.Application.Models;
@@ -221,6 +222,23 @@ internal static class ShellLayoutTestHelpers
 
         return false;
     }
+
+    public static DataGrid? FindNamedDataGrid(DependencyObject root, string name)
+    {
+        foreach (var grid in EnumerateVisualTree(root).OfType<DataGrid>())
+        {
+            if (string.Equals(grid.Name, name, StringComparison.Ordinal) && grid.IsVisible)
+                return grid;
+        }
+
+        return null;
+    }
+
+    public static IReadOnlyList<string> VisibleDataGridColumnHeaders(DataGrid grid) =>
+        grid.Columns
+            .Where(c => c.Visibility == Visibility.Visible)
+            .Select(c => c.Header?.ToString() ?? string.Empty)
+            .ToList();
 
     private static IEnumerable<DependencyObject> EnumerateVisualTree(DependencyObject parent)
     {

@@ -10,27 +10,26 @@ public partial class CatalogView
     public CatalogView() => InitializeComponent();
 }
 
-public sealed class CatalogTabColumnVisibilityConverter : IValueConverter
+/// <summary>
+/// Shows a catalog DataGrid only when <see cref="CatalogTab"/> matches ConverterParameter.
+/// Grid-level visibility is reliable; per-column Visibility on DataGrid columns is not.
+/// </summary>
+public sealed class CatalogTabGridVisibilityConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is not CatalogTab tab || parameter is not string columnKey)
+        if (value is not CatalogTab selectedTab || parameter is not string tabKey)
             return Visibility.Collapsed;
 
-        var visible = (tab, columnKey) switch
+        var targetTab = tabKey switch
         {
-            (CatalogTab.Customer, "CustomerName") => true,
-            (CatalogTab.Customer, "CustomerPhone") => true,
-            (CatalogTab.Customer, "CustomerAddress") => true,
-            (CatalogTab.Vehicle, "VehiclePlate") => true,
-            (CatalogTab.Vehicle, "VehicleOwner") => true,
-            (CatalogTab.CargoType, "CargoName") => true,
-            (CatalogTab.CargoType, "CargoPrice") => true,
-            (CatalogTab.CargoType, "CargoUnit") => true,
-            _ => false
+            "Customer" => CatalogTab.Customer,
+            "Vehicle" => CatalogTab.Vehicle,
+            "CargoType" => CatalogTab.CargoType,
+            _ => (CatalogTab)(-1)
         };
 
-        return visible ? Visibility.Visible : Visibility.Collapsed;
+        return selectedTab == targetTab ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>

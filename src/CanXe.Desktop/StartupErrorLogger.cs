@@ -2,18 +2,15 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using CanXe.Infrastructure.Logging;
 
 namespace CanXe.Desktop;
 
 public static class StartupErrorLogger
 {
-    public static string LogDirectory =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CanXe",
-            "Logs");
+    public static string LogDirectory => CanXeLogPaths.LogsDirectory;
 
-    public static string LogFilePath => Path.Combine(LogDirectory, "startup-error.log");
+    public static string LogFilePath => CanXeLogPaths.GetLogFile("startup-error.log");
 
     public static void Write(Exception exception)
     {
@@ -34,7 +31,7 @@ public static class StartupErrorLogger
         }
 
         builder.AppendLine(new string('-', 60));
-        File.AppendAllText(LogFilePath, builder.ToString(), Encoding.UTF8);
+        SafeLogFileAppend.Append(LogFilePath, builder.ToString());
     }
 
     public static void EnsureLogDirectoryExists() => Directory.CreateDirectory(LogDirectory);

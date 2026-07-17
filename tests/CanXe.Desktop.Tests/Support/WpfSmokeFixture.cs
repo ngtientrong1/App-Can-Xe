@@ -21,6 +21,10 @@ public sealed class WpfSmokeFixture : IDisposable
                 var resources = new ResourceDictionary();
                 resources.MergedDictionaries.Add(new ResourceDictionary
                 {
+                    Source = new Uri("/CanXe.Desktop;component/Themes/LightTheme.xaml", UriKind.Relative)
+                });
+                resources.MergedDictionaries.Add(new ResourceDictionary
+                {
                     Source = new Uri("/CanXe.Desktop;component/Themes/CanXeDesignSystem.xaml", UriKind.Relative)
                 });
                 resources.MergedDictionaries.Add(new ResourceDictionary

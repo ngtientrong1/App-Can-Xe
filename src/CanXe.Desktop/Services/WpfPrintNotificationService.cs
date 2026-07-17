@@ -32,14 +32,14 @@ public sealed class WpfPrintNotificationService(PrintCommandLogger commandLogger
   {
     var jobId = Interlocked.Increment(ref _toastJobSequence);
     var owner = ResolveOwnerWindow();
-    var detail = string.IsNullOrWhiteSpace(displayNumber)
-      ? "Phiếu đã được ẩn khỏi danh sách vận hành."
-      : $"Phiếu {displayNumber} đã được ẩn khỏi danh sách vận hành.";
+    var title = string.IsNullOrWhiteSpace(displayNumber)
+      ? "ĐÃ XÓA PHIẾU"
+      : $"ĐÃ XÓA PHIẾU {displayNumber}";
     return _toastHost.ShowMessageAsync(
       owner,
       jobId,
-      $"ĐÃ XÓA PHIẾU {displayNumber}",
-      detail,
+      title,
+      string.Empty,
       DefaultSuccessToastDuration,
       commandLogger,
       "DELETE_TOAST_SHOWN",
@@ -47,14 +47,15 @@ public sealed class WpfPrintNotificationService(PrintCommandLogger commandLogger
       cancellationToken);
   }
 
-  public Task ShowCatalogDeleteSuccessToastAsync(CancellationToken cancellationToken = default)
+  public Task ShowCatalogDeleteSuccessToastAsync(string? message = null, CancellationToken cancellationToken = default)
   {
     var jobId = Interlocked.Increment(ref _toastJobSequence);
     var owner = ResolveOwnerWindow();
+    var title = string.IsNullOrWhiteSpace(message) ? "ĐÃ XÓA KHỎI DANH MỤC" : message.Trim();
     return _toastHost.ShowMessageAsync(
       owner,
       jobId,
-      "ĐÃ XÓA KHỎI DANH MỤC",
+      title,
       string.Empty,
       DefaultSuccessToastDuration,
       commandLogger,

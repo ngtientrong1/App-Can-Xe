@@ -1,0 +1,16 @@
+Cân Xe Tiến Trọng 1.0.0
+
+Tính năng chính:
+- Cân xe 2 lần
+- In phiếu A4 two-up
+- Quản lý khách hàng, biển số, loại hàng
+- Báo cáo và xuất Excel
+- Admin sửa cân trực tiếp
+- Light/Dark/Auto theme
+- Sao lưu và khôi phục dữ liệu
+- Backup local, có thể chọn thư mục Google Drive Desktop / OneDrive / Dropbox
+
+Lưu ý:
+- Dữ liệu được lưu tại %LocalAppData%\CanXe
+- Cài đặt/cập nhật app không xóa dữ liệu cũ
+- Gỡ cài đặt mặc định không xóa database

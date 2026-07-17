@@ -515,11 +515,13 @@ public sealed class CustomerRepository : ICustomerRepository
         CancellationToken cancellationToken = default) =>
         (await _db.Customers
             .Where(c => c.IsActive && !c.IsDeleted)
+            .Select(c => new { c.Name, c.LastUsedAt })
+            .ToListAsync(cancellationToken))
             .OrderByDescending(c => c.LastUsedAt)
             .ThenBy(c => c.Name)
             .Take(maxResults)
             .Select(c => c.Name)
-            .ToListAsync(cancellationToken));
+            .ToList();
 
     public Task<Customer?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
         _db.Customers.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, cancellationToken);
@@ -644,11 +646,13 @@ public sealed class CargoTypeRepository : ICargoTypeRepository
         CancellationToken cancellationToken = default) =>
         (await _db.CargoTypes
             .Where(c => c.IsActive && !c.IsDeleted)
+            .Select(c => new { c.Name, c.LastUsedAt })
+            .ToListAsync(cancellationToken))
             .OrderByDescending(c => c.LastUsedAt)
             .ThenBy(c => c.Name)
             .Take(maxResults)
             .Select(c => c.Name)
-            .ToListAsync(cancellationToken));
+            .ToList();
 
     public Task<CargoType?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
         _db.CargoTypes.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, cancellationToken);
@@ -808,11 +812,13 @@ public sealed class VehicleRepository : IVehicleRepository
         CancellationToken cancellationToken = default) =>
         (await _db.Vehicles
             .Where(v => v.IsActive && !v.IsDeleted)
+            .Select(v => new { v.PlateNumber, v.LastUsedAt })
+            .ToListAsync(cancellationToken))
             .OrderByDescending(v => v.LastUsedAt)
             .ThenBy(v => v.PlateNumber)
             .Take(maxResults)
             .Select(v => v.PlateNumber)
-            .ToListAsync(cancellationToken));
+            .ToList();
 
     public Task<Vehicle?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
         _db.Vehicles.Include(v => v.LastCustomer)

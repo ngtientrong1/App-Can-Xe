@@ -2,6 +2,7 @@ using CanXe.Application.Interfaces;
 using CanXe.Application.Mapping;
 using CanXe.Application.Models;
 using CanXe.Domain.Entities;
+using CanXe.Domain.Models;
 using CanXe.Domain.Services;
 
 namespace CanXe.Application.Services;
@@ -229,7 +230,10 @@ public sealed class TicketUpdateService
                     : null,
                 OverrideReason = reasonText,
                 OverrideAt = draft.DeveloperWeightUnlockEnabled ? DateTimeOffset.Now : null,
-                OverrideBy = draft.DeveloperWeightUnlockEnabled ? editedBy : null
+                OverrideBy = draft.DeveloperWeightUnlockEnabled ? editedBy : null,
+                InputSource = draft.DeveloperWeightUnlockEnabled ? WeighInputSource.Manual : WeighInputSource.Hardware,
+                CreatedByRole = draft.DeveloperWeightUnlockEnabled ? StationUserRole.Admin : StationUserRole.Operator,
+                ManualReason = null
             };
             events.Add(existing);
             auditLogs.AddIfNotNull(TicketEditAuditBuilder.BuildChange(
@@ -246,6 +250,10 @@ public sealed class TicketUpdateService
             existing.OverrideReason = reasonText;
             existing.OverrideAt = DateTimeOffset.Now;
             existing.OverrideBy = editedBy;
+            existing.InputSource = WeighInputSource.Manual;
+            existing.CreatedByRole = StationUserRole.Admin;
+            if (string.Equals(draft.WeightOverrideReasonCode, WeightOverrideReasons.AdminInline, StringComparison.Ordinal))
+                existing.ManualReason = null;
             auditLogs.AddIfNotNull(TicketEditAuditBuilder.BuildChange(
                 ticketId, field, oldEffective, newEffective, reasonText, editedBy, true));
         }

@@ -2,17 +2,13 @@ using System.IO;
 using System.Printing;
 using CanXe.Application.Models;
 using CanXe.Domain.Services;
+using CanXe.Infrastructure.Logging;
 
 namespace CanXe.Desktop.Services;
 
 public sealed class PrintScalingLogger
 {
-    private static string LogPath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CanXe",
-            "Logs",
-            "print-scaling.log");
+    private static string LogPath => CanXeLogPaths.GetLogFile("print-scaling.log");
 
     public void LogJob(
         long jobId,
@@ -190,8 +186,8 @@ public sealed class PrintScalingLogger
             lines.Add($"Bitmap={bitmapWidthPx}x{bitmapHeightPx}");
             lines.Add($"EdgeClearance L={leftEdgeClearancePx:F0} R={rightEdgeClearancePx:F0} T={topEdgeClearancePx:F0} B={bottomEdgeClearancePx:F0}");
             lines.Add($"SpoolSubmissionResult={spoolSubmissionResult}");
-            File.AppendAllLines(LogPath, lines);
-            File.AppendAllText(LogPath, Environment.NewLine);
+            SafeLogFileAppend.AppendLines(LogPath, lines);
+            SafeLogFileAppend.Append(LogPath, Environment.NewLine);
         }
         catch
         {

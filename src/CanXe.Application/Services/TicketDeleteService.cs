@@ -65,7 +65,26 @@ internal static class TicketDeleteAuditWriter
                 line += $" exception={exception}";
 
             lock (Gate)
-                File.AppendAllText(path, line + Environment.NewLine);
+            {
+                for (var attempt = 0; attempt < 3; attempt++)
+                {
+                    try
+                    {
+                        using var stream = new FileStream(
+                            path,
+                            FileMode.Append,
+                            FileAccess.Write,
+                            FileShare.ReadWrite | FileShare.Delete);
+                        using var writer = new StreamWriter(stream);
+                        writer.WriteLine(line);
+                        return;
+                    }
+                    catch (IOException) when (attempt < 2)
+                    {
+                        Thread.Sleep(50 + attempt * 50);
+                    }
+                }
+            }
         }
         catch
         {

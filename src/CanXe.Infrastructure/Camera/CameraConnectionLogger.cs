@@ -1,19 +1,14 @@
 using System.Text;
 
 using CanXe.Application.Models;
+using CanXe.Infrastructure.Logging;
 
 namespace CanXe.Infrastructure.Camera;
 
 public static class CameraConnectionLogger
 {
-    private static readonly object Gate = new();
 
-    public static string LogFilePath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CanXe",
-            "Logs",
-            "camera.log");
+    public static string LogFilePath => CanXeLogPaths.GetLogFile("camera.log");
 
     public static void WriteSessionHeader(
         int operationId,
@@ -91,11 +86,7 @@ public static class CameraConnectionLogger
                 builder.AppendLine($"Error: {error}");
             builder.AppendLine(new string('-', 60));
 
-            lock (Gate)
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(LogFilePath)!);
-                File.AppendAllText(LogFilePath, builder.ToString(), Encoding.UTF8);
-            }
+            SafeLogFileAppend.Append(LogFilePath, builder.ToString());
         }
         catch (Exception ex)
         {
@@ -152,13 +143,9 @@ public static class CameraConnectionLogger
     {
         public static void Write(string message)
         {
-            var path = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "CanXe",
-                "Logs",
-                "startup-error.log");
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.AppendAllText(path, $"{DateTimeOffset.Now:O} {message}{Environment.NewLine}", Encoding.UTF8);
+            SafeLogFileAppend.AppendLine(
+                CanXeLogPaths.GetLogFile("startup-error.log"),
+                $"{DateTimeOffset.Now:O} {message}");
         }
     }
 }

@@ -7,7 +7,8 @@
         WindowStartupLocation="CenterOwner"
         FontFamily="Segoe UI"
         FontSize="18"
-        Background="White">
+        Background="{DynamicResource PageBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
     </Window.Resources>
@@ -18,7 +19,8 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="{Binding WindowTitle}" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,12"/>
+        <TextBlock Grid.Row="0" Text="{Binding WindowTitle}" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,12"
+                   Foreground="{DynamicResource PrimaryTextBrush}"/>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
@@ -28,20 +30,20 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                        <TextBlock Text="Khách hàng" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding Detail.CustomerName, TargetNullValue=—}"/>
-                        <TextBlock Text="Biển số" FontWeight="SemiBold" Margin="0,8,0,0"/>
-                        <TextBlock Text="{Binding Detail.LicensePlate, TargetNullValue=—}"/>
-                        <TextBlock Text="Loại hàng" FontWeight="SemiBold" Margin="0,8,0,0"/>
-                        <TextBlock Text="{Binding Detail.CargoTypeName, TargetNullValue=—}"/>
+                        <TextBlock Text="Khách hàng" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                        <TextBlock Text="{Binding Detail.CustomerName, TargetNullValue=—}" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        <TextBlock Text="Biển số" FontWeight="SemiBold" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                        <TextBlock Text="{Binding Detail.LicensePlate, TargetNullValue=—}" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        <TextBlock Text="Loại hàng" FontWeight="SemiBold" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                        <TextBlock Text="{Binding Detail.CargoTypeName, TargetNullValue=—}" Foreground="{DynamicResource PrimaryTextBrush}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1">
-                        <TextBlock Text="Ngày giờ" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding Detail.TicketDateTime, StringFormat=dd/MM/yyyy HH:mm:ss}"/>
-                        <TextBlock Text="Đơn giá" FontWeight="SemiBold" Margin="0,8,0,0"/>
-                        <TextBlock x:Name="UnitPriceBlock"/>
-                        <TextBlock Text="Ghi chú" FontWeight="SemiBold" Margin="0,8,0,0"/>
-                        <TextBlock Text="{Binding Detail.Notes, TargetNullValue=—}" TextWrapping="Wrap"/>
+                        <TextBlock Text="Ngày giờ" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                        <TextBlock Text="{Binding Detail.TicketDateTime, StringFormat=dd/MM/yyyy HH:mm:ss}" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        <TextBlock Text="Đơn giá" FontWeight="SemiBold" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                        <TextBlock x:Name="UnitPriceBlock" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        <TextBlock Text="Ghi chú" FontWeight="SemiBold" Margin="0,8,0,0" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                        <TextBlock Text="{Binding Detail.Notes, TargetNullValue=—}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryTextBrush}"/>
                     </StackPanel>
                 </Grid>
 
@@ -50,57 +52,60 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" BorderBrush="#BDBDBD" BorderThickness="1" Padding="10" Margin="0,0,6,0">
+                    <Border Grid.Column="0" BorderBrush="{DynamicResource WeighPanelBorderBrush}" BorderThickness="1" Padding="10" Margin="0,0,6,0"
+                            Background="{DynamicResource WeighPanelBackgroundBrush}">
                         <StackPanel>
-                            <TextBlock Text="CÂN LẦN 1" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding Detail.Weight1Kg, StringFormat={}{0:N0} kg, TargetNullValue=—}"/>
-                            <TextBlock Text="{Binding Detail.Weight1RecordedAt, StringFormat=HH:mm:ss dd/MM/yyyy, TargetNullValue=''}" FontSize="14" Foreground="#616161"/>
+                            <TextBlock Text="CÂN LẦN 1" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Text="{Binding Detail.Weight1Kg, StringFormat={}{0:N0} kg, TargetNullValue=—}" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Text="{Binding Detail.Weight1RecordedAt, StringFormat=HH:mm:ss dd/MM/yyyy, TargetNullValue=''}" FontSize="14" Foreground="{DynamicResource MutedTextBrush}"/>
                             <Image x:Name="Weight1Image" Height="100" Stretch="Uniform" Margin="0,6,0,0"/>
-                            <TextBlock x:Name="Weight1PhotoPlaceholder" Text="{Binding Detail.Weight1PhotoStatusText}" Foreground="#757575" FontSize="14"/>
+                            <TextBlock x:Name="Weight1PhotoPlaceholder" Text="{Binding Detail.Weight1PhotoStatusText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="14"/>
                         </StackPanel>
                     </Border>
-                    <Border Grid.Column="1" BorderBrush="#BDBDBD" BorderThickness="1" Padding="10" Margin="6,0,0,0">
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource WeighPanelBorderBrush}" BorderThickness="1" Padding="10" Margin="6,0,0,0"
+                            Background="{DynamicResource WeighPanelBackgroundBrush}">
                         <StackPanel>
-                            <TextBlock Text="CÂN LẦN 2" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding Detail.Weight2Kg, StringFormat={}{0:N0} kg, TargetNullValue=—}"/>
-                            <TextBlock Text="{Binding Detail.Weight2RecordedAt, StringFormat=HH:mm:ss dd/MM/yyyy, TargetNullValue=''}" FontSize="14" Foreground="#616161"/>
+                            <TextBlock Text="CÂN LẦN 2" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Text="{Binding Detail.Weight2Kg, StringFormat={}{0:N0} kg, TargetNullValue=—}" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Text="{Binding Detail.Weight2RecordedAt, StringFormat=HH:mm:ss dd/MM/yyyy, TargetNullValue=''}" FontSize="14" Foreground="{DynamicResource MutedTextBrush}"/>
                             <Image x:Name="Weight2Image" Height="100" Stretch="Uniform" Margin="0,6,0,0"/>
-                            <TextBlock x:Name="Weight2PhotoPlaceholder" Text="{Binding Detail.Weight2PhotoStatusText}" Foreground="#757575" FontSize="14"/>
+                            <TextBlock x:Name="Weight2PhotoPlaceholder" Text="{Binding Detail.Weight2PhotoStatusText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="14"/>
                         </StackPanel>
                     </Border>
                 </Grid>
 
-                <Border Background="#F5F5F5" Padding="12" Margin="0,0,0,8">
+                <Border Background="{DynamicResource PanelBackgroundBrush}" Padding="12" Margin="0,0,0,8"
+                        BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="8">
                     <StackPanel>
-                        <TextBlock Text="KẾT QUẢ CÂN" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock Text="KẾT QUẢ CÂN" FontWeight="SemiBold" Margin="0,0,0,8" Foreground="{DynamicResource PrimaryTextBrush}"/>
                         <UniformGrid Columns="3">
                             <StackPanel>
-                                <TextBlock Text="TỔNG"/>
-                                <TextBlock Text="{Binding Detail.GrossWeightKg, StringFormat={}{0:N0} kg, TargetNullValue=—}" FontWeight="SemiBold"/>
+                                <TextBlock Text="TỔNG" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                <TextBlock Text="{Binding Detail.GrossWeightKg, StringFormat={}{0:N0} kg, TargetNullValue=—}" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             </StackPanel>
                             <StackPanel>
-                                <TextBlock Text="BÌ"/>
-                                <TextBlock Text="{Binding Detail.TareWeightKg, StringFormat={}{0:N0} kg, TargetNullValue=—}" FontWeight="SemiBold"/>
+                                <TextBlock Text="BÌ" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                                <TextBlock Text="{Binding Detail.TareWeightKg, StringFormat={}{0:N0} kg, TargetNullValue=—}" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             </StackPanel>
                             <StackPanel>
-                                <TextBlock Text="HÀNG" FontWeight="Bold"/>
-                                <TextBlock Text="{Binding Detail.NetWeightKg, StringFormat={}{0:N0} kg, TargetNullValue=—}" FontWeight="Bold" FontSize="20"/>
+                                <TextBlock Text="HÀNG" FontWeight="Bold" Foreground="{DynamicResource AccentTextBrush}"/>
+                                <TextBlock Text="{Binding Detail.NetWeightKg, StringFormat={}{0:N0} kg, TargetNullValue=—}" FontWeight="Bold" FontSize="20" Foreground="{DynamicResource NetHighlightBrush}"/>
                             </StackPanel>
                         </UniformGrid>
                         <StackPanel Margin="0,10,0,0">
-                            <TextBlock>
+                            <TextBlock Foreground="{DynamicResource PrimaryTextBrush}">
                                 <Run Text="Trừ bì: "/>
                                 <Run Text="{Binding Detail.DeductionWeightKg, StringFormat={}{0:N3} kg, Mode=OneWay, TargetNullValue=—}"/>
                             </TextBlock>
-                            <TextBlock>
+                            <TextBlock Foreground="{DynamicResource PrimaryTextBrush}">
                                 <Run Text="Khối lượng tính tiền: "/>
                                 <Run Text="{Binding Detail.BillableWeightKg, StringFormat=N0, Mode=OneWay, TargetNullValue=—}"/>
                             </TextBlock>
-                            <TextBlock>
+                            <TextBlock Foreground="{DynamicResource PrimaryTextBrush}">
                                 <Run Text="Thành tiền: "/>
                                 <Run Text="{Binding Detail.TotalAmountVnd, StringFormat=N0, Mode=OneWay, TargetNullValue=—}"/>
                             </TextBlock>
-                            <TextBlock Text="Cân dịch vụ — chưa nhập đơn giá" Foreground="#757575" FontSize="14"
+                            <TextBlock Text="Cân dịch vụ — chưa nhập đơn giá" Foreground="{DynamicResource MutedTextBrush}" FontSize="14"
                                        Visibility="{Binding Detail.IsServiceWeigh, Converter={StaticResource BoolToVis}}"/>
                         </StackPanel>
                     </StackPanel>
@@ -110,8 +115,10 @@
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
             <Button Content="TIẾP TỤC CÂN" Click="Continue_Click" MinHeight="44" MinWidth="140" Margin="0,0,8,0"
+                    Style="{StaticResource CanXePrimaryButtonStyle}"
                     Visibility="{Binding Detail.CanContinue, Converter={StaticResource BoolToVis}}"/>
-            <Button Content="ĐÓNG" Click="Close_Click" MinHeight="44" MinWidth="100"/>
+            <Button Content="ĐÓNG" Click="Close_Click" MinHeight="44" MinWidth="100"
+                    Style="{StaticResource CanXeSecondaryButtonStyle}"/>
         </StackPanel>
     </Grid>
 </Window>

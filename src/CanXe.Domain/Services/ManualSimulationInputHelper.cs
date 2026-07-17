@@ -18,7 +18,10 @@ public static class ManualSimulationInputHelper
             return false;
         }
 
-        var normalized = text.Trim().Replace(" ", string.Empty).Replace(".", string.Empty).Replace(",", string.Empty);
+        var normalized = text.Trim()
+            .Replace(" ", string.Empty)
+            .Replace(".", string.Empty)
+            .Replace(",", string.Empty);
         if (!int.TryParse(normalized, NumberStyles.Integer, CultureInfo.InvariantCulture, out kg)
             && !int.TryParse(normalized, NumberStyles.Integer, CultureInfo.CurrentCulture, out kg))
         {

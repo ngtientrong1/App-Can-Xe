@@ -39,6 +39,8 @@ public partial class App : System.Windows.Application
                 .ConfigureServices(services =>
                 {
                     services.AddCanXeInfrastructure(settings, dbPath, photoRoot);
+                    services.AddSingleton<ThemeService>();
+                    services.AddSingleton<IThemeService>(sp => sp.GetRequiredService<ThemeService>());
                     services.AddSingleton<IUserNotificationService, WpfNotificationService>();
                     services.AddSingleton<IUiFocusService, WpfUiFocusService>();
                     services.AddSingleton<PrintCommandLogger>();
@@ -61,18 +63,22 @@ public partial class App : System.Windows.Application
             await _host.StartAsync();
             await DependencyInjection.InitializeDatabaseAsync(_host.Services, dbPath);
 
+            _host.Services.GetRequiredService<IThemeService>().Load();
+
             var mainWindow = _host.Services.GetRequiredService<MainWindow>();
             var viewModel = _host.Services.GetRequiredService<MainViewModel>();
             mainWindow.DataContext = viewModel;
+            mainWindow.Title = AppBranding.WindowTitle;
             await viewModel.InitializeAsync();
+            viewModel.Settings.SyncThemeFromService();
             mainWindow.Show();
         }
         catch (Exception ex)
         {
             StartupErrorLogger.Write(ex);
             MessageBox.Show(
-                "Không thể khởi động giao diện CanXe. Chi tiết đã được ghi vào startup-error.log.",
-                "CanXe — Lỗi khởi động",
+                "Không thể khởi động giao diện. Chi tiết đã được ghi vào startup-error.log.",
+                $"{AppBranding.DisplayName} — Lỗi khởi động",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             Shutdown(1);
@@ -87,6 +93,8 @@ public partial class App : System.Windows.Application
             var vm = _host.Services.GetService<MainViewModel>();
             if (vm is not null)
                 await vm.DisposeAsync();
+
+            _host.Services.GetService<ThemeService>()?.Dispose();
 
             await _host.StopAsync();
             _host.Dispose();
@@ -138,7 +146,7 @@ public partial class App : System.Windows.Application
             WeighWorkflowLogger.Write("DISPATCHER_UNHANDLED_EXCEPTION", e.Exception.GetType().Name);
             MessageBox.Show(
                 "Đã xảy ra lỗi không mong muốn. Chi tiết đã được ghi vào errors.log.",
-                "CanXe — Lỗi",
+                $"{AppBranding.DisplayName} — Lỗi",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             e.Handled = true;

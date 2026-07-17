@@ -1,3 +1,5 @@
+using CanXe.Domain.Models;
+
 namespace CanXe.Domain.Entities;
 
 public class WeighEvent
@@ -17,6 +19,13 @@ public class WeighEvent
     public bool PhotoCaptureSucceeded { get; set; }
     public string? PhotoErrorMessage { get; set; }
     public string? RawScaleData { get; set; }
+
+    /// <summary>Hardware (default for legacy rows) or Manual admin entry.</summary>
+    public WeighInputSource InputSource { get; set; } = WeighInputSource.Hardware;
+
+    public string? ManualReason { get; set; }
+
+    public StationUserRole CreatedByRole { get; set; } = StationUserRole.Operator;
 
     public int EffectiveWeightGrams => OverrideWeightGrams ?? OriginalWeightGrams;
 }

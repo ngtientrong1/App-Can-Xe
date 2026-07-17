@@ -65,18 +65,27 @@ public sealed class PrintSuccessToastHost
             var border = CreateToastBorder(title, detail);
             border.MouseLeftButtonUp += (_, _) => DismissUi(owner);
 
+            // Anchor to window content (not title chrome) so toast is not clipped at top edge.
+            var placementTarget = owner.Content as FrameworkElement ?? owner;
             var popup = new Popup
             {
                 AllowsTransparency = true,
-                Placement = PlacementMode.Top,
-                PlacementTarget = owner,
-                HorizontalOffset = owner.ActualWidth - 360,
-                VerticalOffset = 16,
+                Placement = PlacementMode.Relative,
+                PlacementTarget = placementTarget,
+                HorizontalOffset = Math.Max(24, placementTarget.ActualWidth - 360),
+                VerticalOffset = 24,
                 StaysOpen = true,
+                Focusable = false,
                 IsHitTestVisible = true,
+                PopupAnimation = PopupAnimation.Fade,
                 Child = border
             };
-            popup.Opened += (_, _) => commandLogger?.LogMilestone(shownMilestone);
+            popup.Opened += (_, _) =>
+            {
+                commandLogger?.LogMilestone(shownMilestone);
+                popup.HorizontalOffset = Math.Max(24, placementTarget.ActualWidth - 360);
+                popup.VerticalOffset = 24;
+            };
             popup.IsOpen = true;
             _popup = popup;
         });
@@ -120,6 +129,7 @@ public sealed class PrintSuccessToastHost
 
     private void DismissUi(Window owner)
     {
+        _ = owner;
         if (_popup is not null)
         {
             _popup.IsOpen = false;
@@ -127,36 +137,50 @@ public sealed class PrintSuccessToastHost
         }
     }
 
-    private static Border CreateToastBorder(string title, string detail) =>
-        new()
+    private static Border CreateToastBorder(string title, string detail)
+    {
+        var panel = new StackPanel();
+        panel.Children.Add(new TextBlock
         {
-            Background = new SolidColorBrush(Color.FromArgb(230, 28, 36, 48)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(255, 64, 132, 220)),
+            Text = title,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = TryThemeBrush("ToastTextBrush", Colors.White),
+            FontSize = 14,
+            TextWrapping = TextWrapping.Wrap
+        });
+        if (!string.IsNullOrWhiteSpace(detail))
+        {
+            panel.Children.Add(new TextBlock
+            {
+                Text = detail,
+                Margin = new Thickness(0, 6, 0, 0),
+                Foreground = TryThemeBrush("ToastDetailBrush", Color.FromRgb(220, 228, 240)),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
+
+        return new Border
+        {
+            Background = TryThemeBrush("ToastBackgroundBrush", Color.FromArgb(235, 38, 50, 56)),
+            BorderBrush = TryThemeBrush("ToastBorderBrush", Color.FromRgb(76, 175, 80)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
+            CornerRadius = new CornerRadius(10),
             Padding = new Thickness(16, 12, 16, 12),
             MaxWidth = 340,
-            Child = new StackPanel
+            MinWidth = 220,
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
             {
-                Children =
-                {
-                    new TextBlock
-                    {
-                        Text = title,
-                        FontWeight = FontWeights.SemiBold,
-                        Foreground = Brushes.White,
-                        FontSize = 14,
-                        TextWrapping = TextWrapping.Wrap
-                    },
-                    new TextBlock
-                    {
-                        Text = detail,
-                        Margin = new Thickness(0, 6, 0, 0),
-                        Foreground = new SolidColorBrush(Color.FromRgb(220, 228, 240)),
-                        FontSize = 12,
-                        TextWrapping = TextWrapping.Wrap
-                    }
-                }
-            }
+                BlurRadius = 12,
+                ShadowDepth = 2,
+                Opacity = 0.35,
+                Color = Colors.Black
+            },
+            Child = panel
         };
+    }
+
+    private static Brush TryThemeBrush(string key, Color fallbackColor) =>
+        System.Windows.Application.Current?.TryFindResource(key) as Brush
+        ?? new SolidColorBrush(fallbackColor);
 }

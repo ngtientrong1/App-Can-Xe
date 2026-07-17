@@ -1,25 +1,17 @@
-using System.IO;
+using CanXe.Infrastructure.Logging;
 
 namespace CanXe.Desktop.Services;
 
 public sealed class PrintCommandLogger
 {
-    private static readonly object Gate = new();
-    private static string LogPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "CanXe",
-        "Logs",
-        "print-command.log");
+    private static string LogPath => CanXeLogPaths.GetLogFile("print-command.log");
 
     public void Log(string message)
     {
         try
         {
-            var dir = Path.GetDirectoryName(LogPath)!;
-            Directory.CreateDirectory(dir);
             var line = $"[{DateTimeOffset.Now:O}] {message}";
-            lock (Gate)
-                File.AppendAllText(LogPath, line + Environment.NewLine);
+            SafeLogFileAppend.AppendLine(LogPath, line);
         }
         catch
         {

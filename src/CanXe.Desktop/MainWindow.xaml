@@ -10,13 +10,14 @@
         xmlns:catalogs="clr-namespace:CanXe.Desktop.Views.Catalogs"
         mc:Ignorable="d"
         x:Name="RootWindow"
-        Title="CanXe — Cân xe"
+        Title="Cân Xe Tiến Trọng"
         MinWidth="1280"
         MinHeight="720"
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
         FontFamily="Segoe UI Variable, Segoe UI"
-        Background="{StaticResource PageBackgroundBrush}">
+        Background="{DynamicResource PageBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
         <conv:NullToVisibilityConverter x:Key="NullToVis"/>
@@ -26,9 +27,9 @@
         <Style x:Key="NavTabActiveTrigger" TargetType="Button" BasedOn="{StaticResource CanXeNavigationButtonStyle}">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsNavSystemActive}" Value="True">
-                    <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
-                    <Setter Property="Background" Value="{StaticResource NavActiveBackgroundBrush}"/>
-                    <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                    <Setter Property="Background" Value="{DynamicResource NavActiveBackgroundBrush}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -42,12 +43,14 @@
             <Setter Property="Margin" Value="0,0,10,0"/>
             <Setter Property="FontSize" Value="16"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
         </Style>
         <Style x:Key="GridCellText" TargetType="TextBlock">
             <Setter Property="FontSize" Value="16"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
         </Style>
-        <Style x:Key="TicketGridRow" TargetType="DataGridRow">
+        <Style x:Key="TicketGridRow" TargetType="DataGridRow" BasedOn="{StaticResource CanXeDataGridRowStyle}">
             <Setter Property="MinHeight" Value="42"/>
             <Style.Triggers>
                 <DataTrigger Value="True">
@@ -57,7 +60,7 @@
                             <Binding Path="DataContext.HighlightedTicketId" RelativeSource="{RelativeSource AncestorType=Window}"/>
                         </MultiBinding>
                     </DataTrigger.Binding>
-                    <Setter Property="Background" Value="{StaticResource SelectedRowBrush}"/>
+                    <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -78,19 +81,15 @@
         <Border Grid.Row="0" Style="{StaticResource CanXeCardStyle}" Padding="14,12" Margin="0,0,0,8">
             <DockPanel LastChildFill="False">
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
-                    <Border Width="40" Height="40" CornerRadius="10" Background="{StaticResource AccentBlueBrush}" Margin="0,0,12,0">
+                    <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource AccentBlueBrush}" Margin="0,0,12,0">
                         <TextBlock Text="⚖" Foreground="White" FontSize="20"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
-                    <TextBlock Text="CanXe" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"/>
+                    <TextBlock Text="Cân Xe Tiến Trọng" FontSize="24" FontWeight="Bold" VerticalAlignment="Center"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </StackPanel>
                 <TextBlock Text="{Binding HeaderClockText}" FontSize="16" DockPanel.Dock="Right" VerticalAlignment="Center"
-                           Foreground="{StaticResource SecondaryTextBrush}"/>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Border Style="{StaticResource CanXeStatusBadgeStyle}">
-                        <TextBlock Text="{Binding HeaderScaleStatus}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource WeightStableBrush}"/>
-                    </Border>
-                </StackPanel>
+                           Foreground="{DynamicResource SecondaryTextBrush}"/>
             </DockPanel>
         </Border>
 
@@ -102,9 +101,9 @@
                         <Style TargetType="Button" BasedOn="{StaticResource CanXeNavigationButtonStyle}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsNavSystemActive}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
-                                    <Setter Property="Background" Value="{StaticResource NavActiveBackgroundBrush}"/>
-                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                                    <Setter Property="Background" Value="{DynamicResource NavActiveBackgroundBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -115,9 +114,9 @@
                         <Style TargetType="Button" BasedOn="{StaticResource CanXeNavigationButtonStyle}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsNavWeighTicketActive}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
-                                    <Setter Property="Background" Value="{StaticResource NavActiveBackgroundBrush}"/>
-                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                                    <Setter Property="Background" Value="{DynamicResource NavActiveBackgroundBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -128,9 +127,9 @@
                         <Style TargetType="Button" BasedOn="{StaticResource CanXeNavigationButtonStyle}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsNavCatalogActive}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
-                                    <Setter Property="Background" Value="{StaticResource NavActiveBackgroundBrush}"/>
-                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                                    <Setter Property="Background" Value="{DynamicResource NavActiveBackgroundBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -141,9 +140,9 @@
                         <Style TargetType="Button" BasedOn="{StaticResource CanXeNavigationButtonStyle}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsNavDeviceActive}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
-                                    <Setter Property="Background" Value="{StaticResource NavActiveBackgroundBrush}"/>
-                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                                    <Setter Property="Background" Value="{DynamicResource NavActiveBackgroundBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -154,9 +153,9 @@
                         <Style TargetType="Button" BasedOn="{StaticResource CanXeNavigationButtonStyle}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsNavReportActive}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
-                                    <Setter Property="Background" Value="{StaticResource NavActiveBackgroundBrush}"/>
-                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                                    <Setter Property="Background" Value="{DynamicResource NavActiveBackgroundBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -167,23 +166,23 @@
                         <Style TargetType="Button" BasedOn="{StaticResource CanXeNavigationButtonStyle}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsNavSettingsActive}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
-                                    <Setter Property="Background" Value="{StaticResource NavActiveBackgroundBrush}"/>
-                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                                    <Setter Property="Background" Value="{DynamicResource NavActiveBackgroundBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Button.Style>
                 </Button>
-                <Button Content="NHÀ PHÁT TRIỂN" Command="{Binding NavigateCommand}" CommandParameter="{x:Static models:AppNavigationSection.Developer}"
+                <Button Content="ADMIN" Command="{Binding NavigateCommand}" CommandParameter="{x:Static models:AppNavigationSection.Developer}"
                         Visibility="{Binding IsDeveloperPanelAvailable, Converter={StaticResource BoolToVis}}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource CanXeNavigationButtonStyle}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsNavDeveloperActive}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource AccentBlueBrush}"/>
-                                    <Setter Property="Background" Value="{StaticResource NavActiveBackgroundBrush}"/>
-                                    <Setter Property="BorderBrush" Value="{StaticResource AccentBlueBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource AccentBlueBrush}"/>
+                                    <Setter Property="Background" Value="{DynamicResource NavActiveBackgroundBrush}"/>
+                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBlueBrush}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -213,70 +212,188 @@
 
             <!-- Left: live weight -->
             <Border Grid.Column="0" Style="{StaticResource CanXeCardStyle}" Margin="0,0,8,0" Padding="14,10"
-                    Background="{StaticResource PanelBrush}" VerticalAlignment="Top">
-                <StackPanel>
-                    <TextBlock Text="TRỌNG LƯỢNG TRỰC TIẾP" Style="{StaticResource SectionHeaderTextStyle}" FontSize="15" Margin="0,0,0,4"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,8">
-                        <TextBlock Text="{Binding LiveWeightDisplayText}"
-                                   FontSize="{Binding LiveWeightFontSize}" FontWeight="Bold"
-                                   Foreground="{StaticResource WeightStableBrush}"/>
-                        <TextBlock Text=" kg" FontSize="{Binding LiveWeightUnitFontSize}"
-                                   Foreground="{StaticResource SecondaryTextBrush}"
-                                   VerticalAlignment="Bottom" Margin="8,0,0,12"
-                                   Visibility="{Binding ShowLiveWeightUnit, Converter={StaticResource BoolToVis}}"/>
-                    </StackPanel>
-                    <TextBlock Text="{Binding ScaleStabilityText}" FontSize="15" FontWeight="SemiBold"
-                               Foreground="{StaticResource WeightStableBrush}" Margin="0,0,0,4"/>
-                    <TextBlock Text="{Binding WeightSourceText}" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,6"/>
-                    <TextBlock Text="{Binding OperatorStatusMessage}" FontSize="13" Foreground="{StaticResource SecondaryTextBrush}"
-                               TextWrapping="Wrap" Margin="0,0,0,6"/>
-                    <Button Content="THỬ KẾT NỐI LẠI" Command="{Binding RetryConnectHardwareCommand}"
-                            Style="{StaticResource CanXeSecondaryButtonStyle}" MinHeight="44" FontSize="15"
-                            Margin="0,0,0,8"
-                            Visibility="{Binding IsRetryConnectVisible, Converter={StaticResource BoolToVis}}"/>
+                    Background="{DynamicResource PanelBrush}" VerticalAlignment="Stretch">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="28"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-                    <Grid Margin="0,0,0,6">
+                    <!-- Row 0: live weight + status -->
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="TRỌNG LƯỢNG TRỰC TIẾP" Style="{StaticResource SectionHeaderTextStyle}" FontSize="15" Margin="0,0,0,4"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,8">
+                            <TextBlock Text="{Binding LiveWeightDisplayText}"
+                                       FontSize="{Binding LiveWeightFontSize}" FontWeight="Bold"
+                                       Foreground="{DynamicResource WeightStableBrush}"/>
+                            <TextBlock Text=" kg" FontSize="{Binding LiveWeightUnitFontSize}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       VerticalAlignment="Bottom" Margin="8,0,0,12"
+                                       Visibility="{Binding ShowLiveWeightUnit, Converter={StaticResource BoolToVis}}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding ScaleStabilityText}" FontSize="15" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource WeightStableBrush}" Margin="0,0,0,4"/>
+                        <TextBlock Text="{Binding WeightSourceText}" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,6"/>
+                        <TextBlock Text="{Binding OperatorStatusMessage}" FontSize="13" Foreground="{DynamicResource SecondaryTextBrush}"
+                                   TextWrapping="Wrap" Margin="0,0,0,6"/>
+                        <Button Content="THỬ KẾT NỐI LẠI" Command="{Binding RetryConnectHardwareCommand}"
+                                Style="{StaticResource CanXeSecondaryButtonStyle}" MinHeight="44" FontSize="15"
+                                Margin="0,0,0,8"
+                                Visibility="{Binding IsRetryConnectVisible, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+
+                    <!-- Row 1: admin compact -->
+                    <Grid Grid.Row="1" Margin="0,0,0,6">
+                        <Button Content="Mở khóa Admin" Command="{Binding UnlockAdminCommand}"
+                                Style="{StaticResource CanXeSecondaryButtonStyle}" FontSize="11" MaxHeight="28" Padding="6,2"
+                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                Visibility="{Binding IsAdminUnlockButtonVisible, Converter={StaticResource BoolToVis}}"/>
+                        <DockPanel LastChildFill="True" VerticalAlignment="Center"
+                                   Visibility="{Binding IsAdminBadgeVisible, Converter={StaticResource BoolToVis}}">
+                            <Border DockPanel.Dock="Left" Background="{DynamicResource AdminBadgeBackgroundBrush}" BorderBrush="{DynamicResource AdminBadgeBorderBrush}" BorderThickness="1"
+                                    CornerRadius="3" Padding="4,1" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <TextBlock Text="ADMIN" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AdminBadgeForegroundBrush}"/>
+                            </Border>
+                            <Button Content="Khóa" Command="{Binding LockAdminCommand}" DockPanel.Dock="Right"
+                                    Style="{StaticResource CanXeSecondaryButtonStyle}" FontSize="11" MaxHeight="28" Padding="6,2"
+                                    Margin="6,0,0,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding AdminInlineWeightHint}" FontSize="11" Foreground="{DynamicResource MutedTextBrush}"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Grid>
+
+                    <!-- Row 2: weigh cards -->
+                    <Grid Grid.Row="2" Margin="0,0,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Border Grid.Column="0" BorderBrush="#BDBDBD" BorderThickness="1" Padding="6" Margin="0,0,4,0"
-                                Background="White" CornerRadius="4">
+                        <Border Grid.Column="0" BorderBrush="{DynamicResource WeighPanelBorderBrush}" BorderThickness="1" Padding="6" Margin="0,0,4,0"
+                                Background="{DynamicResource WeighPanelBackgroundBrush}" CornerRadius="4">
                             <StackPanel>
-                                <TextBlock Text="CÂN LẦN 1" FontWeight="SemiBold" FontSize="14"/>
-                                <TextBlock Text="{Binding Weight1ValueText}" FontSize="{Binding WeighPanelValueFontSize}" FontWeight="SemiBold" Margin="0,2,0,0"/>
-                                <TextBlock Text="{Binding Weight1TimeText}" FontSize="13" Foreground="#616161"
+                                <DockPanel LastChildFill="False" Margin="0,0,0,2">
+                                    <TextBlock Text="CÂN LẦN 1" FontWeight="SemiBold" FontSize="14" DockPanel.Dock="Left"
+                                               Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                    <TextBlock Text="✎" FontSize="14" Foreground="{DynamicResource IconAccentBrush}" Margin="6,0,0,0" DockPanel.Dock="Left"
+                                               ToolTip="Admin: nhấp vào số cân để sửa"
+                                               Visibility="{Binding IsInlineWeightEditEnabled, Converter={StaticResource BoolToVis}}"/>
+                                </DockPanel>
+                                <Grid Margin="0,2,0,0" MinHeight="28" Background="#00000000">
+                                    <TextBlock Text="{Binding Weight1ValueText}"
+                                               FontSize="{Binding WeighPanelValueFontSize}" FontWeight="SemiBold"
+                                               Visibility="{Binding IsWeight1InlineEditing, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"
+                                               MouseLeftButtonDown="Weight1Value_OnMouseLeftButtonDown">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Cursor" Value="Arrow"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsInlineWeightEditEnabled}" Value="True">
+                                                        <Setter Property="Cursor" Value="Hand"/>
+                                                        <Setter Property="Foreground" Value="{DynamicResource IconAccentBrush}"/>
+                                                    </DataTrigger>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding IsInlineWeightEditEnabled}" Value="True"/>
+                                                            <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="TextDecorations" Value="Underline"/>
+                                                    </MultiDataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBox x:Name="Weight1InlineEditBox"
+                                             Text="{Binding Weight1InlineEditText, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="{Binding WeighPanelValueFontSize}" FontWeight="SemiBold"
+                                             Visibility="{Binding IsWeight1InlineEditing, Converter={StaticResource BoolToVis}}"
+                                             KeyDown="Weight1InlineEdit_OnKeyDown"
+                                             LostFocus="Weight1InlineEdit_OnLostFocus"
+                                             Tag="1"/>
+                                </Grid>
+                                <TextBlock Text="{Binding Weight1TimeText}" FontSize="13" Foreground="{DynamicResource MutedTextBrush}"
                                            Visibility="{Binding Weight1HasValue, Converter={StaticResource BoolToVis}}"/>
+                                <TextBlock Text="{Binding Weight1SourceDisplay}" FontSize="12" Foreground="{DynamicResource MutedTextBrush}" Margin="0,2,0,0"
+                                           Visibility="{Binding Weight1SourceDisplay, Converter={StaticResource NullToVis}}"/>
                             </StackPanel>
                         </Border>
-                        <Border Grid.Column="1" BorderBrush="#BDBDBD" BorderThickness="1" Padding="6" Margin="4,0,0,0"
-                                Background="White" CornerRadius="4">
+                        <Border Grid.Column="1" BorderBrush="{DynamicResource WeighPanelBorderBrush}" BorderThickness="1" Padding="6" Margin="4,0,0,0"
+                                Background="{DynamicResource WeighPanelBackgroundBrush}" CornerRadius="4">
                             <StackPanel>
-                                <TextBlock Text="CÂN LẦN 2" FontWeight="SemiBold" FontSize="14"/>
-                                <TextBlock Text="{Binding Weight2ValueText}" FontSize="{Binding WeighPanelValueFontSize}" FontWeight="SemiBold" Margin="0,2,0,0"/>
-                                <TextBlock Text="{Binding Weight2TimeText}" FontSize="13" Foreground="#616161"
+                                <DockPanel LastChildFill="False" Margin="0,0,0,2">
+                                    <TextBlock Text="CÂN LẦN 2" FontWeight="SemiBold" FontSize="14" DockPanel.Dock="Left"
+                                               Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                    <TextBlock Text="✎" FontSize="14" Foreground="{DynamicResource IconAccentBrush}" Margin="6,0,0,0" DockPanel.Dock="Left"
+                                               ToolTip="Admin: nhấp vào số cân để sửa"
+                                               Visibility="{Binding IsInlineWeightEditEnabled, Converter={StaticResource BoolToVis}}"/>
+                                </DockPanel>
+                                <Grid Margin="0,2,0,0" MinHeight="28" Background="#00000000">
+                                    <TextBlock Text="{Binding Weight2ValueText}"
+                                               FontSize="{Binding WeighPanelValueFontSize}" FontWeight="SemiBold"
+                                               Visibility="{Binding IsWeight2InlineEditing, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"
+                                               MouseLeftButtonDown="Weight2Value_OnMouseLeftButtonDown">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Cursor" Value="Arrow"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsInlineWeightEditEnabled}" Value="True">
+                                                        <Setter Property="Cursor" Value="Hand"/>
+                                                        <Setter Property="Foreground" Value="{DynamicResource IconAccentBrush}"/>
+                                                    </DataTrigger>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding IsInlineWeightEditEnabled}" Value="True"/>
+                                                            <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="TextDecorations" Value="Underline"/>
+                                                    </MultiDataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBox x:Name="Weight2InlineEditBox"
+                                             Text="{Binding Weight2InlineEditText, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="{Binding WeighPanelValueFontSize}" FontWeight="SemiBold"
+                                             Visibility="{Binding IsWeight2InlineEditing, Converter={StaticResource BoolToVis}}"
+                                             KeyDown="Weight2InlineEdit_OnKeyDown"
+                                             LostFocus="Weight2InlineEdit_OnLostFocus"
+                                             Tag="2"/>
+                                </Grid>
+                                <TextBlock Text="{Binding Weight2TimeText}" FontSize="13" Foreground="{DynamicResource MutedTextBrush}"
                                            Visibility="{Binding Weight2HasValue, Converter={StaticResource BoolToVis}}"/>
+                                <TextBlock Text="{Binding Weight2SourceDisplay}" FontSize="12" Foreground="{DynamicResource MutedTextBrush}" Margin="0,2,0,0"
+                                           Visibility="{Binding Weight2SourceDisplay, Converter={StaticResource NullToVis}}"/>
                             </StackPanel>
                         </Border>
                     </Grid>
 
-                    <UniformGrid Columns="3" Margin="0,0,0,4">
-                        <StackPanel Margin="0,0,4,0">
-                            <TextBlock Text="TỔNG" FontSize="14"/>
-                            <TextBlock Text="{Binding GrossDisplay}" FontSize="{Binding SummaryValueFontSize}" FontWeight="SemiBold"/>
-                        </StackPanel>
-                        <StackPanel Margin="4,0">
-                            <TextBlock Text="BÌ" FontSize="14"/>
-                            <TextBlock Text="{Binding TareDisplay}" FontSize="{Binding SummaryValueFontSize}" FontWeight="SemiBold"/>
-                        </StackPanel>
-                        <StackPanel Margin="4,0,0,0">
-                            <TextBlock Text="HÀNG" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource AccentBlueBrush}"/>
-                            <TextBlock Text="{Binding NetDisplay}" FontSize="{Binding SummaryValueFontSize}" FontWeight="Bold" Foreground="{StaticResource NetHighlightBrush}"/>
-                        </StackPanel>
-                    </UniformGrid>
-                    <TextBlock Text="Cân dịch vụ — chưa nhập đơn giá" Foreground="#757575" FontSize="13" Margin="0,4,0,0"
-                               Visibility="{Binding IsServiceWeighVisible, Converter={StaticResource BoolToVis}}"/>
-                </StackPanel>
+                    <!-- Row 3: spacer -->
+                    <!-- Row 4: TỔNG / BÌ / HÀNG -->
+                    <StackPanel Grid.Row="4">
+                        <UniformGrid Columns="3" Margin="0,0,0,4">
+                            <StackPanel Margin="0,0,4,0">
+                                <TextBlock Text="TỔNG" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Text="{Binding GrossDisplay}" FontSize="{Binding SummaryValueFontSize}" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            </StackPanel>
+                            <StackPanel Margin="4,0">
+                                <TextBlock Text="BÌ" FontSize="14" Foreground="{DynamicResource PrimaryTextBrush}"/>
+                                <TextBlock Text="{Binding TareDisplay}" FontSize="{Binding SummaryValueFontSize}" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            </StackPanel>
+                            <StackPanel Margin="4,0,0,0">
+                                <TextBlock Text="HÀNG" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AccentBlueBrush}"/>
+                                <TextBlock Text="{Binding NetDisplay}" FontSize="{Binding SummaryValueFontSize}" FontWeight="Bold" Foreground="{DynamicResource NetHighlightBrush}"/>
+                            </StackPanel>
+                        </UniformGrid>
+                        <TextBlock Text="Cân dịch vụ — chưa nhập đơn giá" Foreground="{DynamicResource MutedTextBrush}" FontSize="13" Margin="0,4,0,0"
+                                   Visibility="{Binding IsServiceWeighVisible, Converter={StaticResource BoolToVis}}"/>
+                    </StackPanel>
+                </Grid>
             </Border>
 
             <!-- Middle: ticket info -->
@@ -285,8 +402,8 @@
                     <Style TargetType="Border" BasedOn="{StaticResource CanXeCardStyle}">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsEditingExistingTicket}" Value="True">
-                                <Setter Property="Background" Value="#FFFDE7"/>
-                                <Setter Property="BorderBrush" Value="#FFB74D"/>
+                                <Setter Property="Background" Value="{DynamicResource WarningBannerBackgroundBrush}"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource WarningBannerBorderBrush}"/>
                                 <Setter Property="BorderThickness" Value="2"/>
                             </DataTrigger>
                         </Style.Triggers>
@@ -294,16 +411,16 @@
                 </Border.Style>
                 <StackPanel VerticalAlignment="Top">
                     <Border Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
-                            Background="#E8F4FD" BorderBrush="#64B5F6" BorderThickness="1"
+                            Background="{DynamicResource InfoBannerBackgroundBrush}" BorderBrush="{DynamicResource InfoBannerBorderBrush}" BorderThickness="1"
                             Visibility="{Binding IsViewModeActionsVisible, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="{Binding ViewBannerTitle}" FontSize="16" FontWeight="Bold" Foreground="#1565C0"/>
+                        <TextBlock Text="{Binding ViewBannerTitle}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource InfoBannerForegroundBrush}"/>
                     </Border>
                     <Border Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
-                            Background="#FFF3E0" BorderBrush="#FFB74D" BorderThickness="1"
+                            Background="{DynamicResource EditBannerBackgroundBrush}" BorderBrush="{DynamicResource EditBannerBorderBrush}" BorderThickness="1"
                             Visibility="{Binding IsEditingExistingTicket, Converter={StaticResource BoolToVis}}">
                         <StackPanel>
-                            <TextBlock Text="{Binding EditBannerTitle}" FontSize="16" FontWeight="Bold" Foreground="#E65100"/>
-                            <TextBlock Text="Thay đổi chỉ được lưu sau khi bấm CẬP NHẬT PHIẾU" FontSize="13" Foreground="#616161"/>
+                            <TextBlock Text="{Binding EditBannerTitle}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource EditBannerForegroundBrush}"/>
+                            <TextBlock Text="Thay đổi chỉ được lưu sau khi bấm CẬP NHẬT PHIẾU" FontSize="13" Foreground="{DynamicResource MutedTextBrush}"/>
                         </StackPanel>
                     </Border>
                     <Grid Margin="0,0,0,8">
@@ -313,11 +430,13 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Orientation="Horizontal" Grid.Column="0">
                             <TextBlock Text="Số phiếu:" Style="{StaticResource SectionHeaderTextStyle}" Margin="0,0,8,0"/>
-                            <TextBlock Text="{Binding DisplayNumber}" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"/>
-                            <TextBlock Text="Số dự kiến" Foreground="#757575" FontSize="13" Margin="8,4,0,0"
+                            <TextBlock Text="{Binding DisplayNumber}" FontSize="22" FontWeight="Bold" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
+                            <TextBlock Text="Số dự kiến" Foreground="{DynamicResource MutedTextBrush}" FontSize="13" Margin="8,4,0,0"
                                        Visibility="{Binding IsPreviewDisplayNumber, Converter={StaticResource BoolToVis}}"/>
                         </StackPanel>
-                        <TextBlock Grid.Column="1" Text="{Binding TicketDateTimeDisplay}" FontSize="18" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="{Binding TicketDateTimeDisplay}" FontSize="18" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
                     </Grid>
 
                     <Grid Margin="0,0,0,4">
@@ -370,16 +489,18 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Margin="0,0,6,0">
                             <TextBlock Text="Trừ bì" Style="{StaticResource CanXeFormFieldLabelStyle}"/>
-                            <TextBlock Text="{Binding DeductionDisplay, Mode=OneWay}" FontSize="17" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding DeductionDisplay, Mode=OneWay}" FontSize="17" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Margin="6,0">
                             <TextBlock Text="KL tính tiền" Style="{StaticResource CanXeFormFieldLabelStyle}"/>
-                            <TextBlock Text="{Binding BillableDisplay, Mode=OneWay}" FontSize="17" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding BillableDisplay, Mode=OneWay}" FontSize="17" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"/>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Margin="6,0,0,0">
                             <TextBlock Text="Thành tiền" Style="{StaticResource CanXeFormFieldLabelStyle}"/>
                             <TextBlock Text="{Binding TotalAmountDisplay, Mode=OneWay}" FontSize="17" FontWeight="Bold"
-                                       Foreground="{StaticResource AccentBlueBrush}"/>
+                                       Foreground="{DynamicResource AccentBlueBrush}"/>
                         </StackPanel>
                     </Grid>
 
@@ -412,7 +533,7 @@
                             </Button.Style>
                         </Button>
                         <StackPanel Visibility="{Binding IsDevWeightEditUnlocked, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="DEV — Sửa trọng lượng thủ công" Style="{StaticResource SectionHeaderTextStyle}"/>
+                            <TextBlock Text="ADMIN — Sửa trọng lượng thủ công" Style="{StaticResource SectionHeaderTextStyle}"/>
                             <Grid Margin="0,0,0,4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -428,7 +549,7 @@
                                 </StackPanel>
                             </Grid>
                             <TextBlock Text="Trọng lượng đã được chỉnh sửa thủ công. Ảnh thuộc giá trị cân ban đầu."
-                                       Foreground="#E65100" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6"
+                                       Foreground="{DynamicResource WarningTextBrush}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,6"
                                        Visibility="{Binding IsManualWeightOverrideMessageVisible, Converter={StaticResource BoolToVis}}"/>
                             <StackPanel Visibility="{Binding IsWeightOverrideReasonPanelVisible, Converter={StaticResource BoolToVis}}">
                                 <TextBlock Text="Lý do sửa trọng lượng" FontSize="14" FontWeight="SemiBold"/>
@@ -446,9 +567,9 @@
         </Grid>
 
         <!-- Operator status bar -->
-        <Border Grid.Row="1" Background="#F5F7FA" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
+        <Border Grid.Row="1" Background="{DynamicResource FooterBarBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                 CornerRadius="6" Padding="10,4" Margin="0,0,0,4" MinHeight="36" MaxHeight="40">
-            <TextBlock Text="{Binding OperatorBarText}" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"
+            <TextBlock Text="{Binding OperatorBarText}" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"
                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
         </Border>
 
@@ -537,37 +658,39 @@
             <StackPanel Visibility="{Binding IsAdvancedFilterVisible, Converter={StaticResource BoolToVis}}">
                 <WrapPanel Margin="0,0,0,4">
                     <StackPanel Orientation="Horizontal" Margin="0,0,12,6">
-                        <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="Từ ngày" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="15" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
                         <DatePicker SelectedDate="{Binding FilterFromDate}" Width="130" FontSize="15" TabIndex="-1"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,12,6">
-                        <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="Đến ngày" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="15" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
                         <DatePicker SelectedDate="{Binding FilterToDate}" Width="130" FontSize="15" TabIndex="-1"/>
                     </StackPanel>
                 </WrapPanel>
                 <WrapPanel Margin="0,0,0,4">
                     <StackPanel Width="150" Margin="0,0,8,6">
-                        <TextBlock Text="Khách hàng" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="Khách hàng" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
                         <TextBox Text="{Binding FilterCustomerName, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                     </StackPanel>
                     <StackPanel Width="130" Margin="0,0,8,6">
-                        <TextBlock Text="Loại hàng" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="Loại hàng" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
                         <TextBox Text="{Binding FilterCargoTypeName, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                     </StackPanel>
                     <StackPanel Width="120" Margin="0,0,8,6">
-                        <TextBlock Text="Biển số" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="Biển số" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
                         <TextBox Text="{Binding FilterLicensePlate, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                     </StackPanel>
                     <StackPanel Width="100" Margin="0,0,8,6">
-                        <TextBlock Text="Số phiếu" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="Số phiếu" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
                         <TextBox Text="{Binding FilterDisplayNumber, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                     </StackPanel>
                     <StackPanel Width="90" Margin="0,0,8,6">
-                        <TextBlock Text="Từ giá" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="Từ giá" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
                         <TextBox Text="{Binding FilterUnitPriceText, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                     </StackPanel>
                     <StackPanel Width="90" Margin="0,0,8,6">
-                        <TextBlock Text="Đến giá" FontSize="15" FontWeight="SemiBold"/>
+                        <TextBlock Text="Đến giá" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
                         <TextBox Text="{Binding FilterUnitPriceToText, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,0,0,6">
@@ -658,32 +781,34 @@
         <UniformGrid Grid.Row="5" Columns="5" Margin="0,4,0,0" MaxHeight="{Binding SummaryFooterMaxHeight}">
             <Border Style="{StaticResource CanXeCompactSummaryCardStyle}" Margin="0,0,6,0">
                 <StackPanel>
-                    <TextBlock Text="📋 Số phiếu" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
-                    <TextBlock Text="{Binding FooterTicketCount, Mode=OneWay}" FontSize="22" FontWeight="Bold"/>
+                    <TextBlock Text="📋 Số phiếu" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding FooterTicketCount, Mode=OneWay}" FontSize="22" FontWeight="Bold"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CanXeCompactSummaryCardStyle}" Margin="3,0">
                 <StackPanel>
-                    <TextBlock Text="⚖ Tổng hàng" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
-                    <TextBlock Text="{Binding FooterTotalNet, Mode=OneWay}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentBlueBrush}"/>
+                    <TextBlock Text="⚖ Tổng hàng" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding FooterTotalNet, Mode=OneWay}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource AccentBlueBrush}"/>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CanXeCompactSummaryCardStyle}" Margin="3,0">
                 <StackPanel>
-                    <TextBlock Text="💰 KL tính tiền" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
-                    <TextBlock Text="{Binding FooterTotalBillable, Mode=OneWay}" FontSize="20" FontWeight="Bold"/>
+                    <TextBlock Text="💰 KL tính tiền" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding FooterTotalBillable, Mode=OneWay}" FontSize="20" FontWeight="Bold"
+                               Foreground="{DynamicResource PrimaryTextBrush}"/>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CanXeCompactSummaryCardStyle}" Margin="3,0">
                 <StackPanel>
-                    <TextBlock Text="💵 Tổng tiền" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
-                    <TextBlock Text="{Binding FooterTotalAmount, Mode=OneWay}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource SummaryAccentBrush}"/>
+                    <TextBlock Text="💵 Tổng tiền" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock Text="{Binding FooterTotalAmount, Mode=OneWay}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource SummaryAccentBrush}"/>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CanXeCompactSummaryCardStyle}" Margin="6,0,0,0">
                 <StackPanel>
-                    <TextBlock Text="⚠ Chưa có giá" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}"/>
-                    <TextBlock FontSize="20" FontWeight="Bold">
+                    <TextBlock Text="⚠ Chưa có giá" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <TextBlock FontSize="20" FontWeight="Bold" Foreground="{DynamicResource PrimaryTextBrush}">
                         <Run Text="{Binding FooterMissingPriceCount, Mode=OneWay}"/><Run Text=" phiếu"/>
                     </TextBlock>
                 </StackPanel>
@@ -700,7 +825,8 @@
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
                       Visibility="{Binding IsDeviceSectionVisible, Converter={StaticResource BoolToVis}}">
             <StackPanel Margin="8">
-                <TextBlock Text="THIẾT BỊ" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
+                <TextBlock Text="THIẾT BỊ" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"
+                           Foreground="{DynamicResource PrimaryTextBrush}"/>
                 <Border Style="{StaticResource CanXeCardStyle}" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="Nguồn đầu cân" Style="{StaticResource SectionHeaderTextStyle}"/>
@@ -723,27 +849,27 @@
                                 <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Cổng COM" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                                <TextBlock Text="Cổng COM" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
                                 <TextBox Text="{Binding PortName}" Style="{StaticResource CanXeTextBoxStyle}"/>
-                                <TextBlock Text="Baud rate" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,4"/>
+                                <TextBlock Text="Baud rate" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,4"/>
                                 <TextBox Text="{Binding BaudRate}" Style="{StaticResource CanXeTextBoxStyle}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1">
-                                <TextBlock Text="Data bits" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                                <TextBlock Text="Data bits" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
                                 <TextBox Text="{Binding DataBits}" Style="{StaticResource CanXeTextBoxStyle}"/>
-                                <TextBlock Text="Parity" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,4"/>
+                                <TextBlock Text="Parity" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,4"/>
                                 <TextBox Text="{Binding Parity}" Style="{StaticResource CanXeTextBoxStyle}"/>
-                                <TextBlock Text="Stop bits" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,4"/>
+                                <TextBlock Text="Stop bits" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,4"/>
                                 <TextBox Text="{Binding StopBits}" Style="{StaticResource CanXeTextBoxStyle}"/>
                             </StackPanel>
                         </Grid>
-                        <TextBlock Text="Handshake" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,4"/>
+                        <TextBlock Text="Handshake" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,4"/>
                         <TextBox Text="{Binding Handshake}" Style="{StaticResource CanXeTextBoxStyle}"/>
                         <CheckBox Content="Tự kết nối khi mở ứng dụng" IsChecked="{Binding AutoConnectScaleOnStartup}"
                                   FontSize="15" Margin="0,10,0,0"
                                   IsEnabled="{Binding DataContext.IsHardwareModeEnabled, RelativeSource={RelativeSource AncestorType=Window}}"/>
                         <Button Content="KIỂM TRA KẾT NỐI" Command="{Binding TestScaleCommand}" Style="{StaticResource CanXeSecondaryButtonStyle}" Margin="0,12,0,0"/>
-                        <TextBlock Text="{Binding ScaleTestMessage}" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,6,0,0"/>
+                        <TextBlock Text="{Binding ScaleTestMessage}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,6,0,0"/>
                         <Button Content="LƯU CẤU HÌNH" Command="{Binding DataContext.SaveScaleConfigurationCommand, RelativeSource={RelativeSource AncestorType=Window}}" Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,10,0,0"/>
                     </StackPanel>
                 </Border>
@@ -754,7 +880,7 @@
                         <TextBlock Text="{Binding HardwareConnectionStatus}" FontWeight="SemiBold"/>
                         <TextBlock Text="{Binding HardwareStableText}" Margin="0,4,0,4"/>
                         <TextBlock Text="{Binding HardwareLastFrameText, StringFormat=Frame gần nhất: {0}}"/>
-                        <TextBlock Text="{Binding HardwareChecksumWarning}" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding HardwareChecksumWarning}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"/>
                         <WrapPanel Margin="0,10,0,0">
                             <Button Content="KẾT NỐI" Command="{Binding ConnectHardwareCommand}" Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,0,8,0"
                                     IsEnabled="{Binding IsHardwareConnectEnabled}"/>
@@ -766,11 +892,11 @@
                 <Border Style="{StaticResource CanXeCardStyle}" Margin="0,0,0,12" DataContext="{Binding Settings}">
                     <StackPanel>
                         <TextBlock Text="Máy in" Style="{StaticResource SectionHeaderTextStyle}"/>
-                        <TextBlock Text="Máy in mặc định" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,4,0,4"/>
+                        <TextBlock Text="Máy in mặc định" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,4"/>
                         <TextBlock Text="{Binding DefaultPrinterName, Mode=OneWay}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                        <TextBlock Text="{Binding PrinterStatusText, Mode=OneWay}" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding PrinterStatusText, Mode=OneWay}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
                         <Button Content="IN THỬ" Command="{Binding TestPrintCommand}" Style="{StaticResource CanXeSecondaryButtonStyle}" Margin="0,12,0,0"/>
-                        <TextBlock Text="{Binding PrinterTestMessage}" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding PrinterTestMessage}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,6,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -785,33 +911,56 @@
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
                       Visibility="{Binding IsSettingsSectionVisible, Converter={StaticResource BoolToVis}}">
             <StackPanel Margin="8" DataContext="{Binding Settings}">
-                <TextBlock Text="CẤU HÌNH TRẠM CÂN" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
+                <TextBlock Text="CÀI ĐẶT" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"
+                           Foreground="{DynamicResource PrimaryTextBrush}"/>
+
+                <Border Style="{StaticResource CanXeCardStyle}" Margin="0,0,0,12">
+                    <StackPanel MaxWidth="760">
+                        <TextBlock Text="GIAO DIỆN" Style="{StaticResource SectionHeaderTextStyle}"/>
+                        <TextBlock Text="Giao diện ứng dụng:" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,8"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <ToggleButton Content="Sáng" Style="{StaticResource CanXeSegmentButtonStyle}"
+                                          IsChecked="{Binding IsThemeLightSelected, Mode=OneWay}"
+                                          Command="{Binding SelectThemeLightCommand}" Margin="0,0,6,0"/>
+                            <ToggleButton Content="Tối" Style="{StaticResource CanXeSegmentButtonStyle}"
+                                          IsChecked="{Binding IsThemeDarkSelected, Mode=OneWay}"
+                                          Command="{Binding SelectThemeDarkCommand}" Margin="0,0,6,0"/>
+                            <ToggleButton Content="Tự động" Style="{StaticResource CanXeSegmentButtonStyle}"
+                                          IsChecked="{Binding IsThemeAutoSelected, Mode=OneWay}"
+                                          Command="{Binding SelectThemeAutoCommand}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding ThemeAutoHint}" FontSize="13" Foreground="{DynamicResource MutedTextBrush}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="CẤU HÌNH TRẠM CÂN" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"
+                           Foreground="{DynamicResource PrimaryTextBrush}"/>
                 <Border Style="{StaticResource CanXeCardStyle}">
                     <StackPanel MaxWidth="760">
                         <TextBlock Text="Trạm cân" Style="{StaticResource SectionHeaderTextStyle}"/>
-                        <TextBlock Text="Tên trạm cân *" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                        <TextBlock Text="Tên trạm cân *" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
                         <TextBox Text="{Binding StationName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource CanXeTextBoxStyle}"/>
-                        <TextBlock Text="{Binding StationNameError}" Foreground="{StaticResource DangerBrush}"/>
-                        <TextBlock Text="Chủ sở hữu" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,4"/>
+                        <TextBlock Text="{Binding StationNameError}" Foreground="{DynamicResource DangerBrush}"/>
+                        <TextBlock Text="Chủ sở hữu" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,4"/>
                         <TextBox Text="{Binding OwnerName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource CanXeTextBoxStyle}"/>
-                        <TextBlock Text="Liên hệ — Địa chỉ" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,4"/>
+                        <TextBlock Text="Liên hệ — Địa chỉ" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,4"/>
                         <TextBox Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource CanXeTextBoxStyle}"/>
                         <Grid Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Điện thoại" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                                <TextBlock Text="Điện thoại" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
                                 <TextBox Text="{Binding Phone}" Style="{StaticResource CanXeTextBoxStyle}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1">
-                                <TextBlock Text="Email" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                                <TextBlock Text="Email" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
                                 <TextBox Text="{Binding Email}" Style="{StaticResource CanXeTextBoxStyle}"/>
                             </StackPanel>
                         </Grid>
-                        <TextBlock Text="Mã số thuế (tùy chọn)" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,4"/>
+                        <TextBlock Text="Mã số thuế (tùy chọn)" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,4"/>
                         <TextBox Text="{Binding TaxCode}" Style="{StaticResource CanXeTextBoxStyle}"/>
-                        <TextBlock Text="Nội dung chân phiếu" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,4"/>
+                        <TextBlock Text="Nội dung chân phiếu" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,4"/>
                         <TextBox Text="{Binding TicketFooterText}" Style="{StaticResource CanXeTextBoxStyle}" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="72"/>
                         <Button Content="LƯU CẤU HÌNH" Command="{Binding SaveStationCommand}" Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,14,0,0"/>
-                        <TextBlock Text="{Binding SettingsStatusMessage}" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,8,0,0"/>
+                        <TextBlock Text="{Binding SettingsStatusMessage}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,0"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -821,24 +970,28 @@
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
                       Visibility="{Binding IsSystemSectionVisible, Converter={StaticResource BoolToVis}}">
             <StackPanel Margin="8" DataContext="{Binding Settings}">
-                <TextBlock Text="HỆ THỐNG" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
+                <TextBlock Text="HỆ THỐNG" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"
+                           Foreground="{DynamicResource PrimaryTextBrush}"/>
 
                 <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                     <StackPanel>
-                        <TextBlock Text="THÔNG TIN PHIÊN BẢN" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                        <TextBlock Text="{Binding BuildInfoText, Mode=OneWay}" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12"/>
+                        <TextBlock Text="THÔNG TIN PHIÊN BẢN" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        <TextBlock Text="{Binding BuildInfoText, Mode=OneWay}" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
                         <Button Content="SAO CHÉP THÔNG TIN" Command="{Binding CopyBuildInfoCommand}" Style="{StaticResource FilterButton}" Margin="0,12,0,0" HorizontalAlignment="Left"/>
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                     <StackPanel>
-                        <TextBlock Text="KIỂM TRA HỆ THỐNG" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock Text="KIỂM TRA HỆ THỐNG" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Button Content="CHẠY KIỂM TRA TOÀN BỘ" Command="{Binding RunFullDiagnosticsCommand}" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
                             <Button Content="XUẤT BÁO CÁO" Command="{Binding ExportDiagnosticsReportCommand}" Style="{StaticResource FilterButton}"/>
                         </StackPanel>
-                        <TextBlock Text="{Binding DiagnosticsStatusMessage}" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                        <TextBlock Text="{Binding DiagnosticsStatusMessage}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
                         <DataGrid ItemsSource="{Binding DiagnosticRows}" AutoGenerateColumns="False" IsReadOnly="True"
                                   HeadersVisibility="Column" CanUserAddRows="False" CanUserDeleteRows="False"
                                   MinHeight="120" MaxHeight="320">
@@ -854,30 +1007,95 @@
 
                 <Border Style="{StaticResource CardBorder}">
                     <StackPanel>
-                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"><Run Text="Database: "/><Run Text="{Binding DatabasePath, Mode=OneWay}"/></TextBlock>
+                        <TextBlock Text="SAO LƯU &amp; KHÔI PHỤC DỮ LIỆU" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"/>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,4">
+                            <Run Text="Database: "/><Run Text="{Binding DatabasePath, Mode=OneWay}"/>
+                        </TextBlock>
                         <TextBlock Margin="0,4,0,0"><Run Text="Chế độ: "/><Run Text="{Binding DeviceModeDisplay, Mode=OneWay}"/></TextBlock>
                         <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"><Run Text="Migration: "/><Run Text="{Binding MigrationStatus, Mode=OneWay}"/></TextBlock>
-                        <TextBlock Text="{Binding ErrorLogSummary}" Margin="0,8,0,0" Foreground="{StaticResource TextSecondaryBrush}"/>
-                        <Button Content="SAO LƯU DATABASE" Command="{Binding BackupDatabaseCommand}" Style="{StaticResource FilterButton}" Margin="0,12,0,0"/>
+                        <TextBlock Text="{Binding ErrorLogSummary}" Margin="0,8,0,8" Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Thư mục backup" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding BackupFolderPath, Mode=OneWay}" IsReadOnly="True"
+                                         Style="{StaticResource CanXeTextBoxStyle}"/>
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="Chọn thư mục" VerticalAlignment="Bottom"
+                                    Command="{Binding ChooseBackupFolderCommand}"
+                                    Style="{StaticResource FilterButton}"
+                                    IsEnabled="{Binding IsBackupAdminUnlocked}"/>
+                        </Grid>
+
+                        <TextBlock Margin="0,0,0,8">
+                            <Run Text="Backup gần nhất: "/><Run Text="{Binding LatestBackupDisplay, Mode=OneWay}"/>
+                        </TextBlock>
+
+                        <WrapPanel Margin="0,0,0,8">
+                            <Button Content="TẠO BACKUP NGAY" Command="{Binding CreateBackupNowCommand}"
+                                    Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,0,8,8"/>
+                            <Button Content="KHÔI PHỤC TỪ BACKUP" Command="{Binding RestoreFromBackupCommand}"
+                                    Style="{StaticResource FilterButton}" Margin="0,0,8,8"
+                                    IsEnabled="{Binding IsBackupAdminUnlocked}"/>
+                            <Button Content="MỞ THƯ MỤC BACKUP" Command="{Binding OpenBackupFolderCommand}"
+                                    Style="{StaticResource FilterButton}" Margin="0,0,0,8"/>
+                        </WrapPanel>
+
+                        <CheckBox Content="Tự động backup mỗi ngày khi mở app"
+                                  IsChecked="{Binding AutoBackupEnabled}"
+                                  IsEnabled="{Binding IsBackupAdminUnlocked}"
+                                  Margin="0,0,0,8"/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Giữ backup:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                            <RadioButton Content="15 ngày" GroupName="BackupRetention"
+                                         IsChecked="{Binding RetentionDays15, Mode=OneWay}"
+                                         Command="{Binding SetRetention15Command}"
+                                         IsEnabled="{Binding IsBackupAdminUnlocked}"
+                                         Margin="0,0,12,0"/>
+                            <RadioButton Content="30 ngày" GroupName="BackupRetention"
+                                         IsChecked="{Binding RetentionDays30, Mode=OneWay}"
+                                         Command="{Binding SetRetention30Command}"
+                                         IsEnabled="{Binding IsBackupAdminUnlocked}"/>
+                        </StackPanel>
+
+                        <TextBlock Text="Có thể chọn thư mục Google Drive / OneDrive / Dropbox để tự đồng bộ backup lên cloud."
+                                   TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
+                        <TextBlock Text="{Binding BackupStatusMessage}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="Mở khóa Admin để đổi thư mục, bật auto backup, đổi thời gian giữ, hoặc khôi phục."
+                                   TextWrapping="Wrap" FontSize="12" Margin="0,6,0,0"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   Visibility="{Binding IsBackupAdminUnlocked, Converter={StaticResource BoolToVis}, ConverterParameter=invert}"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
         </ScrollViewer>
 
         <!-- Toast -->
-        <Border Grid.Row="2" VerticalAlignment="Top" HorizontalAlignment="Center"
-                Margin="0,12,0,0" Padding="14,8" CornerRadius="4"
-                Background="#323232" Opacity="0.92"
+        <Border Grid.Row="2" VerticalAlignment="Top" HorizontalAlignment="Right"
+                Margin="0,20,24,0" Padding="16,10" CornerRadius="8"
+                Background="{DynamicResource ToastBackgroundBrush}"
+                BorderBrush="{DynamicResource ToastBorderBrush}" BorderThickness="1"
+                MaxWidth="340"
                 Visibility="{Binding IsToastVisible, Converter={StaticResource BoolToVis}}"
-                IsHitTestVisible="False">
-            <TextBlock Text="{Binding ToastMessage}" Foreground="White" FontSize="14"/>
+                IsHitTestVisible="False"
+                Panel.ZIndex="100">
+            <TextBlock Text="{Binding ToastMessage}" Foreground="{DynamicResource ToastTextBrush}" FontSize="14" TextWrapping="Wrap"/>
         </Border>
 
-        <!-- Section: NHÀ PHÁT TRIỂN -->
+        <!-- Section: ADMIN -->
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
                       Visibility="{Binding IsDeveloperSectionVisible, Converter={StaticResource BoolToVis}}">
             <StackPanel Margin="8" DataContext="{Binding Developer}">
-                <TextBlock Text="NHÀ PHÁT TRIỂN" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
+                <TextBlock Text="ADMIN" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"
+                           Foreground="{DynamicResource PrimaryTextBrush}"/>
 
                 <Border Style="{StaticResource CanXeCardStyle}" Margin="0,0,0,12">
                     <StackPanel>
@@ -906,7 +1124,7 @@
                             <Button Content="XUẤT BÁO CÁO" Command="{Binding ExportDiagnosticsReportCommand}" Style="{StaticResource CanXeSecondaryButtonStyle}" Margin="0,0,8,8"/>
                             <Button Content="MỞ THƯ MỤC LOG" Command="{Binding OpenLogDirectoryCommand}" Style="{StaticResource CanXeSecondaryButtonStyle}" Margin="0,0,0,8"/>
                         </WrapPanel>
-                        <TextBlock Text="{Binding DiagnosticsSummary, Mode=OneWay}" TextWrapping="Wrap" Foreground="{StaticResource SecondaryTextBrush}"/>
+                        <TextBlock Text="{Binding DiagnosticsSummary, Mode=OneWay}" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryTextBrush}"/>
                     </StackPanel>
                 </Border>
 
@@ -916,7 +1134,7 @@
                         <TextBlock Text="Simulation" Style="{StaticResource SectionHeaderTextStyle}"/>
                         <CheckBox Content="Ổn định" IsChecked="{Binding SimulateScaleStable}" FontSize="15" Margin="0,4,0,4"/>
                         <CheckBox Content="Mất kết nối đầu cân" IsChecked="{Binding SimulateScaleDisconnected}" FontSize="15" Margin="0,0,0,8"/>
-                        <TextBlock Text="Trọng lượng mô phỏng (kg)" FontSize="14" Foreground="{StaticResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                        <TextBlock Text="Trọng lượng mô phỏng (kg)" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
                         <TextBox Text="{Binding SimulatedWeightText, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource CanXeTextBoxStyle}"/>
                     </StackPanel>
                 </Border>

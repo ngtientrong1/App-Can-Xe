@@ -15,6 +15,7 @@ public static class DatabaseUpgrader
     public const string Phase4Rc18MigrationId = "202606300002_Phase4_Rc18_PrintLayoutMode";
     public const string Phase4Rc23MigrationId = "202606300003_Phase4_Rc23_A4TwoUpAndSoftDelete";
     public const string Phase5Rc6MigrationId = "202607040006_Phase5_Rc6_CatalogFields";
+    public const string Phase6Rc1MigrationId = "202607140001_Phase6_Rc1_WeighInputSource";
 
     public static async Task UpgradeAsync(CanXeDbContext db, string databasePath, CancellationToken cancellationToken = default)
     {
@@ -40,6 +41,8 @@ public static class DatabaseUpgrader
             await RecordMigrationAsync(db, Phase4Rc23MigrationId, cancellationToken);
             await ApplyPhase5Rc6CatalogFieldsAsync(db, cancellationToken);
             await RecordMigrationAsync(db, Phase5Rc6MigrationId, cancellationToken);
+            await ApplyPhase6Rc1WeighInputSourceAsync(db, cancellationToken);
+            await RecordMigrationAsync(db, Phase6Rc1MigrationId, cancellationToken);
             return;
         }
 
@@ -69,6 +72,8 @@ public static class DatabaseUpgrader
         await RecordMigrationAsync(db, Phase4Rc23MigrationId, cancellationToken);
         await ApplyPhase5Rc6CatalogFieldsAsync(db, cancellationToken);
         await RecordMigrationAsync(db, Phase5Rc6MigrationId, cancellationToken);
+        await ApplyPhase6Rc1WeighInputSourceAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase6Rc1MigrationId, cancellationToken);
     }
 
     public static void BackupDatabase(string databasePath)
@@ -456,6 +461,22 @@ public static class DatabaseUpgrader
                 """,
                 cancellationToken);
         }
+    }
+
+    private static async Task ApplyPhase6Rc1WeighInputSourceAsync(
+        CanXeDbContext db,
+        CancellationToken cancellationToken)
+    {
+        if (!await TableExistsAsync(db, "WeighEvents", cancellationToken))
+            return;
+
+        // INTEGER 0 = Hardware (matches WeighInputSource enum); legacy rows read as Hardware.
+        await AddColumnIfMissingAsync(
+            db, "WeighEvents", "InputSource", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
+        await AddColumnIfMissingAsync(
+            db, "WeighEvents", "ManualReason", "TEXT NULL", cancellationToken);
+        await AddColumnIfMissingAsync(
+            db, "WeighEvents", "CreatedByRole", "INTEGER NOT NULL DEFAULT 0", cancellationToken);
     }
 
     private static async Task RecordMigrationAsync(

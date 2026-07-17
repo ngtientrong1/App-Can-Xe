@@ -90,7 +90,7 @@
 
                                             <Trigger Property="IsMouseOver" Value="True">
 
-                                                <Setter Property="Background" Value="#F0F4F8"/>
+                                                <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}"/>
 
                                             </Trigger>
 

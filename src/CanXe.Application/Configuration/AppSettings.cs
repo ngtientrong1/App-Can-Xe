@@ -9,6 +9,9 @@ public sealed class AppSettings
     public bool ShowDeveloperPanel { get; set; } = true;
     public bool DeveloperTicketEditEnabled { get; set; } = true;
     public bool SimulateScaleDisconnect { get; set; }
+
+    /// <summary>rc1 temporary Admin unlock code. Do not log this value.</summary>
+    public string AdminUnlockCode { get; set; } = "admin123";
 }
 
 public sealed class ScaleSettings

@@ -1,3 +1,5 @@
+using CanXe.Domain.Models;
+
 namespace CanXe.Application.Models;
 
 public sealed class WeighTicketDraft
@@ -36,6 +38,8 @@ public sealed class WeighTicketDraft
     public string? DraftWeight1PhotoError { get; set; }
     public bool IsWeight1LockedFromSavedTicket { get; set; }
     public int? SavedWeight1EventId { get; set; }
+    public WeighInputSource DraftWeight1InputSource { get; set; } = WeighInputSource.Hardware;
+    public string? DraftWeight1ManualReason { get; set; }
 
     public decimal? DraftWeight2 { get; set; }
     public DateTimeOffset? DraftWeight2RecordedAt { get; set; }
@@ -44,6 +48,10 @@ public sealed class WeighTicketDraft
     public string? DraftWeight2PhotoError { get; set; }
     public bool IsWeight2LockedFromSavedTicket { get; set; }
     public int? SavedWeight2EventId { get; set; }
+    public WeighInputSource DraftWeight2InputSource { get; set; } = WeighInputSource.Hardware;
+    public string? DraftWeight2ManualReason { get; set; }
+
+    public StationUserRole DraftCreatedByRole { get; set; } = StationUserRole.Operator;
 
     public bool HasCapturedWeight1 => DraftWeight1RecordedAt.HasValue;
 
@@ -53,17 +61,26 @@ public sealed class WeighTicketDraft
 
     public decimal? GetWeightKg(int sequence) => sequence == 1 ? DraftWeight1 : DraftWeight2;
 
-    public void SetWeightDraft(int sequence, decimal weightKg, DateTimeOffset recordedAt)
+    public void SetWeightDraft(
+        int sequence,
+        decimal weightKg,
+        DateTimeOffset recordedAt,
+        WeighInputSource inputSource = WeighInputSource.Hardware,
+        string? manualReason = null)
     {
         if (sequence == 1)
         {
             DraftWeight1 = weightKg;
             DraftWeight1RecordedAt = recordedAt;
+            DraftWeight1InputSource = inputSource;
+            DraftWeight1ManualReason = manualReason;
         }
         else
         {
             DraftWeight2 = weightKg;
             DraftWeight2RecordedAt = recordedAt;
+            DraftWeight2InputSource = inputSource;
+            DraftWeight2ManualReason = manualReason;
         }
     }
 

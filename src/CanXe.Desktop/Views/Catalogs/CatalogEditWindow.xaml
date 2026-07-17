@@ -4,50 +4,64 @@
         SizeToContent="Height"
         Width="460"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize">
+        ResizeMode="NoResize"
+        Background="{DynamicResource PageBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}">
     <Border Padding="16" Style="{StaticResource CardBorder}">
         <StackPanel>
             <StackPanel x:Name="CustomerPanel" Visibility="Collapsed">
                 <TextBox x:Name="CustomerIdBox" Visibility="Collapsed"/>
-                <TextBlock Text="Tên khách hàng *" Margin="0,0,0,4"/>
+                <TextBlock Text="Tên khách hàng *" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <TextBox x:Name="CustomerNameBox" Style="{StaticResource CanXeTextBoxStyle}" Margin="0,0,0,8"/>
-                <TextBlock Text="SĐT" Margin="0,0,0,4"/>
+                <TextBlock Text="SĐT" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <TextBox x:Name="CustomerPhoneBox" Style="{StaticResource CanXeTextBoxStyle}" Margin="0,0,0,8"/>
-                <TextBlock Text="Địa chỉ" Margin="0,0,0,4"/>
+                <TextBlock Text="Địa chỉ" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <TextBox x:Name="CustomerAddressBox" Style="{StaticResource CanXeTextBoxStyle}" Margin="0,0,0,8"/>
-                <TextBlock Text="Ghi chú" Margin="0,0,0,4"/>
+                <TextBlock Text="Ghi chú" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <TextBox x:Name="CustomerNoteBox" Style="{StaticResource CanXeTextBoxStyle}" Margin="0,0,0,8"/>
                 <CheckBox x:Name="CustomerActiveBox" Content="Hoạt động" IsChecked="True"/>
             </StackPanel>
 
             <StackPanel x:Name="VehiclePanel" Visibility="Collapsed">
                 <TextBox x:Name="VehicleIdBox" Visibility="Collapsed"/>
-                <TextBlock Text="Biển số *" Margin="0,0,0,4"/>
+                <TextBlock Text="Biển số *" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <TextBox x:Name="VehiclePlateBox" Style="{StaticResource CanXeTextBoxStyle}" Margin="0,0,0,8"/>
-                <TextBlock Text="Chủ xe / Khách hàng" Margin="0,0,0,4"/>
+                <TextBlock Text="Chủ xe / Khách hàng" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <TextBox x:Name="VehicleOwnerBox" Style="{StaticResource CanXeTextBoxStyle}" Margin="0,0,0,8"/>
-                <TextBlock Text="Ghi chú" Margin="0,0,0,4"/>
+                <TextBlock Text="Ghi chú" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <TextBox x:Name="VehicleNoteBox" Style="{StaticResource CanXeTextBoxStyle}" Margin="0,0,0,8"/>
                 <CheckBox x:Name="VehicleActiveBox" Content="Hoạt động" IsChecked="True"/>
             </StackPanel>
 
             <StackPanel x:Name="CargoPanel" Visibility="Collapsed">
                 <TextBox x:Name="CargoIdBox" Visibility="Collapsed"/>
-                <TextBlock Text="Loại hàng *" Margin="0,0,0,4"/>
+                <TextBlock Text="Loại hàng *" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <TextBox x:Name="CargoNameBox" Style="{StaticResource CanXeTextBoxStyle}" Margin="0,0,0,8"/>
-                <TextBlock Text="Đơn giá mặc định" Margin="0,0,0,4"/>
+                <TextBlock Text="Đơn giá mặc định" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <TextBox x:Name="CargoPriceBox" Style="{StaticResource CanXeTextBoxStyle}" Margin="0,0,0,8"/>
-                <TextBlock Text="Đơn vị" Margin="0,0,0,4"/>
+                <TextBlock Text="Đơn vị" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <TextBox x:Name="CargoUnitBox" Style="{StaticResource CanXeTextBoxStyle}" Margin="0,0,0,8"/>
-                <TextBlock Text="Ghi chú" Margin="0,0,0,4"/>
+                <TextBlock Text="Ghi chú" Margin="0,0,0,4" Foreground="{DynamicResource SecondaryTextBrush}"/>
                 <TextBox x:Name="CargoNoteBox" Style="{StaticResource CanXeTextBoxStyle}" Margin="0,0,0,8"/>
                 <CheckBox x:Name="CargoActiveBox" Content="Hoạt động" IsChecked="True"/>
             </StackPanel>
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-                <Button Content="HỦY" Click="Cancel_Click" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
-                <Button Content="LƯU" Click="Save_Click" Style="{StaticResource CanXePrimaryButtonStyle}"/>
-            </StackPanel>
+            <Grid Margin="0,16,0,0">
+                <Button x:Name="DeleteButton"
+                        Content="XÓA"
+                        Click="Delete_Click"
+                        HorizontalAlignment="Left"
+                        Visibility="Collapsed"
+                        Style="{StaticResource FilterButton}"
+                        Foreground="{DynamicResource DangerTextBrush}"
+                        BorderBrush="{DynamicResource DangerBrush}"
+                        Background="{DynamicResource IconDeleteHoverBackgroundBrush}"
+                        Padding="12,6"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="HỦY" Click="Cancel_Click" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
+                    <Button Content="LƯU" Click="Save_Click" Style="{StaticResource CanXePrimaryButtonStyle}"/>
+                </StackPanel>
+            </Grid>
         </StackPanel>
     </Border>
 </Window>

@@ -102,11 +102,12 @@ public sealed partial class DeveloperViewModel : ObservableObject
         var info = _buildInfo.GetBuildInfo();
         BuildInfoText =
             $"Version: {info.Version}\r\n" +
+            $"App: {info.AppName}\r\n" +
             $"Build: {info.BuildTimestamp}\r\n" +
             $"Commit: {info.GitCommit}\r\n" +
             $"Configuration: {info.Configuration}\r\n" +
             $"DeviceMode: {_settings.DeviceMode}\r\n" +
-            $"App: {AppContext.BaseDirectory}\r\n" +
+            $"App folder: {AppContext.BaseDirectory}\r\n" +
             $"Database: {_paths.DatabasePath}\r\n" +
             $"Logs: {Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CanXe", "Logs")}";
     }

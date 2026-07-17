@@ -57,12 +57,16 @@ public static class DependencyInjection
         services.AddScoped<TicketUpdateService>();
         services.AddScoped<TicketDeleteService>();
         services.AddScoped<ITicketDeleteService>(sp => sp.GetRequiredService<TicketDeleteService>());
-        services.AddSingleton<IDeveloperAuthorizationService, DeveloperAuthorizationService>();
+        services.AddSingleton<IAdminAuthorizationService, AdminAuthorizationService>();
+        services.AddSingleton<IUserPermissionService, UserPermissionService>();
+        services.AddSingleton<IDeveloperAuthorizationService>(sp =>
+            new DeveloperAuthorizationService(sp.GetRequiredService<IUserPermissionService>()));
         services.AddScoped<IReportService, ReportService>();
         services.AddSingleton<IExcelReportExporter, ExcelReportExporter>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<StationSettingsService>();
         services.AddScoped<PrintSettingsService>();
+        services.AddSingleton<IBackupService, BackupService>();
 
         return services;
     }

@@ -1,17 +1,11 @@
 using System.Text;
+using CanXe.Infrastructure.Logging;
 
 namespace CanXe.Infrastructure.Scale;
 
 public static class ScaleConnectionLogger
 {
-    private static readonly object Gate = new();
-
-    public static string LogFilePath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CanXe",
-            "Logs",
-            "scale-connection.log");
+    public static string LogFilePath => CanXeLogPaths.GetLogFile("scale-connection.log");
 
     public static void Write(string eventName, string? detail = null, string? port = null)
     {
@@ -26,11 +20,7 @@ public static class ScaleConnectionLogger
                 sb.AppendLine($"Detail: {detail}");
             sb.AppendLine(new string('-', 40));
 
-            lock (Gate)
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(LogFilePath)!);
-                File.AppendAllText(LogFilePath, sb.ToString(), Encoding.UTF8);
-            }
+            SafeLogFileAppend.Append(LogFilePath, sb.ToString());
         }
         catch
         {

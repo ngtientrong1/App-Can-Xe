@@ -37,10 +37,24 @@ public partial class MainWindowLayoutStructureTests
     {
         var xaml = File.ReadAllText(MainWindowXamlPath);
         var section = ExtractWeighTicketSection(xaml);
-        var workspaceRow = Regex.Match(section, @"<Grid Grid\.Row=""0""[\s\S]*?</Grid>", RegexOptions.Singleline);
 
-        Assert.True(workspaceRow.Success);
-        Assert.DoesNotContain("Height=\"*\"", workspaceRow.Value, StringComparison.Ordinal);
+        // Outer PHIẾU CÂN rows: workspace Auto…; ticket list *. Nested spacer "*"
+        // inside the weigh card (Admin layout) is allowed.
+        var marker = "IsWeighTicketSectionVisible";
+        var markerAt = section.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(markerAt >= 0);
+        var rowsOpen = section.IndexOf("<Grid.RowDefinitions>", markerAt, StringComparison.Ordinal);
+        var rowsClose = section.IndexOf("</Grid.RowDefinitions>", rowsOpen, StringComparison.Ordinal);
+        Assert.True(rowsOpen > markerAt && rowsClose > rowsOpen);
+        var outerRowsXml = section[(rowsOpen + "<Grid.RowDefinitions>".Length)..rowsClose];
+
+        var rowHeights = Regex.Matches(outerRowsXml, @"Height=""([^""]+)""")
+            .Select(m => m.Groups[1].Value)
+            .ToList();
+        Assert.True(rowHeights.Count >= 5, "Expected at least 5 outer rows.");
+        Assert.Equal("Auto", rowHeights[0]);
+        Assert.Equal("*", rowHeights[4]);
+        Assert.Contains("x:Name=\"TicketsGrid\" Grid.Row=\"4\"", section, StringComparison.Ordinal);
     }
 
     [Fact]

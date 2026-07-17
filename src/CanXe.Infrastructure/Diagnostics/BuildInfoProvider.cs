@@ -14,10 +14,15 @@ public sealed class BuildInfoProvider(AppSettings appSettings) : IBuildInfoProvi
         var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? assembly.GetName().Version?.ToString()
             ?? "0.0.0";
+        // Strip optional SourceRevision suffix if present (e.g. 1.0.0+abcdef).
+        var plus = version.IndexOf('+');
+        if (plus >= 0)
+            version = version[..plus];
 
         return new BuildInfo
         {
             Version = version,
+            AppName = "Cân Xe Tiến Trọng",
             BuildTimestamp = GetBuildTimestamp(assembly),
             GitCommit = GetGitCommit(),
             Configuration = GetConfiguration(),

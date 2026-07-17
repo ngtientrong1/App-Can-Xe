@@ -5,15 +5,20 @@ namespace CanXe.Desktop.Views.Catalogs;
 
 public partial class CatalogEditWindow : Window
 {
-    public CatalogEditWindow(CatalogTab tab, CatalogRowItem? row)
+    public CatalogEditWindow(CatalogTab tab, CatalogRowItem? row, bool allowDelete = false)
     {
         InitializeComponent();
         Tab = tab;
         Title = row is null ? "Thêm danh mục" : "Sửa danh mục";
+        DeleteRequested = false;
 
         CustomerPanel.Visibility = tab == CatalogTab.Customer ? Visibility.Visible : Visibility.Collapsed;
         VehiclePanel.Visibility = tab == CatalogTab.Vehicle ? Visibility.Visible : Visibility.Collapsed;
         CargoPanel.Visibility = tab == CatalogTab.CargoType ? Visibility.Visible : Visibility.Collapsed;
+
+        DeleteButton.Visibility = allowDelete && row is not null
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         if (row is null)
             return;
@@ -48,9 +53,25 @@ public partial class CatalogEditWindow : Window
 
     public CatalogTab Tab { get; }
 
-    private void Save_Click(object sender, RoutedEventArgs e) => DialogResult = true;
+    public bool DeleteRequested { get; private set; }
 
-    private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
+    private void Save_Click(object sender, RoutedEventArgs e)
+    {
+        DeleteRequested = false;
+        DialogResult = true;
+    }
+
+    private void Cancel_Click(object sender, RoutedEventArgs e)
+    {
+        DeleteRequested = false;
+        DialogResult = false;
+    }
+
+    private void Delete_Click(object sender, RoutedEventArgs e)
+    {
+        DeleteRequested = true;
+        DialogResult = true;
+    }
 
     public CustomerCatalogEdit ToCustomerEdit() => new()
     {
