@@ -3,11 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         SizeToContent="Height"
         Width="460"
+        MinWidth="440"
+        MinHeight="280"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{DynamicResource PageBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}">
-    <Border Padding="16" Style="{StaticResource CardBorder}">
+    <Border Padding="20,16,20,24" Style="{StaticResource CardBorder}">
         <StackPanel>
             <StackPanel x:Name="CustomerPanel" Visibility="Collapsed">
                 <TextBox x:Name="CustomerIdBox" Visibility="Collapsed"/>
@@ -58,8 +60,10 @@
                         Background="{DynamicResource IconDeleteHoverBackgroundBrush}"
                         Padding="12,6"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="HỦY" Click="Cancel_Click" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
-                    <Button Content="LƯU" Click="Save_Click" Style="{StaticResource CanXePrimaryButtonStyle}"/>
+                    <Button Content="HỦY" Click="Cancel_Click" Style="{StaticResource FilterButton}"
+                            MinHeight="44" MinWidth="100" Margin="0,0,8,0" Padding="14,8"/>
+                    <Button Content="LƯU" Click="Save_Click" Style="{StaticResource CanXePrimaryButtonStyle}"
+                            MinHeight="44" MinWidth="110" Padding="14,8"/>
                 </StackPanel>
             </Grid>
         </StackPanel>

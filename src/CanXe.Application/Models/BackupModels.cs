@@ -11,7 +11,7 @@ public sealed class BackupManifest
     public int BackupFormatVersion { get; set; } = 1;
 
     [JsonPropertyName("appVersion")]
-    public string AppVersion { get; set; } = "1.0.0";
+    public string AppVersion { get; set; } = "1.0.1";
 
     [JsonPropertyName("createdAt")]
     public string CreatedAt { get; set; } = string.Empty;

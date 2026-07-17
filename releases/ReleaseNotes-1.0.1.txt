@@ -1,0 +1,9 @@
+Cân Xe Tiến Trọng 1.0.1
+
+Hotfix:
+- Sửa layout dialog MỞ KHÓA ADMIN (nút không còn bị cắt ở DPI/scale cao)
+- Cải thiện padding dialog Admin nhập cân thủ công và Catalog edit
+
+Lưu ý:
+- Dữ liệu vẫn lưu tại %LocalAppData%\CanXe
+- Cài đặt/cập nhật không xóa dữ liệu cũ

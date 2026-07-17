@@ -1,9 +1,9 @@
-; Cân Xe Tiến Trọng — Inno Setup installer script (Phase 8 rc1 / 1.0.0)
+; Cân Xe Tiến Trọng — Inno Setup installer script (Phase 8 rc2 / 1.0.1)
 ; Does NOT touch %LocalAppData%\CanXe (database, settings, logs, backups).
 
 #define MyAppName "Cân Xe Tiến Trọng"
 #define MyAppNameAscii "Can Xe Tien Trong"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "Tien Trong"
 #define MyAppExeName "CanXe.Desktop.exe"
 #define MyAppId "{{A8F3C2E1-7B4D-4E9A-9C1F-2D6E8B5A0F31}"
@@ -18,7 +18,7 @@ DefaultDirName={autopf}\{#MyAppNameAscii}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\releases
-OutputBaseFilename=CanXeTienTrong-Setup-1.0.0
+OutputBaseFilename=CanXeTienTrong-Setup-1.0.1
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -26,12 +26,10 @@ PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayName={#MyAppName} {#MyAppVersion}
-VersionInfoVersion=1.0.0.0
+VersionInfoVersion=1.0.1.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoProductName={#MyAppName}
 VersionInfoProductVersion={#MyAppVersion}
-; Do not use CloseApplications that would force-kill user data handlers oddly;
-; still allow upgrade of app files in Program Files.
 CloseApplications=yes
 RestartApplications=no
 ; Uninstall removes only installed app files under {app}. User data under
