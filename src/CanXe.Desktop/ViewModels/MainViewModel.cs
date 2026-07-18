@@ -1229,6 +1229,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         // Keep last updated ticket as print target (Phase 5 rc10 workflow).
         _lastCompletedTicketId = updatedId;
         StatusMessage = $"Đã cập nhật phiếu {displayNumber}.";
+        _ = ShowToastAsync("Đã cập nhật phiếu");
         _focusService.FocusCustomerField();
     }
 
@@ -1865,6 +1866,11 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             UnitPriceText = UnitPriceInputHelper.FormatDisplay(_draft.DraftUnitPrice);
             Notes = _draft.DraftNotes;
             DeveloperWeight1OverrideEnabled = _draft.DeveloperWeight1OverrideEnabled;
+            if (IsDevWeightEditUnlocked)
+            {
+                DevWeight1Text = _draft.DraftWeight1?.ToString("N0", CultureInfo.CurrentCulture);
+                DevWeight2Text = _draft.DraftWeight2?.ToString("N0", CultureInfo.CurrentCulture);
+            }
             UpdateDisplaysFromDraft();
             UpdateWeightSourceDisplays();
         }

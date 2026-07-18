@@ -1,0 +1,10 @@
+Cân Xe Tiến Trọng 1.0.4
+
+Hotfix:
+- Sửa lỗi Admin sửa cân tay inline trên phiếu đã hoàn thành rồi bấm CẬP NHẬT không lưu số cân mới
+- Đồng bộ DevWeight text với draft sau inline edit để SyncDraftFromBindings không ghi đè
+- Recalculate Tổng/Bì/Hàng sau cập nhật; giữ metadata và vị trí list (1.0.3)
+
+Lưu ý:
+- Dữ liệu vẫn lưu tại %LocalAppData%\CanXe
+- Cài đặt/cập nhật không xóa dữ liệu cũ

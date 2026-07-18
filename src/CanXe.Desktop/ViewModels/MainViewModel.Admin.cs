@@ -247,6 +247,11 @@ public sealed partial class MainViewModel
             WeightOverrideReasonOther = null;
         }
 
+        // Keep DEV text fields in sync with draft so SyncDraftFromBindings on CẬP NHẬT
+        // does not overwrite Admin inline edits with stale values from ticket load.
+        DevWeight1Text = _draft.DraftWeight1?.ToString("N0", CultureInfo.CurrentCulture);
+        DevWeight2Text = _draft.DraftWeight2?.ToString("N0", CultureInfo.CurrentCulture);
+
         _adminAuthorization.TouchAdminActivity();
         AdminAuditLogger.Write(
             "ADMIN_WEIGHT_EDIT",

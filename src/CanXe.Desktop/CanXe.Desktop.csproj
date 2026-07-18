@@ -18,8 +18,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\canxe-tien-trong.ico</ApplicationIcon>
-    <Version>1.0.3</Version>
-    <InformationalVersion>1.0.3</InformationalVersion>
+    <Version>1.0.4</Version>
+    <InformationalVersion>1.0.4</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>Cân Xe Tiến Trọng</Product>
     <AssemblyTitle>Cân Xe Tiến Trọng</AssemblyTitle>
