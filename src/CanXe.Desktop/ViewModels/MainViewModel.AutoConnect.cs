@@ -166,7 +166,10 @@ public sealed partial class MainViewModel
 
             try
             {
-                await _hardwareScale.PrepareAndConnectHardwareAsync(settings, cancellationToken).ConfigureAwait(false);
+                using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                connectCts.CancelAfter(TimeSpan.FromSeconds(5));
+                await _hardwareScale.PrepareAndConnectHardwareAsync(settings, connectCts.Token)
+                    .ConfigureAwait(false);
                 if (!_hardwareScale.IsConnected)
                 {
                     OperatorStatusMessage = $"Không mở được {settings.PortName}";

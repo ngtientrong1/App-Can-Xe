@@ -21,6 +21,7 @@ public sealed class FakeScaleSerialReader : IScaleSerialReader
     }
 
     public TimeSpan ConnectDelay { get; set; } = TimeSpan.Zero;
+    public TimeSpan DisconnectDelay { get; set; } = TimeSpan.Zero;
 
     public int UpdateSettingsCallCount { get; private set; }
     public int ResetSessionCallCount { get; private set; }
@@ -144,14 +145,16 @@ public sealed class FakeScaleSerialReader : IScaleSerialReader
         }
     }
 
-    public Task DisconnectAsync(CancellationToken cancellationToken = default)
+    public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
         DisconnectCallCount++;
+        if (DisconnectDelay > TimeSpan.Zero)
+            await Task.Delay(DisconnectDelay, cancellationToken);
+
         _connectionState = ScaleConnectionState.Disconnected;
         _latestReading = null;
         _isStale = true;
         ConnectionStateChanged?.Invoke(this, _connectionState);
-        return Task.CompletedTask;
     }
 
     public void PublishReading(ScaleReading reading)

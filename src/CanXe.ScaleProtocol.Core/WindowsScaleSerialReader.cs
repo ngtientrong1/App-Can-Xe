@@ -17,6 +17,7 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
     private bool _isStale = true;
     private string? _lastError;
     private bool _disposed;
+    private volatile bool _suppressEvents;
 
     public WindowsScaleSerialReader(ScaleSerialSettings? settings = null)
     {
@@ -121,13 +122,18 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         if (_port?.IsOpen == true)
             return Task.CompletedTask;
 
+        ObjectDisposedException.ThrowIf(_disposed, this);
         SetConnectionState(ScaleConnectionState.Connecting);
 
         return Task.Run(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
+            ObjectDisposedException.ThrowIf(_disposed, this);
             lock (_sync)
             {
+                if (_disposed)
+                    throw new ObjectDisposedException(nameof(WindowsScaleSerialReader));
+
                 _port = new SerialPort
                 {
                     PortName = Settings.PortName,
@@ -147,7 +153,7 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
                 {
                     _port.Open();
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or ArgumentException or InvalidOperationException)
                 {
                     _lastError = ex.Message;
                     _port.DataReceived -= OnDataReceived;
@@ -159,8 +165,18 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
                 }
             }
 
+            if (_disposed)
+                return;
+
             SetConnectionState(ScaleConnectionState.Connected);
-            _staleTimer.Change(TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
+            try
+            {
+                _staleTimer.Change(TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
+            }
+            catch (ObjectDisposedException)
+            {
+                // Shutting down.
+            }
         }, cancellationToken);
     }
 
@@ -179,30 +195,96 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
 
     private Task DisconnectUnlockedAsync(CancellationToken cancellationToken = default)
     {
-        _staleTimer.Change(Timeout.Infinite, Timeout.Infinite);
+        try
+        {
+            _staleTimer.Change(Timeout.Infinite, Timeout.Infinite);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Already disposing.
+        }
+
         return Task.Run(() =>
         {
-            lock (_sync)
-            {
-                if (_port is null)
-                    return;
+            ClosePortUnlocked(raiseEvents: !_suppressEvents && !_disposed);
+        }, cancellationToken);
+    }
 
-                _port.DataReceived -= OnDataReceived;
-                _port.ErrorReceived -= OnErrorReceived;
-                if (_port.IsOpen)
-                    _port.Close();
-                _port.Dispose();
-                _port = null;
-            }
-
-            _parser.ResetBuffer();
-            _stability.Reset();
+    private void ClosePortUnlocked(bool raiseEvents)
+    {
+        SerialPort? port;
+        lock (_sync)
+        {
+            port = _port;
+            _port = null;
             _latestReading = null;
             _lastValidFrameAt = null;
             _isStale = true;
-            SetConnectionState(ScaleConnectionState.Disconnected);
+            _connectionState = ScaleConnectionState.Disconnected;
+        }
+
+        if (port is not null)
+        {
+            try
+            {
+                port.DataReceived -= OnDataReceived;
+            }
+            catch
+            {
+                // Ignore during teardown.
+            }
+
+            try
+            {
+                port.ErrorReceived -= OnErrorReceived;
+            }
+            catch
+            {
+                // Ignore during teardown.
+            }
+
+            try
+            {
+                if (port.IsOpen)
+                    port.Close();
+            }
+            catch (Exception ex) when (
+                ex is ObjectDisposedException
+                    or IOException
+                    or InvalidOperationException
+                    or UnauthorizedAccessException)
+            {
+                // Expected when port is already gone during shutdown.
+            }
+
+            try
+            {
+                port.Dispose();
+            }
+            catch (Exception ex) when (
+                ex is ObjectDisposedException
+                    or IOException
+                    or InvalidOperationException)
+            {
+                // Expected during shutdown.
+            }
+        }
+
+        try
+        {
+            _parser.ResetBuffer();
+            _stability.Reset();
+        }
+        catch
+        {
+            // Best effort.
+        }
+
+        if (raiseEvents)
+        {
+            ConnectionStateChanged?.Invoke(this, ScaleConnectionState.Disconnected);
             RaiseDiagnosticsChanged();
-        }, cancellationToken);
+        }
     }
 
     private void ResetSessionCore()
@@ -225,26 +307,56 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         if (_disposed)
             return;
 
+        _suppressEvents = true;
         _disposed = true;
-        _staleTimer.Dispose();
+
         try
         {
-            DisconnectUnlockedAsync().GetAwaiter().GetResult();
+            _staleTimer.Change(Timeout.Infinite, Timeout.Infinite);
+        }
+        catch
+        {
+            // Best effort.
+        }
+
+        try
+        {
+            _staleTimer.Dispose();
+        }
+        catch
+        {
+            // Best effort.
+        }
+
+        // Close synchronously without raising UI-bound events (avoids Dispatcher.Invoke deadlock).
+        try
+        {
+            ClosePortUnlocked(raiseEvents: false);
         }
         catch
         {
             // Best effort on shutdown.
         }
 
-        _connectionGate.Dispose();
+        try
+        {
+            _connectionGate.Dispose();
+        }
+        catch
+        {
+            // Best effort.
+        }
     }
 
     private void OnDataReceived(object sender, SerialDataReceivedEventArgs e)
     {
+        if (_disposed || _suppressEvents)
+            return;
+
         byte[] buffer;
         lock (_sync)
         {
-            if (_port is null || !_port.IsOpen)
+            if (_disposed || _port is null || !_port.IsOpen)
                 return;
 
             try
@@ -277,6 +389,9 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
 
     private void OnErrorReceived(object sender, SerialErrorReceivedEventArgs e)
     {
+        if (_disposed || _suppressEvents)
+            return;
+
         lock (_sync)
             _lastError = $"Serial error: {e.EventType}";
         SetConnectionState(ScaleConnectionState.Error);
@@ -284,6 +399,9 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
 
     private void PublishReading(ScaleReading reading)
     {
+        if (_disposed || _suppressEvents)
+            return;
+
         ScaleDiagnosticsLogger.LogFrame(reading, reading.FrameInterval);
 
         lock (_sync)
@@ -299,6 +417,9 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
 
     private void CheckStale()
     {
+        if (_disposed || _suppressEvents)
+            return;
+
         lock (_sync)
         {
             if (_connectionState != ScaleConnectionState.Connected)
@@ -328,13 +449,26 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
 
     private void SetConnectionState(ScaleConnectionState state)
     {
+        if (_disposed || _suppressEvents)
+        {
+            lock (_sync)
+                _connectionState = state;
+            return;
+        }
+
         lock (_sync)
             _connectionState = state;
         ConnectionStateChanged?.Invoke(this, state);
         RaiseDiagnosticsChanged();
     }
 
-    private void RaiseDiagnosticsChanged() => DiagnosticsChanged?.Invoke(this, EventArgs.Empty);
+    private void RaiseDiagnosticsChanged()
+    {
+        if (_disposed || _suppressEvents)
+            return;
+
+        DiagnosticsChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     private static Parity ParseParity(string value) =>
         Enum.TryParse<Parity>(value, true, out var parsed) ? parsed : Parity.None;

@@ -52,7 +52,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private int? _lastCompletedTicketId;
     private int? _lastPrintableTicketId;
     private CancellationTokenSource? _toastCts;
+    private CancellationTokenSource? _clockCts;
     private bool _unitPriceIsEditing;
+    private bool _isShuttingDown;
+    private EventHandler? _hardwareDiagnosticsHandler;
 
     public MainViewModel(
         WeighTicketService weighTicketService,
@@ -104,12 +107,17 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         Settings.StationSettingsSaved += (_, dto) => OnStationSettingsSaved(dto);
         _scaleService.WeightChanged += OnScaleWeightChanged;
         if (_hardwareScale is not null)
-            _hardwareScale.HardwareDiagnosticsChanged += (_, _) =>
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        {
+            _hardwareDiagnosticsHandler = (_, _) =>
+                UiThreadMarshal.Post(() =>
                 {
+                    if (_isShuttingDown)
+                        return;
                     UpdateHardwareDiagnostics();
                     NotifyDevDiagnosticsBindings();
                 });
+            _hardwareScale.HardwareDiagnosticsChanged += _hardwareDiagnosticsHandler;
+        }
         IsDeveloperPanelAvailable = settings.DeveloperMode && settings.ShowDeveloperTab;
         IsDeveloperWeightUnlockVisible = false;
         IsDeveloperDeleteVisible = false;
@@ -637,10 +645,21 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private async Task RunClockAsync()
     {
-        while (true)
+        _clockCts = new CancellationTokenSource();
+        var token = _clockCts.Token;
+        try
         {
-            await Task.Delay(TimeSpan.FromSeconds(1));
-            HeaderClockText = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.CurrentCulture);
+            while (!token.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), token).ConfigureAwait(false);
+                if (_isShuttingDown)
+                    break;
+                HeaderClockText = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.CurrentCulture);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on shutdown.
         }
     }
 
@@ -1656,8 +1675,11 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void OnScaleWeightChanged(object? sender, decimal weightKg)
     {
-        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+        UiThreadMarshal.Post(() =>
         {
+            if (_isShuttingDown)
+                return;
+
             if (ScaleInputMode == ScaleInputMode.Hardware)
             {
                 if (_hardwareScale is null || !_hardwareScale.IsConnected || _hardwareScale.IsStale)
@@ -2001,14 +2023,52 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         HighlightedTicketId = null;
     }
 
+    public void BeginShutdown()
+    {
+        if (_isShuttingDown)
+            return;
+
+        _isShuttingDown = true;
+        try { _clockCts?.Cancel(); } catch { /* ignore */ }
+        try { _autoConnectCts?.Cancel(); } catch { /* ignore */ }
+        try { _toastCts?.Cancel(); } catch { /* ignore */ }
+        try { _customerSearchCts?.Cancel(); } catch { /* ignore */ }
+        try { _vehicleSearchCts?.Cancel(); } catch { /* ignore */ }
+        try { _cargoSearchCts?.Cancel(); } catch { /* ignore */ }
+        try { _notesSearchCts?.Cancel(); } catch { /* ignore */ }
+
+        _scaleService.WeightChanged -= OnScaleWeightChanged;
+        if (_hardwareScale is not null && _hardwareDiagnosticsHandler is not null)
+            _hardwareScale.HardwareDiagnosticsChanged -= _hardwareDiagnosticsHandler;
+    }
+
     public async ValueTask DisposeAsync()
     {
-        _autoConnectCts?.Cancel();
-        _scaleService.WeightChanged -= OnScaleWeightChanged;
-        if (_scaleService is IAsyncDisposable disposable)
-            await disposable.DisposeAsync();
-        _takeWeightGate.Dispose();
-        _vmConnectGate.Dispose();
+        BeginShutdown();
+
+        LifecycleLogger.Write("ScaleServiceStopping");
+        try
+        {
+            if (_scaleService is IAsyncDisposable disposable)
+                await disposable.DisposeAsync().AsTask()
+                    .WaitAsync(TimeSpan.FromSeconds(2))
+                    .ConfigureAwait(false);
+            else if (_scaleService is IDisposable syncDisposable)
+                syncDisposable.Dispose();
+        }
+        catch (TimeoutException)
+        {
+            LifecycleLogger.Write("ShutdownTimeout", "MainViewModel.ScaleService");
+        }
+        catch (Exception ex)
+        {
+            LifecycleLogger.Write("ScaleServiceStopping", ex.GetType().Name);
+        }
+
+        try { _takeWeightGate.Dispose(); } catch { /* ignore */ }
+        try { _vmConnectGate.Dispose(); } catch { /* ignore */ }
+        try { _clockCts?.Dispose(); } catch { /* ignore */ }
+        try { _autoConnectCts?.Dispose(); } catch { /* ignore */ }
     }
 }
 

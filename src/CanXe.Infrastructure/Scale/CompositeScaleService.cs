@@ -1,11 +1,14 @@
 using CanXe.Application.Interfaces;
 using CanXe.Domain.Models;
+using CanXe.Infrastructure.Logging;
 using CanXe.ScaleProtocol.Core;
 
 namespace CanXe.Infrastructure.Scale;
 
 public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnostics
 {
+    public static TimeSpan StopTimeout { get; } = TimeSpan.FromSeconds(2);
+
     private readonly SimulatedScaleService _simulated = new();
     private readonly IScaleSerialReader _reader;
     private readonly SemaphoreSlim _modeLock = new(1, 1);
@@ -109,6 +112,7 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
         if (_inputMode != ScaleInputMode.Hardware)
             throw new InvalidOperationException("Chỉ có thể kết nối COM khi nguồn đầu cân là Hardware.");
 
+        LifecycleLogger.Write("SerialPortOpening", settings.PortName);
         await _connectionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -116,6 +120,8 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
 
             if (_reader.ConnectionState != ScaleConnectionState.Connected)
                 throw new InvalidOperationException(_reader.LastError ?? "Kết nối thất bại.");
+
+            LifecycleLogger.Write("SerialPortOpened", settings.PortName);
         }
         finally
         {
@@ -131,7 +137,17 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
         await _connectionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            LifecycleLogger.Write("SerialPortClosing");
             await _reader.DisconnectAsync(cancellationToken).ConfigureAwait(false);
+            LifecycleLogger.Write("SerialPortClosed");
+        }
+        catch (Exception ex) when (
+            ex is ObjectDisposedException
+                or IOException
+                or InvalidOperationException
+                or OperationCanceledException)
+        {
+            LifecycleLogger.Write("SerialPortClosed", ex.GetType().Name);
         }
         finally
         {
@@ -141,6 +157,7 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
+        LifecycleLogger.Write("ScaleServiceStarting");
         if (_inputMode == ScaleInputMode.Hardware)
             return Task.CompletedTask;
 
@@ -217,14 +234,66 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
             return;
 
         _disposed = true;
+
+        // Unsubscribe before closing serial so callbacks cannot block UI during Close().
         _reader.ValidReadingReceived -= OnHardwareReading;
         _reader.ConnectionStateChanged -= OnReaderStateChanged;
         _reader.DiagnosticsChanged -= OnReaderDiagnosticsChanged;
-        await StopAsync().ConfigureAwait(false);
-        await _simulated.DisposeAsync().ConfigureAwait(false);
-        _reader.Dispose();
-        _modeLock.Dispose();
-        _connectionGate.Dispose();
+
+        try
+        {
+            await StopAsync().WaitAsync(StopTimeout).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            LifecycleLogger.Write("ShutdownTimeout", "CompositeScaleService.StopAsync");
+        }
+        catch (Exception ex) when (
+            ex is ObjectDisposedException
+                or IOException
+                or InvalidOperationException
+                or OperationCanceledException)
+        {
+            LifecycleLogger.Write("ScaleServiceStopping", ex.GetType().Name);
+        }
+
+        try
+        {
+            await _simulated.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // Best effort.
+        }
+
+        LifecycleLogger.Write("SerialPortClosing");
+        try
+        {
+            _reader.Dispose();
+            LifecycleLogger.Write("SerialPortClosed");
+        }
+        catch (Exception ex)
+        {
+            LifecycleLogger.Write("SerialPortClosed", ex.GetType().Name);
+        }
+
+        try
+        {
+            _modeLock.Dispose();
+        }
+        catch
+        {
+            // Best effort.
+        }
+
+        try
+        {
+            _connectionGate.Dispose();
+        }
+        catch
+        {
+            // Best effort.
+        }
     }
 
     internal void WireReaderEvents()
@@ -236,7 +305,7 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
 
     private void OnHardwareReading(object? sender, ScaleReading reading)
     {
-        if (_inputMode != ScaleInputMode.Hardware)
+        if (_disposed || _inputMode != ScaleInputMode.Hardware)
             return;
 
         _lastChecksumError = null;
@@ -244,9 +313,17 @@ public sealed class CompositeScaleService : IScaleService, IHardwareScaleDiagnos
         HardwareDiagnosticsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private void OnReaderStateChanged(object? sender, ScaleConnectionState e) =>
+    private void OnReaderStateChanged(object? sender, ScaleConnectionState e)
+    {
+        if (_disposed)
+            return;
         HardwareDiagnosticsChanged?.Invoke(this, EventArgs.Empty);
+    }
 
-    private void OnReaderDiagnosticsChanged(object? sender, EventArgs e) =>
+    private void OnReaderDiagnosticsChanged(object? sender, EventArgs e)
+    {
+        if (_disposed)
+            return;
         HardwareDiagnosticsChanged?.Invoke(this, EventArgs.Empty);
+    }
 }

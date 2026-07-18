@@ -15,12 +15,14 @@ namespace CanXe.Desktop;
 public partial class App : System.Windows.Application
 {
     private IHost? _host;
+    private bool _exitHandled;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         try
         {
             base.OnStartup(e);
+            LifecycleLogger.Write("AppStarting");
 
             RegisterGlobalExceptionHandlers(this);
 
@@ -35,6 +37,7 @@ public partial class App : System.Windows.Application
 
             var settings = LoadSettings();
 
+            LifecycleLogger.Write("ServicesStarting");
             _host = Host.CreateDefaultBuilder()
                 .ConfigureServices(services =>
                 {
@@ -61,6 +64,8 @@ public partial class App : System.Windows.Application
                 .Build();
 
             await _host.StartAsync();
+
+            LifecycleLogger.Write("DatabaseOpening");
             await DependencyInjection.InitializeDatabaseAsync(_host.Services, dbPath);
 
             _host.Services.GetRequiredService<IThemeService>().Load();
@@ -69,13 +74,19 @@ public partial class App : System.Windows.Application
             var viewModel = _host.Services.GetRequiredService<MainViewModel>();
             mainWindow.DataContext = viewModel;
             mainWindow.Title = AppBranding.WindowTitle;
+
+            // Show UI before COM connect / heavy init so a busy port cannot freeze startup.
+            LifecycleLogger.Write("MainWindowCreated");
+            mainWindow.Show();
+
             await viewModel.InitializeAsync();
             viewModel.Settings.SyncThemeFromService();
-            mainWindow.Show();
+            LifecycleLogger.Write("AppReady");
         }
         catch (Exception ex)
         {
             StartupErrorLogger.Write(ex);
+            LifecycleLogger.Write("AppStarting", $"error:{ex.GetType().Name}");
             MessageBox.Show(
                 "Không thể khởi động giao diện. Chi tiết đã được ghi vào startup-error.log.",
                 $"{AppBranding.DisplayName} — Lỗi khởi động",
@@ -88,16 +99,35 @@ public partial class App : System.Windows.Application
 
     protected override async void OnExit(ExitEventArgs e)
     {
-        if (_host is not null)
+        if (_exitHandled)
         {
-            var vm = _host.Services.GetService<MainViewModel>();
-            if (vm is not null)
-                await vm.DisposeAsync();
+            base.OnExit(e);
+            return;
+        }
 
-            _host.Services.GetService<ThemeService>()?.Dispose();
+        _exitHandled = true;
+        AppShutdownCoordinator.BeginShutdown();
 
-            await _host.StopAsync();
-            _host.Dispose();
+        try
+        {
+            var vm = _host?.Services.GetService<MainViewModel>();
+            var theme = _host?.Services.GetService<ThemeService>();
+            await AppShutdownCoordinator.RunAsync(vm, theme, _host)
+                .WaitAsync(AppShutdownCoordinator.OverallTimeout)
+                .ConfigureAwait(true);
+        }
+        catch (TimeoutException)
+        {
+            LifecycleLogger.Write("ShutdownTimeout", "App.OnExit");
+            LifecycleLogger.Write("AppExitCompleted", "forced");
+        }
+        catch (Exception ex)
+        {
+            LifecycleLogger.Write("AppExitCompleted", $"error:{ex.GetType().Name}");
+        }
+        finally
+        {
+            _host = null;
         }
 
         base.OnExit(e);

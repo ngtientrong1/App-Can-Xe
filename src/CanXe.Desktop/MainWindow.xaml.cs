@@ -7,6 +7,7 @@ using CanXe.Application.Models;
 using CanXe.Desktop.Controls;
 using CanXe.Desktop.Services;
 using CanXe.Desktop.ViewModels;
+using CanXe.Infrastructure.Logging;
 
 namespace CanXe.Desktop;
 
@@ -22,6 +23,15 @@ public partial class MainWindow : Window
         SizeChanged += OnSizeChanged;
         Deactivated += OnWindowDeactivated;
         PreviewKeyDown += OnPreviewKeyDown;
+        Closing += OnClosing;
+    }
+
+    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        LifecycleLogger.Write("MainWindowClosing");
+        AppShutdownCoordinator.BeginShutdown();
+        if (DataContext is MainViewModel vm)
+            vm.BeginShutdown();
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)

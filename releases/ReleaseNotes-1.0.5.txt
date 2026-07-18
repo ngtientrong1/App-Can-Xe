@@ -1,0 +1,15 @@
+Cân Xe Tiến Trọng 1.0.5
+
+Hotfix:
+- Sửa lỗi đôi lúc tắt app rồi mở lại bị đứng (cần taskkill)
+- Shutdown sạch: hủy background, đóng SerialPort, dừng timer, ClearAllPools với timeout
+- Tránh deadlock SerialPort.Close ↔ Dispatcher.Invoke (dùng BeginInvoke)
+- Lifecycle log tại %LocalAppData%\CanXe\Logs\lifecycle.log
+- Startup: hiện UI trước, kết nối COM async có timeout, COM bận không đứng app
+
+Không đổi:
+- Workflow cân, template in A4 two-up, Excel, backup/restore, camera, COM protocol
+
+Lưu ý:
+- Dữ liệu vẫn lưu tại %LocalAppData%\CanXe
+- Cài đặt/cập nhật không xóa dữ liệu cũ
