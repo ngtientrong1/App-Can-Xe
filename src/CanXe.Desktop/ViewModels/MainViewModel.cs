@@ -438,17 +438,22 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             return;
 
         if (mode != ScaleInputMode.Hardware)
+        {
             _autoConnectCts?.Cancel();
+            StopScaleWatchdog();
+        }
 
         if (mode == ScaleInputMode.Hardware)
         {
             _hasReceivedHardwareFrame = false;
+            IsScaleDataAlive = false;
             LiveWeightKg = 0;
             RefreshLiveWeightDisplay();
         }
         else if (ScaleInputMode == ScaleInputMode.Hardware)
         {
             _hasReceivedHardwareFrame = false;
+            IsScaleDataAlive = false;
             LiveWeightKg = 0;
         }
 
@@ -2029,6 +2034,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             return;
 
         _isShuttingDown = true;
+        try { StopScaleWatchdog(); } catch { /* ignore */ }
         try { _clockCts?.Cancel(); } catch { /* ignore */ }
         try { _autoConnectCts?.Cancel(); } catch { /* ignore */ }
         try { _toastCts?.Cancel(); } catch { /* ignore */ }

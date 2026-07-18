@@ -1,0 +1,15 @@
+Cân Xe Tiến Trọng 1.0.6
+
+Hotfix:
+- Tự kết nối lại cổng COM / đầu cân khi mở app mà chưa nhận dữ liệu cân
+- Phân biệt Port Open vs Data Alive (không coi SerialPort.Open là đủ)
+- Scale watchdog: port mở nhưng không có frame hợp lệ trong ~6s → auto reconnect
+- Backoff 2s / 5s / 10s / 30s; nút “THỬ KẾT NỐI LẠI” dùng chung ReconnectAsync
+- Giữ nguyên fix shutdown/reopen 1.0.5
+
+Không đổi:
+- Workflow cân, template in A4 two-up, Excel, backup/restore, camera, COM protocol 1200 8N1
+
+Lưu ý:
+- Dữ liệu vẫn lưu tại %LocalAppData%\CanXe
+- Cài đặt/cập nhật không xóa dữ liệu cũ

@@ -8,8 +8,8 @@
     <Nullable>enable</Nullable>
     <AssemblyName>CanXe.Diagnostics</AssemblyName>
     <RootNamespace>CanXe.Diagnostics</RootNamespace>
-    <Version>1.0.5</Version>
-    <InformationalVersion>1.0.5</InformationalVersion>
+    <Version>1.0.6</Version>
+    <InformationalVersion>1.0.6</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>Cân Xe Tiến Trọng</Product>
     <AssemblyTitle>Cân Xe Tiến Trọng Diagnostics</AssemblyTitle>
