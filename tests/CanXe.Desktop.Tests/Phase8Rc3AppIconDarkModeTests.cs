@@ -52,7 +52,7 @@ public sealed class Phase8Rc3AppIconDarkModeTests
         Assert.Contains("canxe-tien-trong.ico", iss, StringComparison.Ordinal);
         Assert.Contains("UninstallDisplayIcon={app}\\{#MyAppExeName}", iss, StringComparison.Ordinal);
         Assert.Contains("IconFilename: \"{app}\\{#MyAppExeName}\"", iss, StringComparison.Ordinal);
-        Assert.Contains("#define MyAppVersion \"1.0.6\"", iss, StringComparison.Ordinal);
+        Assert.Contains("#define MyAppVersion \"1.0.7\"", iss, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -137,8 +137,8 @@ public sealed class Phase8Rc3AppIconDarkModeTests
     public void Desktop_Version_Is_1_0_4()
     {
         var csproj = File.ReadAllText(ResolveDesktopFile("CanXe.Desktop.csproj"));
-        Assert.Contains("<Version>1.0.6</Version>", csproj, StringComparison.Ordinal);
-        Assert.Contains("<InformationalVersion>1.0.6</InformationalVersion>", csproj, StringComparison.Ordinal);
+        Assert.Contains("<Version>1.0.7</Version>", csproj, StringComparison.Ordinal);
+        Assert.Contains("<InformationalVersion>1.0.7</InformationalVersion>", csproj, StringComparison.Ordinal);
     }
 }
 

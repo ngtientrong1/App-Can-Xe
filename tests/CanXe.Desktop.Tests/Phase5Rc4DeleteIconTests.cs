@@ -52,6 +52,6 @@ public sealed class Phase5Rc4DeleteIconTests
     public void DeleteColumn_HasCompactWidth()
     {
         var xaml = File.ReadAllText(MainWindowXamlPath);
-        Assert.Contains("Width=\"44\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Width=\"64\"", xaml, StringComparison.Ordinal);
     }
 }

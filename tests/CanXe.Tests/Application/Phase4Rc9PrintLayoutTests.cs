@@ -37,7 +37,8 @@ public class Phase4Rc9PrintLayoutTests
         Assert.Equal(WeighTicketPrintLayout.PtToDip(30), WeighTicketPrintTypography.HeroWeightValueDip, 4);
         Assert.Equal(WeighTicketPrintLayout.PtToDip(24), WeighTicketPrintTypography.TitleDip, 4);
         Assert.Equal(WeighTicketPrintLayout.PtToDip(16.5), WeighTicketPrintTypography.CustomerValueDip, 4);
-        Assert.Equal(WeighTicketPrintLayout.PtToDip(18), WeighTicketPrintTypography.PlateValueDip, 4);
+        // rc24: plate moved into the hero band alongside net weight, sized up to match.
+        Assert.Equal(WeighTicketPrintLayout.PtToDip(26), WeighTicketPrintTypography.PlateValueDip, 4);
     }
 
     [Fact]

@@ -323,7 +323,7 @@ public sealed class TicketUpdateService
             return false;
         if (!string.IsNullOrWhiteSpace(filter.LicensePlate) &&
             (ticket.LicensePlateSnapshot is null ||
-             !ticket.LicensePlateSnapshot.Contains(filter.LicensePlate.Trim(), StringComparison.OrdinalIgnoreCase)))
+             !PlateNormalizer.Normalize(ticket.LicensePlateSnapshot).Contains(PlateNormalizer.Normalize(filter.LicensePlate), StringComparison.OrdinalIgnoreCase)))
             return false;
         if (!string.IsNullOrWhiteSpace(filter.DisplayNumber) &&
             !ticket.DisplayNumber.Contains(filter.DisplayNumber.Trim(), StringComparison.OrdinalIgnoreCase))

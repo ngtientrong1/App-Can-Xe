@@ -208,6 +208,22 @@ public sealed partial class MainViewModel
                 ScaleWatchdogLogger.Write("ScaleReconnectFailed", $"{reason}:disconnect:{ex.GetType().Name}");
             }
 
+            // A plain Close()/Open() on a fresh SerialPort is often not enough to recover a
+            // wedged USB-to-serial adapter — the driver's data pipe can stay stuck across
+            // process-level reconnects. Try an OS-level device reset (the software equivalent of
+            // unplug/replug) before reopening; best-effort, and a no-op if not elevated.
+            try
+            {
+                var portName = BuildHardwareSerialSettings().PortName;
+                OperatorStatusMessage = "Đang thử khôi phục cổng COM...";
+                var reset = await _serialPortResetter.TryResetAsync(portName, token).ConfigureAwait(false);
+                ScaleWatchdogLogger.Write("ScaleUsbResetAttempted", $"{reason}:{portName}:{(reset ? "ok" : "failed")}");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                ScaleWatchdogLogger.Write("ScaleReconnectFailed", $"{reason}:reset:{ex.GetType().Name}");
+            }
+
             try
             {
                 await Task.Delay(ScaleWatchdogPolicy.ReconnectSettleDelay, token).ConfigureAwait(false);

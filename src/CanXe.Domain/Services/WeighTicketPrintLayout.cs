@@ -71,6 +71,18 @@ public static class WeighTicketPrintLayout
     public const double TimestampCardHeightMm = 45.0;
     public const double SignDateRowHeightMm = 7.0;
 
+    // rc24: band-based body redesign — Cân lần 1/2, Khách hàng/Loại hàng/Đơn giá/Trừ hao and
+    // Ghi chú/Thành tiền are now three stacked full-width bands instead of a left/right column
+    // split. Heights sum to BodySectionHeightMm (18 + 2.5 + 16 + 2.5 + 13 = 52).
+    public const double BodyWeighBandHeightMm = 18.0;
+    public const double BodyRowGapMm = 2.5;
+    public const double BodyInfoBandHeightMm = 16.0;
+    public const double BodyBottomRowHeightMm = 13.0;
+
+    // A ceiling on the Thành tiền card so an unusually large amount shrinks to fit (matching the
+    // existing plate/customer auto-fit convention) instead of pushing the row past the safe edge.
+    public const double TotalCardMaxWidthMm = 65.0;
+
     public const double CardHostInsetMm = 0.4;
 
     public const double WeighBlock1HeightMm = 21.8;
@@ -230,6 +242,11 @@ public static class WeighTicketPrintLayout
     public static double IdentityCardsHeightDip => MmToDip(IdentityCardsHeightMm);
     public static double IdentityDetailsGapDip => MmToDip(IdentityDetailsGapMm);
     public static double DetailsTableHeightDip => MmToDip(DetailsTableHeightMm);
+    public static double BodyWeighBandHeightDip => MmToDip(BodyWeighBandHeightMm);
+    public static double BodyRowGapDip => MmToDip(BodyRowGapMm);
+    public static double BodyInfoBandHeightDip => MmToDip(BodyInfoBandHeightMm);
+    public static double BodyBottomRowHeightDip => MmToDip(BodyBottomRowHeightMm);
+    public static double TotalCardMaxWidthDip => MmToDip(TotalCardMaxWidthMm);
     public static double HeroBodyGapDip => MmToDip(HeroBodyGapMm);
     public static double BodySignatureGapDip => MmToDip(BodySignatureGapMm);
     public static double CardHostInsetDip => MmToDip(CardHostInsetMm);
@@ -378,8 +395,10 @@ public static class WeighTicketPrintTypography
 
     public const double CustomerValuePt = 16.5;
     public const double CustomerValueMinPt = 12.5;
-    public const double PlateValuePt = 18.0;
-    public const double PlateValueMinPt = 14.5;
+
+    // rc24: plate moved into the hero band alongside net weight — sized to match that prominence.
+    public const double PlateValuePt = 26.0;
+    public const double PlateValueMinPt = 18.0;
 
     public const double DetailLabelPt = 10.5;
     public const double DetailValuePt = 11.5;
@@ -390,6 +409,14 @@ public static class WeighTicketPrintTypography
     public const double WeighTimeMinPt = 14.5;
     public const double WeighDatePt = 10.5;
     public const double SignDatePt = 9.0;
+
+    // rc24: band-based body redesign.
+    public const double WeighTagPt = 9.0;
+    public const double WeighValuePt = 22.0;
+    public const double InfoLabelPt = 9.0;
+    public const double InfoValuePt = 12.5;
+    public const double TotalCardLabelPt = 9.5;
+    public const double TotalCardValuePt = 18.0;
 
     public const double SignatureRolePt = 12.0;
     public const double SignatureHintPt = 10.0;
@@ -420,6 +447,13 @@ public static class WeighTicketPrintTypography
     public static double WeighTimeDip => WeighTicketPrintLayout.PtToDip(WeighTimePt);
     public static double WeighDateDip => WeighTicketPrintLayout.PtToDip(WeighDatePt);
     public static double SignDateDip => WeighTicketPrintLayout.PtToDip(SignDatePt);
+
+    public static double WeighTagDip => WeighTicketPrintLayout.PtToDip(WeighTagPt);
+    public static double WeighValueDip => WeighTicketPrintLayout.PtToDip(WeighValuePt);
+    public static double InfoLabelDip => WeighTicketPrintLayout.PtToDip(InfoLabelPt);
+    public static double InfoValueDip => WeighTicketPrintLayout.PtToDip(InfoValuePt);
+    public static double TotalCardLabelDip => WeighTicketPrintLayout.PtToDip(TotalCardLabelPt);
+    public static double TotalCardValueDip => WeighTicketPrintLayout.PtToDip(TotalCardValuePt);
 
     public static double SignatureRoleDip => WeighTicketPrintLayout.PtToDip(SignatureRolePt);
     public static double SignatureHintDip => WeighTicketPrintLayout.PtToDip(SignatureHintPt);

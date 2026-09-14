@@ -41,6 +41,7 @@ public class AutoCompleteTextBox : Control
     private bool _isCommitting;
     private bool _moveFocusAfterCommit;
     private bool _suppressTextEvents;
+    private object? _pendingMouseDownItem;
 
     static AutoCompleteTextBox()
     {
@@ -81,6 +82,16 @@ public class AutoCompleteTextBox : Control
     public static readonly DependencyProperty HighlightedIndexProperty =
         DependencyProperty.Register(nameof(HighlightedIndex), typeof(int), typeof(AutoCompleteTextBox),
             new PropertyMetadata(-1, OnHighlightedIndexChanged));
+
+    public static readonly DependencyProperty IsMultilineProperty =
+        DependencyProperty.Register(nameof(IsMultiline), typeof(bool), typeof(AutoCompleteTextBox),
+            new PropertyMetadata(false));
+
+    public bool IsMultiline
+    {
+        get => (bool)GetValue(IsMultilineProperty);
+        set => SetValue(IsMultilineProperty, value);
+    }
 
     public string Text
     {
@@ -199,10 +210,26 @@ public class AutoCompleteTextBox : Control
 
         if (_listBox is not null)
         {
+            // The suggestion list can be refreshed mid-click (a debounced search completing
+            // between mouse-down and mouse-up), which regenerates item containers and shifts
+            // every row's position. Resolving "which item was clicked" by hit-testing at
+            // MouseUp time would then commit whatever row ended up under the cursor after the
+            // reflow — not what the user actually clicked. Capture the item at MouseDown instead
+            // and commit that same reference on MouseUp, regardless of what has since moved
+            // underneath it.
+            _listBox.PreviewMouseLeftButtonDown += (_, e) =>
+            {
+                _pendingMouseDownItem = e.OriginalSource is DependencyObject source &&
+                    ItemsControl.ContainerFromElement(_listBox, source) is ListBoxItem { Content: var item }
+                        ? item
+                        : null;
+            };
+
             _listBox.PreviewMouseLeftButtonUp += (_, e) =>
             {
-                if (e.OriginalSource is DependencyObject source &&
-                    ItemsControl.ContainerFromElement(_listBox, source) is ListBoxItem { Content: var item })
+                var item = _pendingMouseDownItem;
+                _pendingMouseDownItem = null;
+                if (item is not null)
                 {
                     CommitItem(item, moveFocus: true);
                     e.Handled = true;
@@ -264,12 +291,21 @@ public class AutoCompleteTextBox : Control
                 e.Handled = true;
                 break;
 
+            case Key.Enter when hasPopup && HighlightedIndex >= 0:
+                _moveFocusAfterCommit = true;
+                CommitHighlighted();
+                e.Handled = true;
+                break;
+
+            case Key.Enter when IsMultiline:
+                // Let Enter insert a newline instead of committing/moving focus —
+                // a notes field should behave like a normal multi-line text box
+                // unless the user is actively picking a suggestion from the dropdown.
+                break;
+
             case Key.Enter:
                 _moveFocusAfterCommit = true;
-                if (hasPopup && HighlightedIndex >= 0)
-                    CommitHighlighted();
-                else
-                    CommitText(Text.Trim(), SelectedItem, moveFocus: true);
+                CommitText(Text.Trim(), SelectedItem, moveFocus: true);
                 e.Handled = true;
                 break;
 

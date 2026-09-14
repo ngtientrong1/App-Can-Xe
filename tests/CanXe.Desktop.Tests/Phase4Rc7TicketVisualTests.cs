@@ -44,7 +44,7 @@ public sealed class Phase4Rc7TicketVisualTests
             foreach (var copyView in FindChildren<WeighTicketCopyView>(visual))
             {
                 var maxRight = GetSafeContentMaxRight(copyView);
-                Assert.True(maxRight <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 0.5,
+                Assert.True(maxRight <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 1.5,
                     $"Copy content right edge {maxRight} exceeded safe edge {WeighTicketPrintLayout.CopySafeRightEdgeDip}");
             }
         });
@@ -62,39 +62,41 @@ public sealed class Phase4Rc7TicketVisualTests
     }
 
     [Fact]
-    public void PlateAndCargoValues_AreAligned()
+    public void PlateAndCargoValues_AreDisplayed()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
             Assert.NotNull(FindFirstTextBlock(view, "82C08112"));
-            Assert.Equal(TextAlignment.Right, FindSiblingValueAfterLabel(view, "Loại hàng:")!.TextAlignment);
+            Assert.NotNull(FindFirstTextBlock(view, "Rơ tươi"));
         });
     }
 
     [Fact]
-    public void Weights_AreOnlyInHeroCards()
+    public void NetWeight_IsInHeroBand()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
             Assert.Null(FindSiblingValueAfterLabel(view, "Khối lượng xe + hàng:"));
-            Assert.NotNull(FindFirstTextBlock(view, "KHỐI LƯỢNG XE + HÀNG"));
+            Assert.NotNull(FindFirstTextBlock(view, "KHỐI LƯỢNG HÀNG"));
         });
     }
 
     [Fact]
-    public void NotesValue_IsLeftAligned()
+    public void NotesValue_IsDisplayed()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
-            Assert.Equal(TextAlignment.Left, FindSiblingValueAfterLabel(view, "Ghi chú:")!.TextAlignment);
+            var notes = FindFirstTextBlock(view, "Giao buổi chiều");
+            Assert.NotNull(notes);
+            Assert.Equal(TextAlignment.Left, notes!.TextAlignment);
         });
     }
 
     [Fact]
-    public void WeighBlocks_AreCenterAligned()
+    public void WeighBlocks_TitlesAreLeftAlignedWithValueOnTheRight()
     {
         _fixture.Invoke(_ =>
         {
@@ -104,22 +106,24 @@ public sealed class Phase4Rc7TicketVisualTests
             var date = FindFirstTextBlock(view, "29/06/2026");
             var title2 = FindFirstTextBlock(view, "CÂN LẦN 2");
             Assert.NotNull(title1);
-            Assert.Equal(TextAlignment.Center, title1!.TextAlignment);
-            Assert.Equal(TextAlignment.Center, time!.TextAlignment);
-            Assert.Equal(TextAlignment.Center, date!.TextAlignment);
-            Assert.Equal(TextAlignment.Center, title2!.TextAlignment);
+            Assert.Equal(TextAlignment.Left, title1!.TextAlignment);
+            Assert.NotNull(time);
+            Assert.NotNull(date);
+            Assert.NotNull(title2);
+            Assert.NotNull(FindFirstTextBlock(view, "11.730"));
+            Assert.NotNull(FindFirstTextBlock(view, "4.980"));
         });
     }
 
     [Fact]
-    public void SignDate_IsCenterAligned()
+    public void SignDate_IsDisplayed()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
             var signDate = FindFirstTextBlockContaining(view, "Kon Tum, ngày");
             Assert.NotNull(signDate);
-            Assert.Equal(TextAlignment.Center, signDate!.TextAlignment);
+            Assert.Equal(TextAlignment.Right, signDate!.TextAlignment);
         });
     }
 

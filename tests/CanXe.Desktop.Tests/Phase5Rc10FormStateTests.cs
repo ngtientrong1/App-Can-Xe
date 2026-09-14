@@ -48,7 +48,7 @@ public sealed class Phase5Rc10ContinuationLoadWpfTests
 
             Assert.Equal(TicketFormMode.AwaitingSecondWeigh, vm.FormMode);
             Assert.Equal("Khách rc10 dc", vm.CustomerName);
-            Assert.Equal("51E-88888", vm.LicensePlate);
+            Assert.Equal("51E-888.88", vm.LicensePlate);
             Assert.Equal("Ngô", vm.CargoTypeName);
             Assert.Equal(4200m, UnitPriceInputHelper.Parse(vm.UnitPriceText));
             Assert.Equal("Ghi chú rc10", vm.Notes);
@@ -62,7 +62,7 @@ public sealed class Phase5Rc10ContinuationLoadWpfTests
             Assert.NotNull(vehicleBox);
             Assert.NotNull(cargoBox);
             Assert.Equal("Khách rc10 dc", customerBox!.Text);
-            Assert.Equal("51E-88888", vehicleBox!.Text);
+            Assert.Equal("51E-888.88", vehicleBox!.Text);
             Assert.Equal("Ngô", cargoBox!.Text);
 
             window.Close();
@@ -95,7 +95,7 @@ public sealed class Phase5Rc10ContinuationLoadWpfTests
 
         var ticket = vm.Tickets[0];
         Assert.Equal("Khách save w2 rc10", ticket.CustomerName);
-        Assert.Equal("51F-55555", ticket.LicensePlate);
+        Assert.Equal("51F-555.55", ticket.LicensePlate);
         Assert.Equal("Lúa", ticket.CargoTypeName);
         Assert.Equal(TicketFormMode.Creating, vm.FormMode);
         Assert.Null(vm.CustomerName);

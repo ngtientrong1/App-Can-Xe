@@ -1,2 +1,0 @@
-﻿CanXeTienTrong-Setup-1.0.0.exe  SHA256  c70299d518347401b12f36e52ffb85ea3ebf759634900ceceb11948ab6ae2d9b
-CanXeTienTrong-Portable-1.0.0.zip  SHA256  517b25f0fdb101d9e6947292a843a34cb7ccd8c8b79070affa23e23f7ed976f6

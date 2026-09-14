@@ -77,7 +77,7 @@ public sealed class Phase6Rc1AdminUiWpfTests
 
         Assert.Equal(TicketFormMode.AwaitingSecondWeigh, vm.FormMode);
         Assert.Equal("P6 meta", vm.CustomerName);
-        Assert.Equal("51P-60001", vm.LicensePlate);
+        Assert.Equal("51P-600.01", vm.LicensePlate);
         Assert.False(vm.IsTicketDirty);
     }
 
@@ -215,7 +215,7 @@ public sealed class Phase6Rc1AdminUiWpfTests
         });
 
         Assert.Equal("Keep W1 p6", vm.CustomerName);
-        Assert.Equal("51P-60004", vm.LicensePlate);
+        Assert.Equal("51P-600.04", vm.LicensePlate);
         Assert.Equal(TicketFormMode.AwaitingSecondWeigh, vm.FormMode);
         Assert.True(vm.Weight1HasValue);
         Assert.False(vm.Weight2HasValue);

@@ -49,7 +49,8 @@ public class Phase4Rc16PrintLayoutGeometryTests
         Assert.Equal(12.5, WeighTicketPrintLayout.IdentityIconTileWidthMm);
         Assert.True(WeighTicketPrintLayout.IdentityIconGraphicSizeMm <= 8.0);
         Assert.Equal(16.5, WeighTicketPrintTypography.CustomerValuePt);
-        Assert.Equal(18.0, WeighTicketPrintTypography.PlateValuePt);
+        // rc24: plate moved into the hero band alongside net weight, sized up to match.
+        Assert.Equal(26.0, WeighTicketPrintTypography.PlateValuePt);
         Assert.Equal(9.0, WeighTicketPrintTypography.SignDatePt);
     }
 

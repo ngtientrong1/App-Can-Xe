@@ -36,6 +36,10 @@ echo [6/10] Publish diagnostics CLI
 dotnet publish src\CanXe.Diagnostics\CanXe.Diagnostics.csproj -c Release -r win-x64 --self-contained true -o "%PUBLISH%"
 if errorlevel 1 goto :fail
 
+echo [6b/10] Publish COM reset helper (elevated Scheduled Task target — see installer)
+dotnet publish src\CanXe.ComResetHelper\CanXe.ComResetHelper.csproj -c Release -r win-x64 --self-contained true -o "%PUBLISH%"
+if errorlevel 1 goto :fail
+
 echo [7/10] Copy production config
 copy /y src\CanXe.Desktop\appsettings.Production.json "%PUBLISH%\appsettings.json" >nul
 if errorlevel 1 goto :fail

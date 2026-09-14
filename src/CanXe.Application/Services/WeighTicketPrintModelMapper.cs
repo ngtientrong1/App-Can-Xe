@@ -110,6 +110,7 @@ public static class WeighTicketPrintModelMapper
             GrossWeightKg = detail.GrossWeightKg,
             TareWeightKg = detail.TareWeightKg,
             NetWeightKg = detail.NetWeightKg,
+            DeductionWeightKg = detail.DeductionWeightKg,
             UnitPriceVndPerKg = detail.UnitPriceVndPerKg,
             TotalAmountVnd = detail.TotalAmountVnd,
             ShowPrice = printSettings.ShowPrice && !detail.IsServiceWeigh,

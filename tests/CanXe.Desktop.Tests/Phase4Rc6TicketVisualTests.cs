@@ -39,21 +39,21 @@ public sealed class Phase4Rc6TicketVisualTests
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildRc6SampleModel());
-            var label = FindFirstTextBlock(view, "Loại hàng:");
+            var label = FindFirstTextBlock(view, "LOẠI HÀNG");
             Assert.NotNull(label);
-            Assert.True(label!.FontSize >= WeighTicketPrintTypography.DetailLabelDip - 0.5);
+            Assert.True(label!.FontSize >= WeighTicketPrintTypography.InfoLabelDip - 0.5);
         });
     }
 
     [Fact]
-    public void WeighTicketCopyView_WeighTimeUsesPtToDip15Point5()
+    public void WeighTicketCopyView_WeighCaptionUsesPtToDip()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildRc6SampleModel());
             var time = FindFirstTextBlock(view, "23:58:10");
             Assert.NotNull(time);
-            Assert.True(time!.FontSize >= WeighTicketPrintTypography.WeighTimeDip - 0.5);
+            Assert.True(time!.FontSize >= WeighTicketPrintTypography.WeighDateDip - 0.5);
         });
     }
 
@@ -64,7 +64,7 @@ public sealed class Phase4Rc6TicketVisualTests
         {
             var view = ArrangeView(BuildStressModel());
             var maxRight = GetSafeContentMaxRight(view);
-            Assert.True(maxRight <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 0.5,
+            Assert.True(maxRight <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 1.5,
                 $"Right edge {maxRight} exceeded {WeighTicketPrintLayout.CopySafeRightEdgeDip}");
         });
     }

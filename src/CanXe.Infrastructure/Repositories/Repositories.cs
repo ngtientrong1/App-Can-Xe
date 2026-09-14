@@ -53,9 +53,12 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
 
         if (!string.IsNullOrWhiteSpace(filter.LicensePlate))
         {
-            var term = filter.LicensePlate.Trim();
+            // LicensePlateSnapshot is stored in the readable "51C-123.45" format, so strip the
+            // punctuation from both sides before comparing to keep keyword search
+            // punctuation-agnostic (e.g. searching "12345" must still find "51C-123.45").
+            var term = PlateNormalizer.Normalize(filter.LicensePlate);
             query = query.Where(t => t.LicensePlateSnapshot != null &&
-                t.LicensePlateSnapshot.Contains(term));
+                t.LicensePlateSnapshot.Replace("-", "").Replace(".", "").Contains(term));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.DisplayNumber))
@@ -298,46 +301,32 @@ public sealed class WeighTicketRepository : IWeighTicketRepository
             }
         }
 
-        var recentWithCustomer = tickets.FirstOrDefault(t =>
-            t.CustomerId.HasValue || !string.IsNullOrWhiteSpace(t.CustomerNameSnapshot));
+        // "Recent" means the vehicle's single latest ticket — including when that ticket left a
+        // field blank on purpose. A blank on the latest ticket must overwrite whatever an older
+        // ticket had, not fall through to it (otherwise a one-time cleared field keeps coming
+        // back from history on every later visit).
+        var latestTicket = tickets[0];
 
         int? recentCustomerId = null;
         string? recentCustomerName = null;
-        if (recentWithCustomer is not null &&
-            await IsActiveCustomerReferenceAsync(
-                recentWithCustomer.CustomerId,
-                recentWithCustomer.CustomerNameSnapshot,
+        if (await IsActiveCustomerReferenceAsync(
+                latestTicket.CustomerId,
+                latestTicket.CustomerNameSnapshot,
                 cancellationToken))
         {
-            recentCustomerId = recentWithCustomer.CustomerId;
-            recentCustomerName = recentWithCustomer.CustomerNameSnapshot;
+            recentCustomerId = latestTicket.CustomerId;
+            recentCustomerName = latestTicket.CustomerNameSnapshot;
         }
-
-        if (string.IsNullOrWhiteSpace(recentCustomerName) && vehicle.LastCustomerId.HasValue)
-        {
-            var lastCustomer = await _db.Customers
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Id == vehicle.LastCustomerId.Value && c.IsActive && !c.IsDeleted, cancellationToken);
-            if (lastCustomer is not null)
-            {
-                recentCustomerId = lastCustomer.Id;
-                recentCustomerName = lastCustomer.Name;
-            }
-        }
-
-        var recentWithCargo = tickets.FirstOrDefault(t =>
-            t.CargoTypeId.HasValue || !string.IsNullOrWhiteSpace(t.CargoTypeNameSnapshot));
 
         int? recentCargoTypeId = null;
         string? recentCargoTypeName = null;
-        if (recentWithCargo is not null &&
-            await IsActiveCargoReferenceAsync(
-                recentWithCargo.CargoTypeId,
-                recentWithCargo.CargoTypeNameSnapshot,
+        if (await IsActiveCargoReferenceAsync(
+                latestTicket.CargoTypeId,
+                latestTicket.CargoTypeNameSnapshot,
                 cancellationToken))
         {
-            recentCargoTypeId = recentWithCargo.CargoTypeId;
-            recentCargoTypeName = recentWithCargo.CargoTypeNameSnapshot;
+            recentCargoTypeId = latestTicket.CargoTypeId;
+            recentCargoTypeName = latestTicket.CargoTypeNameSnapshot;
         }
 
         var frequentResult = FrequentCargoTypeResolver.Resolve(activeCargoTickets);

@@ -1,4 +1,3 @@
-using System.IO.Ports;
 using System.Threading;
 
 namespace CanXe.ScaleProtocol.Core;
@@ -7,10 +6,12 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
 {
     private readonly object _sync = new();
     private readonly SemaphoreSlim _connectionGate = new(1, 1);
+    private readonly ISerialPortFactory _portFactory;
     private readonly ScaleFrameParser _parser = new();
     private ScaleStabilityDetector _stability;
     private readonly Timer _staleTimer;
-    private SerialPort? _port;
+    private readonly Timer _keepAliveTimer;
+    private ISerialPortHandle? _port;
     private ScaleConnectionState _connectionState = ScaleConnectionState.Disconnected;
     private ScaleReading? _latestReading;
     private DateTimeOffset? _lastValidFrameAt;
@@ -19,12 +20,27 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
     private bool _disposed;
     private volatile bool _suppressEvents;
 
-    public WindowsScaleSerialReader(ScaleSerialSettings? settings = null)
+    /// <summary>Bumped once per connect/disconnect operation. Lets a timed-out attempt whose
+    /// blocking Open()/Close() eventually returns in the background detect that it has been
+    /// superseded, so it never mutates state on behalf of a newer attempt.</summary>
+    private int _attemptId;
+
+    /// <summary>
+    /// How often to poke the open port while connected. Purely to generate USB bus activity so
+    /// Windows never considers a quiet-but-healthy connection idle enough for USB Selective
+    /// Suspend — unrelated to <see cref="ScaleWatchdogPolicy"/>'s much longer no-data timeout,
+    /// which detects an actually-dead connection instead.
+    /// </summary>
+    private static readonly TimeSpan KeepAliveInterval = TimeSpan.FromSeconds(2);
+
+    public WindowsScaleSerialReader(ScaleSerialSettings? settings = null, ISerialPortFactory? portFactory = null)
     {
         Settings = settings ?? new ScaleSerialSettings();
+        _portFactory = portFactory ?? new SystemSerialPortFactory();
         _stability = CreateStabilityDetector();
         ScaleDiagnosticsLogger.VerboseFramesEnabled = Settings.VerboseFrameLogging;
         _staleTimer = new Timer(_ => CheckStale(), null, Timeout.Infinite, Timeout.Infinite);
+        _keepAliveTimer = new Timer(_ => KeepAlivePoke(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
     private ScaleStabilityDetector CreateStabilityDetector() =>
@@ -92,10 +108,14 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         await _connectionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await DisconnectUnlockedAsync(cancellationToken).ConfigureAwait(false);
+            await RunWithHangProtectionAsync(
+                id => DisconnectCoreAsync(id, cancellationToken),
+                "đóng cổng (reconfigure)").ConfigureAwait(false);
             Settings = settings;
             ResetSessionCore();
-            await ConnectCoreAsync(cancellationToken).ConfigureAwait(false);
+            await RunWithHangProtectionAsync(
+                id => ConnectCoreAsync(id, cancellationToken),
+                "mở cổng").ConfigureAwait(false);
         }
         finally
         {
@@ -109,7 +129,9 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         await _connectionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await ConnectCoreAsync(cancellationToken).ConfigureAwait(false);
+            await RunWithHangProtectionAsync(
+                id => ConnectCoreAsync(id, cancellationToken),
+                "mở cổng").ConfigureAwait(false);
         }
         finally
         {
@@ -117,7 +139,61 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         }
     }
 
-    private Task ConnectCoreAsync(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Awaits <paramref name="operation"/> but never blocks the caller (and therefore never blocks
+    /// the shared <see cref="_connectionGate"/>) longer than <see cref="ScaleSerialSettings.OpenCloseTimeoutMs"/>.
+    /// If the underlying blocking Open()/Close() hasn't returned by then, the reader flips to
+    /// <see cref="ScaleConnectionState.Hung"/> and returns — the abandoned task is left to finish
+    /// (or never finish) in the background under attempt-id guarding so it cannot corrupt state
+    /// for whatever attempt runs next.
+    /// </summary>
+    private async Task RunWithHangProtectionAsync(Func<int, Task> operation, string label)
+    {
+        var attemptId = Interlocked.Increment(ref _attemptId);
+        var task = operation(attemptId);
+        var timeoutMs = Math.Max(500, Settings.OpenCloseTimeoutMs);
+        var timeoutTask = Task.Delay(timeoutMs);
+        var winner = await Task.WhenAny(task, timeoutTask).ConfigureAwait(false);
+        if (!ReferenceEquals(winner, task))
+        {
+            MarkHung(label);
+            _ = ObserveAbandonedAsync(task);
+            return;
+        }
+
+        await task.ConfigureAwait(false);
+    }
+
+    private static async Task ObserveAbandonedAsync(Task task)
+    {
+        try
+        {
+            await task.ConfigureAwait(false);
+        }
+        catch
+        {
+            // Nobody is awaiting this attempt anymore — the exception has nowhere useful to go.
+        }
+    }
+
+    private void MarkHung(string label)
+    {
+        bool shouldRaise;
+        lock (_sync)
+        {
+            _lastError = $"Cổng bị treo khi {label} — driver USB-to-Serial không phản hồi.";
+            _connectionState = ScaleConnectionState.Hung;
+            shouldRaise = !_disposed && !_suppressEvents;
+        }
+
+        if (shouldRaise)
+        {
+            ConnectionStateChanged?.Invoke(this, ScaleConnectionState.Hung);
+            RaiseDiagnosticsChanged();
+        }
+    }
+
+    private Task ConnectCoreAsync(int attemptId, CancellationToken cancellationToken)
     {
         if (_port?.IsOpen == true)
             return Task.CompletedTask;
@@ -129,40 +205,60 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         {
             cancellationToken.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(_disposed, this);
+
+            ISerialPortHandle localPort;
             lock (_sync)
             {
                 if (_disposed)
                     throw new ObjectDisposedException(nameof(WindowsScaleSerialReader));
+                if (Volatile.Read(ref _attemptId) != attemptId)
+                    return; // Superseded before we even started opening.
 
-                _port = new SerialPort
+                localPort = _portFactory.Create(Settings);
+                localPort.DataAvailable += OnDataAvailable;
+                localPort.SerialErrorOccurred += OnSerialErrorOccurred;
+                _port = localPort;
+            }
+
+            try
+            {
+                localPort.Open();
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or ArgumentException or InvalidOperationException)
+            {
+                var isCurrent = Volatile.Read(ref _attemptId) == attemptId;
+                lock (_sync)
                 {
-                    PortName = Settings.PortName,
-                    BaudRate = Settings.BaudRate,
-                    DataBits = Settings.DataBits,
-                    Parity = ParseParity(Settings.Parity),
-                    StopBits = ParseStopBits(Settings.StopBits),
-                    Handshake = ParseHandshake(Settings.Handshake),
-                    ReadTimeout = Settings.ReadTimeout,
-                    WriteTimeout = Settings.ReadTimeout,
-                    DtrEnable = false,
-                    RtsEnable = false
-                };
-                _port.DataReceived += OnDataReceived;
-                _port.ErrorReceived += OnErrorReceived;
-                try
-                {
-                    _port.Open();
+                    if (isCurrent)
+                        _lastError = ex.Message;
+                    if (ReferenceEquals(_port, localPort))
+                        _port = null;
                 }
-                catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or ArgumentException or InvalidOperationException)
+
+                localPort.DataAvailable -= OnDataAvailable;
+                localPort.SerialErrorOccurred -= OnSerialErrorOccurred;
+                localPort.Dispose();
+
+                if (!isCurrent)
+                    return; // Abandoned attempt — nobody is listening for this failure anymore.
+
+                SetConnectionState(ScaleConnectionState.Error);
+                throw new InvalidOperationException(ex.Message, ex);
+            }
+
+            if (Volatile.Read(ref _attemptId) != attemptId)
+            {
+                // Open() finally succeeded, but only after we'd already given up on this attempt
+                // (a newer attempt may already own _port). Quietly close what we just opened.
+                try { localPort.DataAvailable -= OnDataAvailable; localPort.SerialErrorOccurred -= OnSerialErrorOccurred; } catch { /* best effort */ }
+                try { if (localPort.IsOpen) localPort.Close(); } catch { /* best effort */ }
+                try { localPort.Dispose(); } catch { /* best effort */ }
+                lock (_sync)
                 {
-                    _lastError = ex.Message;
-                    _port.DataReceived -= OnDataReceived;
-                    _port.ErrorReceived -= OnErrorReceived;
-                    _port.Dispose();
-                    _port = null;
-                    SetConnectionState(ScaleConnectionState.Error);
-                    throw new InvalidOperationException(ex.Message, ex);
+                    if (ReferenceEquals(_port, localPort))
+                        _port = null;
                 }
+                return;
             }
 
             if (_disposed)
@@ -172,6 +268,7 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
             try
             {
                 _staleTimer.Change(TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(250));
+                _keepAliveTimer.Change(KeepAliveInterval, KeepAliveInterval);
             }
             catch (ObjectDisposedException)
             {
@@ -185,7 +282,9 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         await _connectionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await DisconnectUnlockedAsync(cancellationToken).ConfigureAwait(false);
+            await RunWithHangProtectionAsync(
+                id => DisconnectCoreAsync(id, cancellationToken),
+                "đóng cổng").ConfigureAwait(false);
         }
         finally
         {
@@ -193,11 +292,12 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         }
     }
 
-    private Task DisconnectUnlockedAsync(CancellationToken cancellationToken = default)
+    private Task DisconnectCoreAsync(int attemptId, CancellationToken cancellationToken)
     {
         try
         {
             _staleTimer.Change(Timeout.Infinite, Timeout.Infinite);
+            _keepAliveTimer.Change(Timeout.Infinite, Timeout.Infinite);
         }
         catch (ObjectDisposedException)
         {
@@ -206,13 +306,15 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
 
         return Task.Run(() =>
         {
-            ClosePortUnlocked(raiseEvents: !_suppressEvents && !_disposed);
+            ClosePortUnlocked(attemptId, raiseEvents: !_suppressEvents && !_disposed);
         }, cancellationToken);
     }
 
-    private void ClosePortUnlocked(bool raiseEvents)
+    /// <param name="attemptId">The attempt this close belongs to, or null to always apply
+    /// (used only from <see cref="Dispose"/>, which must clean up unconditionally).</param>
+    private void ClosePortUnlocked(int? attemptId, bool raiseEvents)
     {
-        SerialPort? port;
+        ISerialPortHandle? port;
         lock (_sync)
         {
             port = _port;
@@ -227,7 +329,7 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         {
             try
             {
-                port.DataReceived -= OnDataReceived;
+                port.DataAvailable -= OnDataAvailable;
             }
             catch
             {
@@ -236,7 +338,7 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
 
             try
             {
-                port.ErrorReceived -= OnErrorReceived;
+                port.SerialErrorOccurred -= OnSerialErrorOccurred;
             }
             catch
             {
@@ -269,6 +371,12 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
                 // Expected during shutdown.
             }
         }
+
+        // This close was abandoned (timed out) and has now finished late, after a newer attempt
+        // has already started — don't touch shared parser/stability state or fire a stale event
+        // on top of whatever the current attempt has since established.
+        if (attemptId is not null && Volatile.Read(ref _attemptId) != attemptId)
+            return;
 
         try
         {
@@ -309,10 +417,12 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
 
         _suppressEvents = true;
         _disposed = true;
+        Interlocked.Increment(ref _attemptId);
 
         try
         {
             _staleTimer.Change(Timeout.Infinite, Timeout.Infinite);
+            _keepAliveTimer.Change(Timeout.Infinite, Timeout.Infinite);
         }
         catch
         {
@@ -322,6 +432,7 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         try
         {
             _staleTimer.Dispose();
+            _keepAliveTimer.Dispose();
         }
         catch
         {
@@ -331,7 +442,7 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         // Close synchronously without raising UI-bound events (avoids Dispatcher.Invoke deadlock).
         try
         {
-            ClosePortUnlocked(raiseEvents: false);
+            ClosePortUnlocked(attemptId: null, raiseEvents: false);
         }
         catch
         {
@@ -348,7 +459,7 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
         }
     }
 
-    private void OnDataReceived(object sender, SerialDataReceivedEventArgs e)
+    private void OnDataAvailable(object? sender, EventArgs e)
     {
         if (_disposed || _suppressEvents)
             return;
@@ -387,13 +498,13 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
             PublishReading(reading);
     }
 
-    private void OnErrorReceived(object sender, SerialErrorReceivedEventArgs e)
+    private void OnSerialErrorOccurred(object? sender, string eventType)
     {
         if (_disposed || _suppressEvents)
             return;
 
         lock (_sync)
-            _lastError = $"Serial error: {e.EventType}";
+            _lastError = $"Serial error: {eventType}";
         SetConnectionState(ScaleConnectionState.Error);
     }
 
@@ -413,6 +524,29 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
 
         ValidReadingReceived?.Invoke(this, reading);
         RaiseDiagnosticsChanged();
+    }
+
+    /// <summary>
+    /// Touches the open port on a short interval so a healthy-but-quiet connection still looks
+    /// "in use" to Windows' USB power management, regardless of how long it's been since the scale
+    /// itself last sent a frame. Deliberately queries a control line rather than writing to the
+    /// port, so it can never inject bytes into the scale's own protocol stream.
+    /// </summary>
+    private void KeepAlivePoke()
+    {
+        if (_disposed)
+            return;
+
+        ISerialPortHandle? port;
+        lock (_sync)
+        {
+            if (_disposed || _connectionState != ScaleConnectionState.Connected)
+                return;
+            port = _port;
+        }
+
+        if (port?.IsOpen == true)
+            port.Poke();
     }
 
     private void CheckStale()
@@ -469,13 +603,4 @@ public sealed class WindowsScaleSerialReader : IScaleSerialReader
 
         DiagnosticsChanged?.Invoke(this, EventArgs.Empty);
     }
-
-    private static Parity ParseParity(string value) =>
-        Enum.TryParse<Parity>(value, true, out var parsed) ? parsed : Parity.None;
-
-    private static StopBits ParseStopBits(string value) =>
-        Enum.TryParse<StopBits>(value, true, out var parsed) ? parsed : StopBits.One;
-
-    private static Handshake ParseHandshake(string value) =>
-        Enum.TryParse<Handshake>(value, true, out var parsed) ? parsed : Handshake.None;
 }

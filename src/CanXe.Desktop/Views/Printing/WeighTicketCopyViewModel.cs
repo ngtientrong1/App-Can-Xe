@@ -27,6 +27,7 @@ public sealed class WeighTicketCopyViewModel
     public bool ShowNetWeightUnit { get; init; }
     public required string UnitPrice { get; init; }
     public required string TotalAmount { get; init; }
+    public required string DeductionWeightDisplay { get; init; }
     public required string Notes { get; init; }
     public required string Weigh1Time { get; init; }
     public required string Weigh1Date { get; init; }
@@ -76,6 +77,7 @@ public sealed class WeighTicketCopyViewModel
             ShowNetWeightUnit = showNetUnit,
             UnitPrice = unitPrice ?? "—",
             TotalAmount = totalAmount ?? "—",
+            DeductionWeightDisplay = WeighTicketPrintFormatter.FormatWeightKg(model.DeductionWeightKg),
             Notes = string.IsNullOrWhiteSpace(model.Notes) ? "—" : model.Notes,
             Weigh1Recorded = weigh1Recorded,
             Weigh2Recorded = weigh2Recorded,

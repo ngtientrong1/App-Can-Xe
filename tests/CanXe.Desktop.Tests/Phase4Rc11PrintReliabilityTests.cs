@@ -66,7 +66,7 @@ public sealed class Phase4Rc11PrintReliabilityTests
             var copy = WpfWeighTicketDocumentFactory.CreateMaterializedCopy(BuildSampleModel(true));
             Assert.NotNull(FindTextBlock(copy, "BẢN IN LẠI"));
             Assert.NotNull(FindTextBlock(copy, "PHIẾU CÂN XE"));
-            Assert.NotNull(FindTextBlock(copy, "KHỐI LƯỢNG XE + HÀNG"));
+            Assert.NotNull(FindTextBlock(copy, "KHỐI LƯỢNG HÀNG"));
         });
     }
 
@@ -84,15 +84,13 @@ public sealed class Phase4Rc11PrintReliabilityTests
     }
 
     [Fact]
-    public void IdentityIcons_UseWhiteFillGeometry()
+    public void HeroBand_ShowsPlateAndNetWeight()
     {
         _fixture.Invoke(_ =>
         {
             var copy = WpfWeighTicketDocumentFactory.CreateMaterializedCopy(BuildSampleModel(false));
-            var customerTile = FindNamed<Border>(copy, "CustomerIconTile");
-            var path = FindFirstPath(customerTile!);
-            Assert.Equal(Brushes.White, path!.Fill);
-            Assert.Equal(Brushes.Transparent, path.Stroke);
+            Assert.NotNull(FindNamed<TextBlock>(copy, "PlateValueText"));
+            Assert.NotNull(FindTextBlock(copy, "KHỐI LƯỢNG HÀNG"));
         });
     }
 

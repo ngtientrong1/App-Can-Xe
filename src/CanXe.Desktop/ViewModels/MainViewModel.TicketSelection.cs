@@ -216,13 +216,16 @@ public sealed partial class MainViewModel
     private static string Flag(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "no" : "yes";
 
+    /// <summary>
+    /// Editing basic ticket metadata (customer/plate/cargo/notes) needs no admin unlock — only
+    /// weight changes are admin-gated (<see cref="UnlockDevWeightEdit"/>, checked again by
+    /// TicketUpdateService.UpdateAsync regardless of what happens here). Entering Editing mode
+    /// itself is free for any operator to fix a typo without the multi-step unlock flow.
+    /// </summary>
     [RelayCommand]
     private async Task UnlockViewForEditAsync()
     {
         if (FormMode != TicketFormMode.Viewing || ActiveTicketId is not int ticketId)
-            return;
-
-        if (!EnsureAdminOrNotify(AdminPermission.CanEditCompletedTicket, "EDIT_COMPLETED_TICKET"))
             return;
 
         var item = Tickets.FirstOrDefault(t => t.Id == ticketId) ?? SelectedTicket;
@@ -233,7 +236,7 @@ public sealed partial class MainViewModel
         AdminAuditLogger.Write(
             "EDIT_COMPLETED_TICKET",
             "STARTED",
-            "Admin",
+            "Operator",
             ticketId: ticketId.ToString());
     }
 

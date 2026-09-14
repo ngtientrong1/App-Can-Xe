@@ -168,7 +168,7 @@ public sealed class Phase5Rc9ContinuationLoadWpfTests
 
         Assert.Equal(TicketFormMode.AwaitingSecondWeigh, vm.FormMode);
         Assert.Equal("Khách double-click rc9", vm.CustomerName);
-        Assert.Equal("51C-77777", vm.LicensePlate);
+        Assert.Equal("51C-777.77", vm.LicensePlate);
         Assert.Equal("Đậu", vm.CargoTypeName);
         Assert.Equal(4500m, UnitPriceInputHelper.Parse(vm.UnitPriceText));
         Assert.Equal("Note dc", vm.Notes);
@@ -201,7 +201,7 @@ public sealed class Phase5Rc9ContinuationLoadWpfTests
 
         var saved = vm.Tickets[0];
         Assert.Equal("Khách save w2 rc9", saved.CustomerName);
-        Assert.Equal("51D-66666", saved.LicensePlate);
+        Assert.Equal("51D-666.66", saved.LicensePlate);
         Assert.Equal("Lúa", saved.CargoTypeName);
         Assert.Equal(TicketFormMode.Creating, vm.FormMode);
     }

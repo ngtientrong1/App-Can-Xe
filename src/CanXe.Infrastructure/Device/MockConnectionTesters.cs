@@ -58,45 +58,58 @@ public sealed class ScaleConnectionTester : IScaleConnectionTester
             $"Mock: cổng {settings.PortName} @ {settings.BaudRate} sẵn sàng (Simulation)."));
     }
 
-    private static Task<ConnectionTestResult> TestHardwarePortAsync(
+    private static readonly TimeSpan OpenGuardTimeout = TimeSpan.FromSeconds(5);
+
+    private static async Task<ConnectionTestResult> TestHardwarePortAsync(
         ScaleDeviceSettingsDto settings,
         CancellationToken cancellationToken)
     {
-        return Task.Run(() =>
+        var openTask = Task.Run(() => OpenAndCloseOnce(settings), cancellationToken);
+        var winner = await Task.WhenAny(openTask, Task.Delay(OpenGuardTimeout, CancellationToken.None))
+            .ConfigureAwait(false);
+        if (!ReferenceEquals(winner, openTask))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            SerialPort? port = null;
-            try
+            ScaleConnectionLogger.Write("PortOpenHung", port: settings.PortName);
+            return ConnectionTestResult.Failed(
+                $"{settings.PortName} không phản hồi khi mở cổng — có thể driver USB-to-Serial bị treo. Hãy rút/cắm lại cáp USB rồi thử lại.");
+        }
+
+        return await openTask.ConfigureAwait(false);
+    }
+
+    private static ConnectionTestResult OpenAndCloseOnce(ScaleDeviceSettingsDto settings)
+    {
+        SerialPort? port = null;
+        try
+        {
+            port = new SerialPort
             {
-                port = new SerialPort
-                {
-                    PortName = settings.PortName,
-                    BaudRate = settings.BaudRate,
-                    DataBits = settings.DataBits,
-                    Parity = Enum.TryParse<Parity>(settings.Parity, true, out var parity) ? parity : Parity.None,
-                    StopBits = Enum.TryParse<StopBits>(settings.StopBits, true, out var stopBits) ? stopBits : StopBits.One,
-                    Handshake = Enum.TryParse<Handshake>(settings.Handshake, true, out var handshake) ? handshake : Handshake.None,
-                    ReadTimeout = 500,
-                    WriteTimeout = 500,
-                    DtrEnable = false,
-                    RtsEnable = false
-                };
-                port.Open();
-                ScaleConnectionLogger.Write("PortOpened", port: settings.PortName);
-                return ConnectionTestResult.Succeeded(
-                    $"Cổng {settings.PortName} @ {settings.BaudRate} mở được — dùng KẾT NỐI để nhận dữ liệu cân.");
-            }
-            catch (Exception ex)
-            {
-                ScaleConnectionLogger.Write("PortOpenFailed", detail: ex.Message, port: settings.PortName);
-                return ConnectionTestResult.Failed($"Không mở được {settings.PortName}: {ex.Message}");
-            }
-            finally
-            {
-                if (port?.IsOpen == true)
-                    port.Close();
-                port?.Dispose();
-            }
-        }, cancellationToken);
+                PortName = settings.PortName,
+                BaudRate = settings.BaudRate,
+                DataBits = settings.DataBits,
+                Parity = Enum.TryParse<Parity>(settings.Parity, true, out var parity) ? parity : Parity.None,
+                StopBits = Enum.TryParse<StopBits>(settings.StopBits, true, out var stopBits) ? stopBits : StopBits.One,
+                Handshake = Enum.TryParse<Handshake>(settings.Handshake, true, out var handshake) ? handshake : Handshake.None,
+                ReadTimeout = 500,
+                WriteTimeout = 500,
+                DtrEnable = false,
+                RtsEnable = false
+            };
+            port.Open();
+            ScaleConnectionLogger.Write("PortOpened", port: settings.PortName);
+            return ConnectionTestResult.Succeeded(
+                $"Cổng {settings.PortName} @ {settings.BaudRate} mở được — dùng KẾT NỐI để nhận dữ liệu cân.");
+        }
+        catch (Exception ex)
+        {
+            ScaleConnectionLogger.Write("PortOpenFailed", detail: ex.Message, port: settings.PortName);
+            return ConnectionTestResult.Failed($"Không mở được {settings.PortName}: {ex.Message}");
+        }
+        finally
+        {
+            if (port?.IsOpen == true)
+                port.Close();
+            port?.Dispose();
+        }
     }
 }

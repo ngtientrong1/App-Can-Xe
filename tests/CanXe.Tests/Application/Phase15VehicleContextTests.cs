@@ -71,6 +71,8 @@ public class VehicleUsageContextApplierTests
             PlateNumber = "81C-04621",
             RecentCustomerId = 10,
             RecentCustomerName = "Chị Thanh",
+            RecentCargoTypeId = 20,
+            RecentCargoTypeName = "Rô tươi",
             FrequentCargoTypeId = 20,
             FrequentCargoTypeName = "Rô tươi"
         };
@@ -79,6 +81,49 @@ public class VehicleUsageContextApplierTests
 
         Assert.Equal("Chị Thanh", result.CustomerName);
         Assert.Equal("Rô tươi", result.CargoTypeName);
+    }
+
+    [Fact]
+    public void ApplyBoth_UsesRecentCargoEvenWhenLessFrequentThanHistory()
+    {
+        // rc: the latest ticket always wins for auto-fill, even if an older cargo type was used
+        // more often — otherwise clearing the field on a later visit never actually "sticks".
+        var context = new VehicleUsageContext
+        {
+            VehicleId = 1,
+            PlateNumber = "81C-04621",
+            RecentCargoTypeId = 21,
+            RecentCargoTypeName = "Cà tươi",
+            FrequentCargoTypeId = 20,
+            FrequentCargoTypeName = "Rô tươi",
+            FrequentCargoUsageCount = 5
+        };
+
+        var result = VehicleUsageContextApplier.Apply(context, VehicleContextApplyMode.Both, null, null);
+
+        Assert.Equal("Cà tươi", result.CargoTypeName);
+    }
+
+    [Fact]
+    public void ApplyBoth_LeavesCargoBlankWhenRecentTicketHadNone()
+    {
+        // The vehicle used to haul "Rô tươi" frequently, but the latest ticket intentionally left
+        // cargo blank — that blank must overwrite the historical suggestion, not lose to it.
+        var context = new VehicleUsageContext
+        {
+            VehicleId = 1,
+            PlateNumber = "81C-04621",
+            RecentCargoTypeId = null,
+            RecentCargoTypeName = null,
+            FrequentCargoTypeId = 20,
+            FrequentCargoTypeName = "Rô tươi",
+            FrequentCargoUsageCount = 5
+        };
+
+        var result = VehicleUsageContextApplier.Apply(context, VehicleContextApplyMode.Both, null, "Rô tươi");
+
+        Assert.Null(result.CargoTypeName);
+        Assert.False(result.CargoTypeChanged);
     }
 
     [Fact]
@@ -132,6 +177,32 @@ public class Phase15VehicleContextRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetVehicleUsageContext_LatestBlankCargoOverwritesOlderTicket()
+    {
+        // Ticket 1 hauled "Vỏ trấu"; ticket 2 for the same plate intentionally left cargo blank.
+        // "Recent" must reflect ticket 2 (blank), not fall back to ticket 1's value.
+        var scope = _factory.Provider.CreateScope();
+        var customers = scope.ServiceProvider.GetRequiredService<ICustomerRepository>();
+        var cargo = scope.ServiceProvider.GetRequiredService<ICargoTypeRepository>();
+        var vehicles = scope.ServiceProvider.GetRequiredService<IVehicleRepository>();
+        var tickets = scope.ServiceProvider.GetRequiredService<IWeighTicketRepository>();
+
+        var customer = await customers.UpsertAsync("Anh Bình");
+        var cargoType = await cargo.UpsertAsync("Vỏ trấu");
+        var vehicle = await vehicles.UpsertAsync("29H-77210", customer.Id);
+
+        await SeedTicketAsync(tickets, vehicle.Id, vehicle.PlateNumber, customer, cargoType,
+            new DateTimeOffset(2026, 6, 20, 10, 0, 0, TimeSpan.FromHours(7)));
+        await SeedTicketAsync(tickets, vehicle.Id, vehicle.PlateNumber, customer, cargoTypeId: null, cargoTypeName: null,
+            new DateTimeOffset(2026, 6, 25, 10, 0, 0, TimeSpan.FromHours(7)));
+
+        var context = await tickets.GetVehicleUsageContextAsync("29H77210");
+
+        Assert.NotNull(context);
+        Assert.Null(context.RecentCargoTypeName);
+    }
+
+    [Fact]
     public async Task VehicleAutocomplete_IncludesCustomerAndCargoContext()
     {
         var scope = _factory.Provider.CreateScope();
@@ -149,7 +220,7 @@ public class Phase15VehicleContextRepositoryTests : IAsyncLifetime
 
         var items = await search.SearchVehiclesAsync("81C", null);
 
-        var match = items.First(i => i.PrimaryText == "81C-04621");
+        var match = items.First(i => i.PrimaryText == "81C-046.21");
         Assert.Contains("Chị Thanh", match.SecondaryText);
         Assert.Contains("Rô tươi", match.TertiaryText);
     }
@@ -172,12 +243,22 @@ public class Phase15VehicleContextRepositoryTests : IAsyncLifetime
         Assert.Equal(1, result.Count);
     }
 
-    private static async Task SeedTicketAsync(
+    private static Task SeedTicketAsync(
         IWeighTicketRepository repository,
         int vehicleId,
         string plate,
         Customer customer,
         CargoType cargoType,
+        DateTimeOffset ticketDateTime) =>
+        SeedTicketAsync(repository, vehicleId, plate, customer, cargoType.Id, cargoType.Name, ticketDateTime);
+
+    private static async Task SeedTicketAsync(
+        IWeighTicketRepository repository,
+        int vehicleId,
+        string plate,
+        Customer customer,
+        int? cargoTypeId,
+        string? cargoTypeName,
         DateTimeOffset ticketDateTime)
     {
         var ticket = new WeighTicket
@@ -192,8 +273,8 @@ public class Phase15VehicleContextRepositoryTests : IAsyncLifetime
             CustomerNameSnapshot = customer.Name,
             VehicleId = vehicleId,
             LicensePlateSnapshot = plate,
-            CargoTypeId = cargoType.Id,
-            CargoTypeNameSnapshot = cargoType.Name,
+            CargoTypeId = cargoTypeId,
+            CargoTypeNameSnapshot = cargoTypeName,
             GrossWeightGrams = 5000000,
             TareWeightGrams = 0,
             NetWeightGrams = 5000000,

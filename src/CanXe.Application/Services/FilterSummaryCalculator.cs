@@ -14,6 +14,7 @@ public static class FilterSummaryCalculator
             TotalBillableWeightKg = items.Where(i => i.BillableWeightKg.HasValue).Sum(i => i.BillableWeightKg!.Value),
             TotalAmountVnd = items.Where(i => i.TotalAmountVnd.HasValue).Sum(i => i.TotalAmountVnd!.Value),
             MissingPriceCount = items.Count(i =>
-                i.NetWeightKg.HasValue && !WeightCalculator.HasBillableUnitPrice(i.UnitPriceVndPerKg))
+                i.NetWeightKg.HasValue && !WeightCalculator.HasBillableUnitPrice(i.UnitPriceVndPerKg)),
+            PendingSecondWeighCount = items.Count(i => i.WorkflowState == WeighTicketWorkflowState.AwaitingSecondWeigh)
         };
 }

@@ -88,6 +88,7 @@ public sealed partial class MainViewModel
             ScaleConnectionState.Connected => "Đã kết nối",
             ScaleConnectionState.Connecting => "Đang kết nối...",
             ScaleConnectionState.Error => "Lỗi kết nối",
+            ScaleConnectionState.Hung => "Cổng bị treo — đang thử khôi phục",
             _ => "Chưa kết nối"
         };
         HardwareStableText = IsScaleConnecting || !_hardwareScale.IsConnected

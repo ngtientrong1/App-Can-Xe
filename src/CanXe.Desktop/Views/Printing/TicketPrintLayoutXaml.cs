@@ -15,6 +15,12 @@ internal static class TicketPrintLayoutXaml
     public static GridLength IdentityCardsRow => new(WeighTicketPrintLayout.IdentityCardsHeightDip);
     public static GridLength IdentityDetailsSpacerRow => new(WeighTicketPrintLayout.IdentityDetailsGapDip);
     public static GridLength DetailsTableRow => new(WeighTicketPrintLayout.DetailsTableHeightDip);
+
+    public static GridLength BodyWeighBandRow => new(WeighTicketPrintLayout.BodyWeighBandHeightDip);
+    public static GridLength BodyRowGapRow => new(WeighTicketPrintLayout.BodyRowGapDip);
+    public static GridLength BodyInfoBandRow => new(WeighTicketPrintLayout.BodyInfoBandHeightDip);
+    public static GridLength BodyBottomRowRow => new(WeighTicketPrintLayout.BodyBottomRowHeightDip);
+    public static GridLength BandDividerColumn => new(WeighTicketPrintLayout.ColumnSeparatorThicknessDip);
     public static GridLength HeroBodySpacerRow => new(WeighTicketPrintLayout.HeroBodyGapDip);
     public static GridLength BodySignatureSpacerRow => new(WeighTicketPrintLayout.BodySignatureGapDip);
     public static GridLength WeighBlock1Row => new(WeighTicketPrintLayout.WeighBlock1HeightDip);

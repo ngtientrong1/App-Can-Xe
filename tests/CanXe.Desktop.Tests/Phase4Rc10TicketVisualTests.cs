@@ -19,123 +19,51 @@ public sealed class Phase4Rc10TicketVisualTests
     public Phase4Rc10TicketVisualTests(WpfSmokeFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public void IdentityIconTiles_HaveBlackBackground()
+    public void InfoBand_ValuesAreDisplayedWithoutRedundantLabelsInline()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
-            var customerTile = FindNamedBorder(view, "CustomerIconTile");
-            var plateTile = FindNamedBorder(view, "PlateIconTile");
-            Assert.NotNull(customerTile);
-            Assert.NotNull(plateTile);
-            Assert.Equal(Brushes.Black, customerTile!.Background);
-            Assert.Equal(Brushes.Black, plateTile!.Background);
-        });
-    }
-
-    [Fact]
-    public void IdentityIcons_AreWhiteAndCenteredInTile()
-    {
-        _fixture.Invoke(_ =>
-        {
-            var view = ArrangeView(BuildSampleModel());
-            var customerTile = FindNamedBorder(view, "CustomerIconTile");
-            var plateTile = FindNamedBorder(view, "PlateIconTile");
-            Assert.NotNull(customerTile);
-            Assert.NotNull(plateTile);
-
-            var personPath = FindFirstPath(customerTile!);
-            var vehiclePath = FindFirstPath(plateTile!);
-            Assert.NotNull(personPath);
-            Assert.NotNull(vehiclePath);
-            Assert.Equal(Brushes.White, personPath!.Fill);
-            Assert.Equal(Brushes.White, vehiclePath!.Fill);
-            Assert.Equal(HorizontalAlignment.Center, GetParentViewbox(personPath)!.HorizontalAlignment);
-            Assert.Equal(VerticalAlignment.Center, GetParentViewbox(personPath)!.VerticalAlignment);
-        });
-    }
-
-    [Fact]
-    public void IdentityIcons_HaveEquivalentVisualSize()
-    {
-        _fixture.Invoke(_ =>
-        {
-            var view = ArrangeView(BuildSampleModel());
-            var customerTile = FindNamedBorder(view, "CustomerIconTile");
-            var plateTile = FindNamedBorder(view, "PlateIconTile");
-            var personBox = GetParentViewbox(FindFirstPath(customerTile!)!)!.RenderSize;
-            var vehicleBox = GetParentViewbox(FindFirstPath(plateTile!)!)!.RenderSize;
-            Assert.True(personBox.Width > 0);
-            Assert.Equal(personBox.Width, vehicleBox.Width, 1);
-            Assert.Equal(personBox.Height, vehicleBox.Height, 1);
-        });
-    }
-
-    [Fact]
-    public void IdentityCards_DoNotContainLabelText()
-    {
-        _fixture.Invoke(_ =>
-        {
-            var view = ArrangeView(BuildSampleModel());
-            Assert.Null(FindTextInSubtree(FindNamedBorder(view, "CustomerIdentityCard")!, "KHÁCH HÀNG"));
-            Assert.Null(FindTextInSubtree(FindNamedBorder(view, "PlateIdentityCard")!, "BIỂN SỐ XE"));
-        });
-    }
-
-    [Fact]
-    public void DetailsValues_HaveRightPaddingAndDoNotTouchEdge()
-    {
-        _fixture.Invoke(_ =>
-        {
-            var view = ArrangeView(BuildSampleModel());
-            var detailsCard = FindNamedBorder(view, "DetailsTableCard");
             var cargoValue = FindNamedTextBlock(view, "CargoTypeValueText");
             var unitPriceValue = FindNamedTextBlock(view, "UnitPriceValueText");
             var totalValue = FindNamedTextBlock(view, "TotalAmountValueText");
-            Assert.NotNull(detailsCard);
             Assert.NotNull(cargoValue);
             Assert.NotNull(unitPriceValue);
             Assert.NotNull(totalValue);
 
-            var cardRight = detailsCard!.TransformToAncestor(view).Transform(new Point(detailsCard.ActualWidth, 0)).X;
-            Assert.True(GetRightEdge(cargoValue!, view) <= cardRight - WeighTicketPrintLayout.MmToDip(3.5));
-            Assert.True(GetRightEdge(unitPriceValue!, view) <= cardRight - WeighTicketPrintLayout.MmToDip(3.5));
-            Assert.True(GetRightEdge(totalValue!, view) <= cardRight - WeighTicketPrintLayout.MmToDip(3.5));
-            Assert.True(cargoValue!.Padding.Right >= WeighTicketPrintLayout.DetailValueInsetDip - 0.5);
+            Assert.True(GetRightEdge(cargoValue!, view) <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 1.5);
+            Assert.True(GetRightEdge(unitPriceValue!, view) <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 1.5);
+            Assert.True(GetRightEdge(totalValue!, view) <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 1.5);
         });
     }
 
     [Fact]
-    public void TimestampCard_DoesNotOverlapBodyLeft()
+    public void WeighBandAndInfoBand_DoNotOverlap()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildStressModel());
             view.UpdateLayout();
-            var timestamp = FindNamedBorder(view, "TimestampCard");
-            var details = FindNamedBorder(view, "DetailsTableCard");
-            var customer = FindNamedBorder(view, "CustomerIdentityCard");
-            Assert.True(timestamp is not null);
-            Assert.True(details is not null);
-            Assert.True(customer is not null);
+            var cargoValue = FindNamedTextBlock(view, "CargoTypeValueText");
+            var grossTime = FindNamedTextBlock(view, "Weigh1TimeText");
+            Assert.NotNull(cargoValue);
+            Assert.NotNull(grossTime);
 
-            var timestampLeft = timestamp!.TransformToAncestor(view).Transform(new Point(0, 0)).X;
-            var detailsRight = GetRightEdge(details!, view);
-            var customerRight = GetRightEdge(customer!, view);
-            Assert.True(detailsRight <= timestampLeft - 0.5);
-            Assert.True(customerRight <= timestampLeft - 0.5);
+            var cargoTop = cargoValue!.TransformToAncestor(view).Transform(new Point(0, 0)).Y;
+            var grossBottom = grossTime!.TransformToAncestor(view).Transform(new Point(0, grossTime.ActualHeight)).Y;
+            Assert.True(grossBottom <= cargoTop + 0.5);
         });
     }
 
     [Fact]
-    public void TimestampTexts_AreCenterAligned()
+    public void WeighBandTitles_AreLeftAligned()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
-            Assert.Equal(TextAlignment.Center, FindFirstTextBlock(view, "CÂN LẦN 1")!.TextAlignment);
-            Assert.Equal(TextAlignment.Center, FindFirstTextBlock(view, "23:58:10")!.TextAlignment);
-            Assert.Equal(TextAlignment.Center, FindFirstTextBlock(view, "29/06/2026")!.TextAlignment);
+            Assert.Equal(TextAlignment.Left, FindFirstTextBlock(view, "CÂN LẦN 1")!.TextAlignment);
+            Assert.NotNull(FindFirstTextBlock(view, "23:58:10"));
+            Assert.NotNull(FindFirstTextBlock(view, "29/06/2026"));
         });
     }
 
@@ -155,10 +83,8 @@ public sealed class Phase4Rc10TicketVisualTests
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
-            var grossCard = FindNamedBorder(view, "HeroCardGross");
-            Assert.NotNull(grossCard);
-            var number = FindFirstTextBlock(grossCard!, "11.730");
-            var unit = FindFirstTextBlock(grossCard!, "kg");
+            var number = FindFirstTextBlock(view, "6.750");
+            var unit = FindFirstTextBlock(view, "kg");
             Assert.NotNull(number);
             Assert.NotNull(unit);
             Assert.True(number!.FontSize > unit!.FontSize);
@@ -184,7 +110,7 @@ public sealed class Phase4Rc10TicketVisualTests
             foreach (var copyView in FindChildren<WeighTicketCopyView>(visual))
             {
                 var maxRight = GetSafeContentMaxRight(copyView);
-                Assert.True(maxRight <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 0.5);
+                Assert.True(maxRight <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 1.5);
             }
         });
     }

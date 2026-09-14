@@ -7,6 +7,7 @@ using CanXe.Desktop.Services;
 using CanXe.Desktop.ViewModels;
 using CanXe.Infrastructure;
 using CanXe.Infrastructure.Logging;
+using CanXe.Infrastructure.Scale;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -25,6 +26,11 @@ public partial class App : System.Windows.Application
             LifecycleLogger.Write("AppStarting");
 
             RegisterGlobalExceptionHandlers(this);
+
+            // Fire-and-forget: keeps the scale's USB-to-serial adapter from being power-suspended
+            // (a common cause of it going silent until physically unplugged/replugged). Runs a
+            // short-lived powercfg.exe process off the UI thread so it can never delay startup.
+            _ = Task.Run(UsbSelectiveSuspendConfigurator.DisableOnActiveScheme);
 
             var appData = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

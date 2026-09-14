@@ -72,22 +72,36 @@ public partial class MainWindowLayoutStructureTests
     }
 
     [Fact]
-    public void WeighTicketSection_WorkspaceUsesMaxHeightBinding()
+    public void WeighTicketSection_IsWrappedInUniformViewbox()
     {
+        // The whole PHIẾU CÂN screen renders onto a fixed 16:9 design canvas that a
+        // Viewbox scales uniformly to the actual window — so every proportion (fonts,
+        // paddings, column widths) stays identical at any resolution/DPI instead of
+        // jumping between discrete size breakpoints.
         var xaml = File.ReadAllText(MainWindowXamlPath);
         var section = ExtractWeighTicketSection(xaml);
 
-        Assert.Contains("MaxHeight=\"{Binding WorkspaceMaxHeight}\"", section, StringComparison.Ordinal);
-        Assert.Contains("MinHeight=\"{Binding WorkspaceMinHeight}\"", section, StringComparison.Ordinal);
+        Assert.Contains("<Viewbox", section, StringComparison.Ordinal);
+        Assert.Contains("Stretch=\"Uniform\"", section, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void WeighTicketSection_DataGridUsesMinHeightBinding()
+    public void WeighTicketSection_WorkspaceUsesFixedDesignHeights()
     {
         var xaml = File.ReadAllText(MainWindowXamlPath);
         var section = ExtractWeighTicketSection(xaml);
 
-        Assert.Contains("MinHeight=\"{Binding DataGridMinHeight}\"", section, StringComparison.Ordinal);
+        Assert.Contains("MaxHeight=\"510\"", section, StringComparison.Ordinal);
+        Assert.Contains("MinHeight=\"420\"", section, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WeighTicketSection_DataGridUsesFixedDesignMinHeight()
+    {
+        var xaml = File.ReadAllText(MainWindowXamlPath);
+        var section = ExtractWeighTicketSection(xaml);
+
+        Assert.Contains("MinHeight=\"280\"", section, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -63,6 +63,12 @@ public partial class MainWindow : Window
             vm.CommitUnitPriceEdit();
     }
 
+    private void VehicleField_OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+            vm.CommitLicensePlateEdit();
+    }
+
     private void OnWindowDeactivated(object? sender, EventArgs e) =>
         AutoCompleteTextBox.CloseAllDropDowns();
 

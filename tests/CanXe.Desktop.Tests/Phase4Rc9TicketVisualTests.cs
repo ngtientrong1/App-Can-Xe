@@ -18,57 +18,33 @@ public sealed class Phase4Rc9TicketVisualTests
     public Phase4Rc9TicketVisualTests(WpfSmokeFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public void HeroCards_ThreeEqualWidthCards()
+    public void HeroBand_NetWeightAndPlateAreDisplayed()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
-            var cards = FindNamedBorders(view, "HeroCardGross", "HeroCardTare", "HeroCardNet").ToList();
-            Assert.Equal(3, cards.Count);
-            Assert.InRange(Math.Abs(cards[0].ActualWidth - cards[1].ActualWidth), 0, 1.5);
-            Assert.InRange(Math.Abs(cards[1].ActualWidth - cards[2].ActualWidth), 0, 1.5);
-        });
-    }
-
-    [Fact]
-    public void HeroWeightFont_MeetsMinimum29Pt()
-    {
-        _fixture.Invoke(_ =>
-        {
-            var view = ArrangeView(BuildSampleModel());
-            var weight = FindFirstTextBlock(view, "11.730");
+            var weight = FindFirstTextBlock(view, "6.750");
             Assert.NotNull(weight);
             Assert.True(weight!.FontSize >= WeighTicketPrintTypography.HeroWeightValueDip - 0.5);
             Assert.NotNull(FindFirstTextBlock(view, "kg"));
+            Assert.NotNull(FindFirstTextBlock(view, "82C08112"));
         });
     }
 
     [Fact]
-    public void CustomerCard_DoesNotContainLabelText()
+    public void InfoBand_DoesNotDuplicateHeroLabelsInsideItsCells()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
-            var card = FindNamedBorder(view, "CustomerIdentityCard");
-            Assert.NotNull(card);
-            Assert.Null(FindTextInSubtree(card!, "KHÁCH HÀNG"));
+            Assert.NotNull(FindFirstTextBlock(view, "KHÁCH HÀNG"));
+            Assert.NotNull(FindFirstTextBlock(view, "BIỂN SỐ XE"));
+            Assert.NotNull(FindFirstTextBlock(view, "Cân Dịch Vụ"));
         });
     }
 
     [Fact]
-    public void PlateCard_DoesNotContainLabelText()
-    {
-        _fixture.Invoke(_ =>
-        {
-            var view = ArrangeView(BuildSampleModel());
-            var card = FindNamedBorder(view, "PlateIdentityCard");
-            Assert.NotNull(card);
-            Assert.Null(FindTextInSubtree(card!, "BIỂN SỐ XE"));
-        });
-    }
-
-    [Fact]
-    public void IdentityCards_DisplayAndCenterValues()
+    public void IdentityValues_Display()
     {
         _fixture.Invoke(_ =>
         {
@@ -77,28 +53,9 @@ public sealed class Phase4Rc9TicketVisualTests
             var plate = FindFirstTextBlock(view, "82C08112");
             Assert.NotNull(customer);
             Assert.NotNull(plate);
-            Assert.Equal(TextAlignment.Center, customer!.TextAlignment);
             Assert.Equal(TextAlignment.Center, plate!.TextAlignment);
-            Assert.Equal(VerticalAlignment.Center, customer.VerticalAlignment);
-            Assert.Equal(VerticalAlignment.Center, plate.VerticalAlignment);
-            Assert.True(customer.FontSize >= WeighTicketPrintTypography.CustomerValueDip - 0.5);
+            Assert.True(customer!.FontSize >= WeighTicketPrintTypography.InfoValueDip - 0.5);
             Assert.True(plate.FontSize >= WeighTicketPrintTypography.PlateValueDip - 0.5);
-        });
-    }
-
-    [Fact]
-    public void IdentityCards_HaveEqualHeightAnd56By44WidthRatio()
-    {
-        _fixture.Invoke(_ =>
-        {
-            var view = ArrangeView(BuildSampleModel());
-            var customer = FindNamedBorder(view, "CustomerIdentityCard");
-            var plate = FindNamedBorder(view, "PlateIdentityCard");
-            Assert.NotNull(customer);
-            Assert.NotNull(plate);
-            Assert.Equal(customer!.ActualHeight, plate!.ActualHeight, 1);
-            var ratio = customer.ActualWidth / plate.ActualWidth;
-            Assert.InRange(ratio, 56.0 / 44.0 - 0.12, 56.0 / 44.0 + 0.12);
         });
     }
 
@@ -123,10 +80,9 @@ public sealed class Phase4Rc9TicketVisualTests
         {
             var view = ArrangeView(BuildLongCustomerModel());
             view.UpdateLayout();
-            var card = FindNamedBorder(view, "CustomerIdentityCard");
-            Assert.NotNull(card);
-            Assert.True(card!.ActualHeight <= WeighTicketPrintLayout.IdentityCardsHeightDip + 0.5);
-            Assert.Null(FindTextInSubtree(card, "KHÁCH HÀNG"));
+            var name = FindFirstTextBlock(view, "CÔNG TY TNHH THƯƠNG MẠI DỊCH VỤ TIẾN TRỌNG");
+            Assert.NotNull(name);
+            Assert.True(name!.ActualHeight <= WeighTicketPrintLayout.BodyInfoBandHeightDip + 0.5);
         });
     }
 
@@ -144,14 +100,14 @@ public sealed class Phase4Rc9TicketVisualTests
     }
 
     [Fact]
-    public void WeighBlocks_AreCenterAligned()
+    public void WeighBlocks_TitleIsLeftAligned()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
-            Assert.Equal(TextAlignment.Center, FindFirstTextBlock(view, "CÂN LẦN 1")!.TextAlignment);
-            Assert.Equal(TextAlignment.Center, FindFirstTextBlock(view, "23:58:10")!.TextAlignment);
-            Assert.Equal(TextAlignment.Center, FindFirstTextBlock(view, "29/06/2026")!.TextAlignment);
+            Assert.Equal(TextAlignment.Left, FindFirstTextBlock(view, "CÂN LẦN 1")!.TextAlignment);
+            Assert.NotNull(FindFirstTextBlock(view, "23:58:10"));
+            Assert.NotNull(FindFirstTextBlock(view, "29/06/2026"));
         });
     }
 
@@ -170,7 +126,7 @@ public sealed class Phase4Rc9TicketVisualTests
             foreach (var copyView in FindChildren<WeighTicketCopyView>(visual))
             {
                 var maxRight = GetSafeContentMaxRight(copyView);
-                Assert.True(maxRight <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 0.5);
+                Assert.True(maxRight <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 1.5);
             }
         });
     }

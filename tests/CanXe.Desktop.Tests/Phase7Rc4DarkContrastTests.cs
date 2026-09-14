@@ -108,7 +108,7 @@ public sealed class Phase7Rc4DarkContrastTests
     {
         var xaml = File.ReadAllText(LightThemeXaml);
         Assert.Contains("x:Key=\"PrimaryTextBrush\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Color=\"#1A1D21\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Color=\"#152430\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Key=\"AccentTextBrush\"", xaml, StringComparison.Ordinal);
     }
 

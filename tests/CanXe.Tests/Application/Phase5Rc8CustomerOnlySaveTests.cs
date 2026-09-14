@@ -306,7 +306,7 @@ public sealed class Phase5Rc8CustomerOnlySaveTests : IAsyncLifetime
         var save = await service.SaveAsync(draft);
         Assert.True(save.Success, save.ErrorMessage);
         Assert.Equal("Khách đủ", save.SavedTicket!.CustomerName);
-        Assert.Equal("51A-12345", save.SavedTicket.LicensePlate);
+        Assert.Equal("51A-123.45", save.SavedTicket.LicensePlate);
         Assert.Equal("Gạo", save.SavedTicket.CargoTypeName);
     }
 

@@ -35,6 +35,10 @@ public static class DependencyInjection
         services.AddSingleton<AppPaths>(_ => new AppPaths { DatabasePath = databasePath, PhotoRoot = photoRoot });
         services.AddSingleton<IScaleConnectionTester>(sp =>
             new ScaleConnectionTester(sp.GetRequiredService<AppSettings>()));
+        // The main app runs as a standard user (see app.manifest) — it triggers the pre-registered,
+        // SYSTEM-run Scheduled Task rather than calling pnputil in-process, which would fail
+        // silently without elevation. See CanXe.ComResetHelper and installer/CanXeTienTrong.iss.
+        services.AddSingleton<ISerialPortResetter, ScheduledTaskSerialPortResetter>();
 
         services.AddSingleton<IScaleSerialReader, WindowsScaleSerialReader>();
         services.AddSingleton<CompositeScaleService>(sp =>

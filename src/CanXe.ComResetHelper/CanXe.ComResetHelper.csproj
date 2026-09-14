@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>CanXe.ComResetHelper</RootNamespace>
+    <AssemblyName>CanXe.ComResetHelper</AssemblyName>
+    <Product>Cân Xe Tiến Trọng</Product>
+    <Company>Tien Trong</Company>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CanXe.Infrastructure\CanXe.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

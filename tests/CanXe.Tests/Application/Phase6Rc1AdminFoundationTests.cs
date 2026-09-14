@@ -598,7 +598,7 @@ public sealed class Phase6Rc2InlineAdminWeightEditTests : IAsyncLifetime
         var update = await service.UpdateTicketAsync(edit, "admin");
         Assert.True(update.Success, update.ErrorMessage);
         Assert.Equal("Rc2 Cust", update.UpdatedTicket!.CustomerName);
-        Assert.Equal("51Z-22222", update.UpdatedTicket.LicensePlate);
+        Assert.Equal("51Z-222.22", update.UpdatedTicket.LicensePlate);
         Assert.Equal(12000m, update.UpdatedTicket.NetWeightKg);
     }
 }

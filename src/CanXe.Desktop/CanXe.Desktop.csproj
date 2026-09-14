@@ -18,8 +18,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\canxe-tien-trong.ico</ApplicationIcon>
-    <Version>1.0.6</Version>
-    <InformationalVersion>1.0.6</InformationalVersion>
+    <Version>1.0.7</Version>
+    <InformationalVersion>1.0.7</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Product>Cân Xe Tiến Trọng</Product>
     <AssemblyTitle>Cân Xe Tiến Trọng</AssemblyTitle>
@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <Resource Include="Assets\canxe-tien-trong.ico" />
+    <Resource Include="Assets\Fonts\*.ttf" />
   </ItemGroup>
 
   <ItemGroup>

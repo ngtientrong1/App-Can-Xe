@@ -47,8 +47,11 @@ public static class VehicleUsageContextApplier
 
         if (mode is VehicleContextApplyMode.Both or VehicleContextApplyMode.CargoOnly)
         {
-            var cargoName = context.FrequentCargoTypeName ?? context.RecentCargoTypeName;
-            var cargoId = context.FrequentCargoTypeId ?? context.RecentCargoTypeId;
+            // The vehicle's latest ticket wins, even if that ticket left cargo blank on purpose —
+            // otherwise an intentional clear on a later visit keeps losing to an older, more
+            // frequent value from history.
+            var cargoName = context.RecentCargoTypeName;
+            var cargoId = context.RecentCargoTypeId;
             if (cargoName is not null)
             {
                 result = result with
@@ -79,7 +82,7 @@ public static class VehicleUsageContextApplier
         VehicleUsageContext context,
         string? currentCargoTypeName)
     {
-        var suggested = context.FrequentCargoTypeName ?? context.RecentCargoTypeName;
+        var suggested = context.RecentCargoTypeName;
         return suggested is not null &&
                !string.IsNullOrWhiteSpace(currentCargoTypeName) &&
                !string.Equals(currentCargoTypeName.Trim(), suggested, StringComparison.OrdinalIgnoreCase)

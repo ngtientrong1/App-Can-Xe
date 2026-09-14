@@ -18,7 +18,7 @@ public sealed class Phase4Rc12PrintSafeVisualTests
     public Phase4Rc12PrintSafeVisualTests(WpfSmokeFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public void IdentityValues_UseAutoFitWithoutEllipsis()
+    public void IdentityValues_Display()
     {
         _fixture.Invoke(_ =>
         {
@@ -29,9 +29,8 @@ public sealed class Phase4Rc12PrintSafeVisualTests
             Assert.NotNull(plate);
             Assert.Equal("Cân Dịch Vụ", customer!.Text);
             Assert.Equal("51A-12345", plate!.Text);
-            Assert.NotEqual(TextTrimming.CharacterEllipsis, customer.TextTrimming);
             Assert.NotEqual(TextTrimming.CharacterEllipsis, plate.TextTrimming);
-            Assert.NotNull(FindAncestor<Viewbox>(customer));
+            // Plate is user-entered and variable-length — keep its print-safety auto-fit guard.
             Assert.NotNull(FindAncestor<Viewbox>(plate));
         });
     }

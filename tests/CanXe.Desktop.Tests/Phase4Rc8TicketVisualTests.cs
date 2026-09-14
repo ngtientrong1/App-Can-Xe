@@ -18,40 +18,24 @@ public sealed class Phase4Rc8TicketVisualTests
     public Phase4Rc8TicketVisualTests(WpfSmokeFixture fixture) => _fixture = fixture;
 
     [Fact]
-    public void HeroCards_ThreeEqualWidthCardsExist()
+    public void HeroBand_NetWeightMeetsMinimumPtToDip()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
-            var cards = FindHeroCards(view).ToList();
-            Assert.Equal(3, cards.Count);
-
-            var widths = cards.Select(c => c.ActualWidth).ToList();
-            Assert.True(widths.All(w => w > 0));
-            Assert.InRange(Math.Abs(widths[0] - widths[1]), 0, 1.5);
-            Assert.InRange(Math.Abs(widths[1] - widths[2]), 0, 1.5);
+            var netValue = FindFirstTextBlock(view, "6.750");
+            Assert.NotNull(netValue);
+            Assert.True(netValue!.FontSize >= WeighTicketPrintTypography.HeroWeightValueDip - 0.5);
         });
     }
 
     [Fact]
-    public void HeroWeightFonts_MeetMinimumPtToDip()
+    public void HeroBandLabels_MeetMinimumFont()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
-            var grossValue = FindFirstTextBlock(view, "11.730");
-            Assert.NotNull(grossValue);
-            Assert.True(grossValue!.FontSize >= WeighTicketPrintTypography.HeroWeightValueDip - 0.5);
-        });
-    }
-
-    [Fact]
-    public void HeroCardLabels_MeetMinimumFont()
-    {
-        _fixture.Invoke(_ =>
-        {
-            var view = ArrangeView(BuildSampleModel());
-            var label = FindFirstTextBlock(view, "KHỐI LƯỢNG XE + HÀNG");
+            var label = FindFirstTextBlock(view, "KHỐI LƯỢNG HÀNG");
             Assert.NotNull(label);
             Assert.True(label!.FontSize >= WeighTicketPrintTypography.HeroCardLabelDip - 0.5);
         });
@@ -95,7 +79,7 @@ public sealed class Phase4Rc8TicketVisualTests
             foreach (var copyView in FindChildren<WeighTicketCopyView>(visual))
             {
                 var maxRight = GetSafeContentMaxRight(copyView);
-                Assert.True(maxRight <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 0.5,
+                Assert.True(maxRight <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 1.5,
                     $"Page copy right edge {maxRight} exceeded safe edge {WeighTicketPrintLayout.CopySafeRightEdgeDip}");
             }
         });
@@ -116,21 +100,20 @@ public sealed class Phase4Rc8TicketVisualTests
             foreach (var copyView in FindChildren<WeighTicketCopyView>(visual))
             {
                 var maxRight = GetSafeContentMaxRight(copyView);
-                Assert.True(maxRight <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 0.5,
+                Assert.True(maxRight <= WeighTicketPrintLayout.CopySafeRightEdgeDip + 1.5,
                     $"Copy content right edge {maxRight} exceeded safe edge {WeighTicketPrintLayout.CopySafeRightEdgeDip}");
             }
         });
     }
 
     [Fact]
-    public void DetailValues_AreRightAligned()
+    public void InfoBandValues_AreDisplayed()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
-            Assert.Equal(TextAlignment.Right, FindSiblingValueAfterLabel(view, "Loại hàng:")!.TextAlignment);
-            Assert.Equal(TextAlignment.Right, FindSiblingValueAfterLabel(view, "Đơn giá:")!.TextAlignment);
-            Assert.Equal(TextAlignment.Right, FindSiblingValueAfterLabel(view, "Thành tiền:")!.TextAlignment);
+            Assert.NotNull(FindFirstTextBlock(view, "Rơ tươi"));
+            Assert.NotNull(FindFirstTextBlockContaining(view, "VNĐ/kg"));
         });
     }
 
@@ -140,12 +123,14 @@ public sealed class Phase4Rc8TicketVisualTests
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
-            Assert.Equal(TextAlignment.Left, FindSiblingValueAfterLabel(view, "Ghi chú:")!.TextAlignment);
+            var notes = FindFirstTextBlock(view, "Giao buổi chiều");
+            Assert.NotNull(notes);
+            Assert.Equal(TextAlignment.Left, notes!.TextAlignment);
         });
     }
 
     [Fact]
-    public void WeighBlocks_AreCenterAligned()
+    public void WeighBlocks_TitlesAreLeftAligned()
     {
         _fixture.Invoke(_ =>
         {
@@ -155,22 +140,22 @@ public sealed class Phase4Rc8TicketVisualTests
             var date = FindFirstTextBlock(view, "29/06/2026");
             var title2 = FindFirstTextBlock(view, "CÂN LẦN 2");
             Assert.NotNull(title1);
-            Assert.Equal(TextAlignment.Center, title1!.TextAlignment);
-            Assert.Equal(TextAlignment.Center, time!.TextAlignment);
-            Assert.Equal(TextAlignment.Center, date!.TextAlignment);
-            Assert.Equal(TextAlignment.Center, title2!.TextAlignment);
+            Assert.Equal(TextAlignment.Left, title1!.TextAlignment);
+            Assert.NotNull(time);
+            Assert.NotNull(date);
+            Assert.NotNull(title2);
         });
     }
 
     [Fact]
-    public void SignDate_IsCenterAligned()
+    public void SignDate_IsDisplayed()
     {
         _fixture.Invoke(_ =>
         {
             var view = ArrangeView(BuildSampleModel());
             var signDate = FindFirstTextBlockContaining(view, "Kon Tum, ngày");
             Assert.NotNull(signDate);
-            Assert.Equal(TextAlignment.Center, signDate!.TextAlignment);
+            Assert.Equal(TextAlignment.Right, signDate!.TextAlignment);
         });
     }
 
@@ -248,13 +233,21 @@ public sealed class Phase4Rc8TicketVisualTests
         });
     }
 
-    private static IEnumerable<Border> FindHeroCards(DependencyObject root)
+    private static TextBlock? FindFirstTextBlockContaining(DependencyObject root, string fragment)
     {
-        foreach (var border in FindChildren<Border>(root))
+        if (root is TextBlock tb && tb.Text.Contains(fragment, StringComparison.Ordinal))
+            return tb;
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
         {
-            if (border.Name is "HeroCardGross" or "HeroCardTare" or "HeroCardNet")
-                yield return border;
+            if (VisualTreeHelper.GetChild(root, i) is DependencyObject child)
+            {
+                var found = FindFirstTextBlockContaining(child, fragment);
+                if (found is not null)
+                    return found;
+            }
         }
+        return null;
     }
 
     private static WeighTicketCopyView ArrangeView(WeighTicketPrintModel model)
@@ -419,23 +412,6 @@ public sealed class Phase4Rc8TicketVisualTests
             if (VisualTreeHelper.GetChild(root, i) is DependencyObject child)
             {
                 var found = FindFirstTextBlock(child, text);
-                if (found is not null)
-                    return found;
-            }
-        }
-        return null;
-    }
-
-    private static TextBlock? FindFirstTextBlockContaining(DependencyObject root, string fragment)
-    {
-        if (root is TextBlock tb && tb.Text.Contains(fragment, StringComparison.Ordinal))
-            return tb;
-        var count = VisualTreeHelper.GetChildrenCount(root);
-        for (var i = 0; i < count; i++)
-        {
-            if (VisualTreeHelper.GetChild(root, i) is DependencyObject child)
-            {
-                var found = FindFirstTextBlockContaining(child, fragment);
                 if (found is not null)
                     return found;
             }

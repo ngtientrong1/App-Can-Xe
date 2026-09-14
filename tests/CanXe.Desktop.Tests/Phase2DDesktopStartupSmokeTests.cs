@@ -29,7 +29,7 @@ public class Phase2DDesktopStartupSmokeTests(WpfSmokeFixture wpf)
         wpf.Invoke(app =>
         {
             Assert.NotNull(app.Resources);
-            Assert.Equal(2, app.Resources.MergedDictionaries.Count);
+            Assert.Equal(3, app.Resources.MergedDictionaries.Count);
         });
     }
 

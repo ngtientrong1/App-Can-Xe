@@ -265,6 +265,120 @@
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="MinWidth" Value="0" />
         </Style>
+
+        <!-- rc24: band-based body redesign — one tinted horizontal band, split by thin dividers,
+             used for the hero (plate/weight), the two weighings, and the customer/cargo fields. -->
+        <Style x:Key="BandContainerStyle" TargetType="Border">
+            <Setter Property="Background" Value="#F4F4F2" />
+            <Setter Property="CornerRadius" Value="{x:Static local:TicketPrintLayoutXaml.CardCornerRadius}" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="ClipToBounds" Value="False" />
+        </Style>
+
+        <Style x:Key="BandDividerStyle" TargetType="Border">
+            <Setter Property="Background" Value="#CCCCCC" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+        </Style>
+
+        <Style x:Key="WeighTagStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI, Arial" />
+            <Setter Property="FontSize" Value="{x:Static typo:WeighTicketPrintTypography.WeighTagDip}" />
+            <Setter Property="Foreground" Value="#555555" />
+            <Setter Property="VerticalAlignment" Value="Bottom" />
+        </Style>
+
+        <Style x:Key="WeighCaptionStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI, Arial" />
+            <Setter Property="FontSize" Value="{x:Static typo:WeighTicketPrintTypography.WeighDateDip}" />
+            <Setter Property="Foreground" Value="#555555" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="MinWidth" Value="0" />
+        </Style>
+
+        <Style x:Key="WeighValueStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI, Arial" />
+            <Setter Property="FontSize" Value="{x:Static typo:WeighTicketPrintTypography.WeighValueDip}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="Black" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+        </Style>
+
+        <Style x:Key="WeighValueUnitStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI, Arial" />
+            <Setter Property="FontSize" Value="{x:Static typo:WeighTicketPrintTypography.WeighTagDip}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#333333" />
+            <Setter Property="VerticalAlignment" Value="Bottom" />
+            <Setter Property="Margin" Value="3,0,0,1" />
+        </Style>
+
+        <Style x:Key="InfoLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI, Arial" />
+            <Setter Property="FontSize" Value="{x:Static typo:WeighTicketPrintTypography.InfoLabelDip}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#666666" />
+            <Setter Property="MinWidth" Value="0" />
+        </Style>
+
+        <Style x:Key="InfoValueStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI, Arial" />
+            <Setter Property="FontSize" Value="{x:Static typo:WeighTicketPrintTypography.InfoValueDip}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="Black" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="Margin" Value="0,1,0,0" />
+            <Setter Property="MinWidth" Value="0" />
+        </Style>
+
+        <Style x:Key="NotesLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource InfoLabelStyle}" />
+        <Style x:Key="NotesValueStyle" TargetType="TextBlock" BasedOn="{StaticResource InfoValueStyle}" />
+
+        <Style x:Key="TotalCardStyle" TargetType="Border">
+            <Setter Property="BorderBrush" Value="Black" />
+            <Setter Property="BorderThickness" Value="{x:Static local:TicketPrintLayoutXaml.CardBorderThickness}" />
+            <Setter Property="CornerRadius" Value="{x:Static local:TicketPrintLayoutXaml.CardCornerRadius}" />
+            <Setter Property="Background" Value="#F4F4F2" />
+            <Setter Property="Padding" Value="10,3,10,3" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="MaxWidth" Value="{x:Static layout:WeighTicketPrintLayout.TotalCardMaxWidthDip}" />
+        </Style>
+
+        <Style x:Key="TotalCardLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI, Arial" />
+            <Setter Property="FontSize" Value="{x:Static typo:WeighTicketPrintTypography.TotalCardLabelDip}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="Black" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+        </Style>
+
+        <!-- An unusually large amount shrinks to fit the card instead of pushing past it,
+             same idiom as the plate/customer auto-fit viewboxes elsewhere on the ticket. Lives in
+             a Grid star column (not a StackPanel) so it actually receives a bounded width to
+             shrink against instead of being measured with infinite available space. -->
+        <Style x:Key="TotalCardValueAutoFitViewbox" TargetType="Viewbox">
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="StretchDirection" Value="DownOnly" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="MinWidth" Value="0" />
+        </Style>
+
+        <Style x:Key="TotalCardValueStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI, Arial" />
+            <Setter Property="FontSize" Value="{x:Static typo:WeighTicketPrintTypography.TotalCardValueDip}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="Black" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="8,0,0,0" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+        </Style>
     </UserControl.Resources>
 
     <Grid MinWidth="0"
@@ -417,45 +531,25 @@
             <Border Grid.Row="1" Background="Black" Opacity="0.35" />
         </Grid>
 
-        <!-- Hero weight cards -->
-        <Grid Grid.Row="2" MinWidth="0" ClipToBounds="False">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.WeightHeroColumn}" MinWidth="0" />
-                <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.WeightCardGapColumn}" />
-                <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.WeightHeroColumn}" MinWidth="0" />
-                <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.WeightCardGapColumn}" />
-                <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.WeightHeroColumn}" MinWidth="0" />
-            </Grid.ColumnDefinitions>
+        <!-- Hero band: the two facts that matter most at a glance — plate and net cargo weight. -->
+        <Border Grid.Row="2" Style="{StaticResource BandContainerStyle}">
+            <Grid MinWidth="0" ClipToBounds="False" Margin="{x:Static local:TicketPrintLayoutXaml.WeightCardPadding}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="0" />
+                    <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.BandDividerColumn}" />
+                    <ColumnDefinition Width="*" MinWidth="0" />
+                </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Style="{StaticResource CardHostStyle}">
-                <Border x:Name="HeroCardGross" Style="{StaticResource HeroCardBorderStyle}">
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Stretch" MinWidth="0">
-                    <TextBlock Text="KHỐI LƯỢNG XE + HÀNG" Style="{StaticResource HeroCardLabelStyle}" Margin="0,0,0,2" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding GrossWeightValue}" Style="{StaticResource HeroWeightValueStyle}" />
-                        <TextBlock Text="{Binding GrossWeightUnit}" Style="{StaticResource HeroWeightUnitStyle}"
-                                   Visibility="{Binding ShowGrossWeightUnit, Converter={StaticResource BoolVis}}" />
-                    </StackPanel>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Center" MinWidth="0">
+                    <TextBlock Text="BIỂN SỐ XE" Style="{StaticResource HeroCardLabelStyle}" Margin="0,0,0,2" />
+                    <Viewbox Style="{StaticResource PlateAutoFitViewbox}" HorizontalAlignment="Center">
+                        <TextBlock x:Name="PlateValueText" Text="{Binding LicensePlate}" Style="{StaticResource PlateValueStyle}" />
+                    </Viewbox>
                 </StackPanel>
-                </Border>
-            </Border>
 
-            <Border Grid.Column="2" Style="{StaticResource CardHostStyle}">
-                <Border x:Name="HeroCardTare" Style="{StaticResource HeroCardBorderStyle}">
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Stretch" MinWidth="0">
-                    <TextBlock Text="KHỐI LƯỢNG XE" Style="{StaticResource HeroCardLabelStyle}" Margin="0,0,0,2" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding TareWeightValue}" Style="{StaticResource HeroWeightValueStyle}" />
-                        <TextBlock Text="{Binding TareWeightUnit}" Style="{StaticResource HeroWeightUnitStyle}"
-                                   Visibility="{Binding ShowTareWeightUnit, Converter={StaticResource BoolVis}}" />
-                    </StackPanel>
-                </StackPanel>
-                </Border>
-            </Border>
+                <Border Grid.Column="1" Style="{StaticResource BandDividerStyle}" />
 
-            <Border Grid.Column="4" Style="{StaticResource CardHostStyle}">
-                <Border x:Name="HeroCardNet" Style="{StaticResource HeroCardBorderStyle}">
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Stretch" MinWidth="0">
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Center" MinWidth="0">
                     <TextBlock Text="KHỐI LƯỢNG HÀNG" Style="{StaticResource HeroCardLabelStyle}" Margin="0,0,0,2" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <TextBlock Text="{Binding NetWeightValue}" Style="{StaticResource HeroWeightValueStyle}" />
@@ -463,221 +557,47 @@
                                    Visibility="{Binding ShowNetWeightUnit, Converter={StaticResource BoolVis}}" />
                     </StackPanel>
                 </StackPanel>
-                </Border>
-            </Border>
-        </Grid>
+            </Grid>
+        </Border>
 
-        <!-- Body -->
+        <!-- Body: three stacked full-width bands instead of a left/right column split — weigh
+             band, info band, then notes + the highlighted total. -->
         <Grid Grid.Row="4" MinWidth="0" ClipToBounds="False">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.BodyLeftSectionColumn}" MinWidth="0" />
-                <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.BodyGapColumn}" />
-                <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.BodyRightSectionColumn}" MinWidth="0" />
-            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.BodyWeighBandRow}" />
+                <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.BodyRowGapRow}" />
+                <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.BodyInfoBandRow}" />
+                <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.BodyRowGapRow}" />
+                <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.BodyBottomRowRow}" />
+            </Grid.RowDefinitions>
 
-            <!-- Body left -->
-            <Grid Grid.Column="0" MinWidth="0" ClipToBounds="False">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.IdentityCardsRow}" />
-                    <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.IdentityDetailsSpacerRow}" />
-                    <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.DetailsTableRow}" />
-                </Grid.RowDefinitions>
-
-                <!-- Identity cards -->
-                <Grid Grid.Row="0" MinWidth="0" ClipToBounds="False">
+            <!-- Weigh band: Cân lần 1 (Tổng) | Cân lần 2 (Bì) -->
+            <Border Grid.Row="0" Style="{StaticResource BandContainerStyle}">
+                <Grid MinWidth="0" ClipToBounds="True" Margin="{x:Static local:TicketPrintLayoutXaml.TimestampCardPadding}">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.IdentityCustomerColumn}" MinWidth="0" />
-                        <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.IdentityCardGapColumn}" />
-                        <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.IdentityVehicleColumn}" MinWidth="0" />
+                        <ColumnDefinition Width="*" MinWidth="0" />
+                        <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.BandDividerColumn}" />
+                        <ColumnDefinition Width="*" MinWidth="0" />
                     </Grid.ColumnDefinitions>
 
-                    <Border Grid.Column="0" Style="{StaticResource CardHostStyle}">
-                        <Border x:Name="CustomerIdentityCard"
-                                Style="{StaticResource CardBorderStyle}">
-                        <Grid Style="{StaticResource IdentityInnerGridStyle}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.IdentityIconTileColumn}" />
-                                <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.IdentityIconSeparatorColumn}" />
-                                <ColumnDefinition Width="*" MinWidth="0" />
-                            </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0"
-                                    x:Name="CustomerIconTile"
-                                    Style="{StaticResource IdentityIconTileStyle}">
-                                <Viewbox Width="{x:Static local:TicketPrintLayoutXaml.IdentityIconGraphicSize}"
-                                         Height="{x:Static local:TicketPrintLayoutXaml.IdentityIconGraphicSize}"
-                                         HorizontalAlignment="Center"
-                                         VerticalAlignment="Center"
-                                         Stretch="Uniform">
-                                    <Path Data="{StaticResource PersonIconGeometry}"
-                                          Style="{StaticResource TicketIconPathStyle}"
-                                          Width="24"
-                                          Height="24" />
-                                </Viewbox>
-                            </Border>
-                            <Border Grid.Column="1" Background="#707070" BorderThickness="0" />
-                            <Viewbox Grid.Column="2"
-                                     Style="{StaticResource IdentityAutoFitViewbox}"
-                                     Margin="{x:Static local:TicketPrintLayoutXaml.IdentityValuePadding}">
-                                <TextBlock x:Name="CustomerValueText"
-                                           Text="{Binding CustomerName}"
-                                           Style="{StaticResource CustomerValueStyle}" />
-                            </Viewbox>
-                        </Grid>
-                        </Border>
-                    </Border>
-
-                    <Border Grid.Column="2" Style="{StaticResource CardHostStyle}">
-                        <Border x:Name="PlateIdentityCard"
-                                Style="{StaticResource CardBorderStyle}">
-                        <Grid Style="{StaticResource IdentityInnerGridStyle}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.IdentityIconTileColumn}" />
-                                <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.IdentityIconSeparatorColumn}" />
-                                <ColumnDefinition Width="*" MinWidth="0" />
-                            </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0"
-                                    x:Name="PlateIconTile"
-                                    Style="{StaticResource IdentityIconTileStyle}">
-                                <Viewbox Width="{x:Static local:TicketPrintLayoutXaml.IdentityIconGraphicSize}"
-                                         Height="{x:Static local:TicketPrintLayoutXaml.IdentityIconGraphicSize}"
-                                         HorizontalAlignment="Center"
-                                         VerticalAlignment="Center"
-                                         Stretch="Uniform">
-                                    <Path Data="{StaticResource VehicleIconGeometry}"
-                                          Style="{StaticResource TicketIconPathStyle}"
-                                          Width="24"
-                                          Height="24" />
-                                </Viewbox>
-                            </Border>
-                            <Border Grid.Column="1" Background="#707070" BorderThickness="0" />
-                            <Viewbox Grid.Column="2"
-                                     Style="{StaticResource PlateAutoFitViewbox}"
-                                     Margin="{x:Static local:TicketPrintLayoutXaml.IdentityValuePadding}">
-                                <TextBlock x:Name="PlateValueText"
-                                           Text="{Binding LicensePlate}"
-                                           Style="{StaticResource PlateValueStyle}" />
-                            </Viewbox>
-                        </Grid>
-                        </Border>
-                    </Border>
-                </Grid>
-
-                <!-- Details table -->
-                <Border Grid.Row="2" Style="{StaticResource CardHostStyle}">
-                <Border x:Name="DetailsTableCard"
-                        Style="{StaticResource CardBorderStyle}"
-                        Padding="{x:Static local:TicketPrintLayoutXaml.DetailsTablePadding}"
-                        MinWidth="0">
-                    <Grid MinWidth="0" ClipToBounds="True">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <Grid Grid.Row="0" Style="{StaticResource FieldRowGrid}">
+                    <Grid Grid.Column="0" VerticalAlignment="Center" MinWidth="0" Margin="0,0,6,0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.FieldLabelColumn}" MinWidth="0" />
-                            <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.FieldValueColumn}" MinWidth="0" />
+                            <ColumnDefinition Width="*" MinWidth="0" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Loại hàng:" />
-                        <TextBlock Grid.Column="1" x:Name="CargoTypeValueText" Style="{StaticResource DetailValueRightStyle}" Text="{Binding CargoTypeName}" />
-                        <Border Grid.ColumnSpan="2" Style="{StaticResource DetailRowSeparatorStyle}" />
-                    </Grid>
-
-                    <Grid Grid.Row="1" Style="{StaticResource FieldRowGrid}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.FieldLabelColumn}" MinWidth="0" />
-                            <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.FieldValueColumn}" MinWidth="0" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Đơn giá:" />
-                        <TextBlock Grid.Column="1" x:Name="UnitPriceValueText" Style="{StaticResource DetailValueRightStyle}" Text="{Binding UnitPrice}" />
-                        <Border Grid.ColumnSpan="2" Style="{StaticResource DetailRowSeparatorStyle}" />
-                    </Grid>
-
-                    <Grid Grid.Row="2" Style="{StaticResource FieldRowGrid}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.FieldLabelColumn}" MinWidth="0" />
-                            <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.FieldValueColumn}" MinWidth="0" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Thành tiền:" />
-                        <TextBlock Grid.Column="1"
-                                   x:Name="TotalAmountValueText"
-                                   Style="{StaticResource DetailValueRightStyle}"
-                                   FontSize="{x:Static typo:WeighTicketPrintTypography.DetailAmountDip}"
-                                   FontWeight="Bold"
-                                   Text="{Binding TotalAmount}" />
-                        <Border Grid.ColumnSpan="2" Style="{StaticResource DetailRowSeparatorStyle}" />
-                    </Grid>
-
-                    <Grid Grid.Row="3" Style="{StaticResource FieldRowGrid}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.FieldLabelColumn}" MinWidth="0" />
-                            <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.FieldValueColumn}" MinWidth="0" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Style="{StaticResource FieldLabel}" Text="Ghi chú:" />
-                        <TextBlock Grid.Column="1" Style="{StaticResource NotesValueTextStyle}" Text="{Binding Notes}" />
-                        <Border Grid.ColumnSpan="2" Style="{StaticResource DetailRowSeparatorStyle}" />
-                    </Grid>
-                    </Grid>
-                </Border>
-                </Border>
-            </Grid>
-
-            <!-- Body right: timestamp card + sign date row -->
-            <Grid Grid.Column="2" MinWidth="0" ClipToBounds="False">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.TimestampCardRow}" />
-                    <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.SignDateRow}" />
-                </Grid.RowDefinitions>
-
-            <Border Grid.Row="0" Style="{StaticResource CardHostStyle}">
-            <Border x:Name="TimestampCard"
-                    Style="{StaticResource CardBorderStyle}"
-                    Padding="{x:Static local:TicketPrintLayoutXaml.TimestampCardPadding}"
-                    MinWidth="0">
-                <Grid MinWidth="0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.WeighBlock1Row}" />
-                        <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.DashedSeparatorRow}" />
-                        <RowDefinition Height="{x:Static local:TicketPrintLayoutXaml.WeighBlock2Row}" />
-                    </Grid.RowDefinitions>
-
-                    <Grid Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center" MinWidth="0">
-                        <StackPanel HorizontalAlignment="Center" MinWidth="0">
-                            <TextBlock Text="CÂN LẦN 1" Style="{StaticResource WeighBlockTitleStyle}" />
-                            <StackPanel Visibility="{Binding Weigh1Recorded, Converter={StaticResource BoolVis}}">
-                                <Grid HorizontalAlignment="Center" Margin="0,1,0,0" MinWidth="0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.TimestampIconColumn}" />
-                                        <ColumnDefinition Width="*" MinWidth="0" />
-                                    </Grid.ColumnDefinitions>
-                                    <Viewbox Grid.Column="0"
-                                             x:Name="Weigh1IconTile"
-                                             Width="{x:Static local:TicketPrintLayoutXaml.TimestampIconSize}"
-                                             Height="{x:Static local:TicketPrintLayoutXaml.TimestampIconSize}"
-                                             HorizontalAlignment="Center"
-                                             VerticalAlignment="Center"
-                                             Stretch="Uniform">
-                                        <Path Data="{StaticResource ClockIconGeometry}"
-                                              Style="{StaticResource TimestampIconPathStyle}"
-                                              Width="24"
-                                              Height="24" />
-                                    </Viewbox>
-                                    <Viewbox Grid.Column="1"
-                                             Style="{StaticResource WeighBlockTimeAutoFitViewbox}"
-                                             Margin="2,0,0,0">
-                                        <TextBlock x:Name="Weigh1TimeText"
-                                                   Text="{Binding Weigh1Time}"
-                                                   Style="{StaticResource WeighBlockTimeStyle}" />
-                                    </Viewbox>
-                                </Grid>
-                                <TextBlock x:Name="Weigh1DateText" Text="{Binding Weigh1Date}" Style="{StaticResource WeighBlockDateStyle}" />
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" MinWidth="0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="CÂN LẦN 1" Style="{StaticResource WeighBlockTitleStyle}" TextAlignment="Left" HorizontalAlignment="Left" />
+                                <TextBlock Text=" (Tổng)" Style="{StaticResource WeighTagStyle}" />
                             </StackPanel>
-                            <StackPanel>
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
+                            <StackPanel Orientation="Horizontal" Visibility="{Binding Weigh1Recorded, Converter={StaticResource BoolVis}}">
+                                <TextBlock x:Name="Weigh1TimeText" Text="{Binding Weigh1Time}" Style="{StaticResource WeighCaptionStyle}" />
+                                <TextBlock Text=" · " Style="{StaticResource WeighCaptionStyle}" />
+                                <TextBlock x:Name="Weigh1DateText" Text="{Binding Weigh1Date}" Style="{StaticResource WeighCaptionStyle}" />
+                            </StackPanel>
+                            <TextBlock Text="CHƯA CÂN">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource WeighCaptionStyle}">
                                         <Setter Property="Visibility" Value="Collapsed" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding Weigh1Recorded}" Value="False">
@@ -685,53 +605,36 @@
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                </StackPanel.Style>
-                                <TextBlock Text="CHƯA CÂN" Style="{StaticResource WeighBlockTitleStyle}" />
-                                <TextBlock Text="—" Style="{StaticResource WeighBlockDateStyle}" />
-                            </StackPanel>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" MinWidth="0">
+                            <TextBlock Text="{Binding GrossWeightValue}" Style="{StaticResource WeighValueStyle}" />
+                            <TextBlock Text="{Binding GrossWeightUnit}" Style="{StaticResource WeighValueUnitStyle}"
+                                       Visibility="{Binding ShowGrossWeightUnit, Converter={StaticResource BoolVis}}" />
                         </StackPanel>
                     </Grid>
 
-                    <Border Grid.Row="1"
-                            Height="{x:Static layout:WeighTicketPrintLayout.RowSeparatorThicknessDip}"
-                            Background="Black"
-                            Opacity="0.35"
-                            VerticalAlignment="Center" />
+                    <Border Grid.Column="1" Style="{StaticResource BandDividerStyle}" />
 
-                    <Grid Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" MinWidth="0">
-                        <StackPanel HorizontalAlignment="Center" MinWidth="0">
-                            <TextBlock Text="CÂN LẦN 2" Style="{StaticResource WeighBlockTitleStyle}" />
-                            <StackPanel Visibility="{Binding Weigh2Recorded, Converter={StaticResource BoolVis}}">
-                                <Grid HorizontalAlignment="Center" Margin="0,1,0,0" MinWidth="0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.TimestampIconColumn}" />
-                                        <ColumnDefinition Width="*" MinWidth="0" />
-                                    </Grid.ColumnDefinitions>
-                                    <Viewbox Grid.Column="0"
-                                             x:Name="Weigh2IconTile"
-                                             Width="{x:Static local:TicketPrintLayoutXaml.TimestampIconSize}"
-                                             Height="{x:Static local:TicketPrintLayoutXaml.TimestampIconSize}"
-                                             HorizontalAlignment="Center"
-                                             VerticalAlignment="Center"
-                                             Stretch="Uniform">
-                                        <Path Data="{StaticResource CalendarIconGeometry}"
-                                              Style="{StaticResource TimestampIconPathStyle}"
-                                              Width="24"
-                                              Height="24" />
-                                    </Viewbox>
-                                    <Viewbox Grid.Column="1"
-                                             Style="{StaticResource WeighBlockTimeAutoFitViewbox}"
-                                             Margin="2,0,0,0">
-                                        <TextBlock x:Name="Weigh2TimeText"
-                                                   Text="{Binding Weigh2Time}"
-                                                   Style="{StaticResource WeighBlockTimeStyle}" />
-                                    </Viewbox>
-                                </Grid>
-                                <TextBlock x:Name="Weigh2DateText" Text="{Binding Weigh2Date}" Style="{StaticResource WeighBlockDateStyle}" />
+                    <Grid Grid.Column="2" VerticalAlignment="Center" MinWidth="0" Margin="6,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="0" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" MinWidth="0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="CÂN LẦN 2" Style="{StaticResource WeighBlockTitleStyle}" TextAlignment="Left" HorizontalAlignment="Left" />
+                                <TextBlock Text=" (Bì)" Style="{StaticResource WeighTagStyle}" />
                             </StackPanel>
-                            <StackPanel>
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
+                            <StackPanel Orientation="Horizontal" Visibility="{Binding Weigh2Recorded, Converter={StaticResource BoolVis}}">
+                                <TextBlock x:Name="Weigh2TimeText" Text="{Binding Weigh2Time}" Style="{StaticResource WeighCaptionStyle}" />
+                                <TextBlock Text=" · " Style="{StaticResource WeighCaptionStyle}" />
+                                <TextBlock x:Name="Weigh2DateText" Text="{Binding Weigh2Date}" Style="{StaticResource WeighCaptionStyle}" />
+                            </StackPanel>
+                            <TextBlock Text="CHƯA CÂN">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource WeighCaptionStyle}">
                                         <Setter Property="Visibility" Value="Collapsed" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding Weigh2Recorded}" Value="False">
@@ -739,33 +642,105 @@
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                </StackPanel.Style>
-                                <TextBlock Text="CHƯA CÂN" Style="{StaticResource WeighBlockTitleStyle}" />
-                                <TextBlock Text="—" Style="{StaticResource WeighBlockDateStyle}" />
-                            </StackPanel>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" MinWidth="0">
+                            <TextBlock Text="{Binding TareWeightValue}" Style="{StaticResource WeighValueStyle}" />
+                            <TextBlock Text="{Binding TareWeightUnit}" Style="{StaticResource WeighValueUnitStyle}"
+                                       Visibility="{Binding ShowTareWeightUnit, Converter={StaticResource BoolVis}}" />
                         </StackPanel>
                     </Grid>
-
                 </Grid>
             </Border>
+
+            <!-- Info band: Khách hàng | Loại hàng | Đơn giá | Trừ hao -->
+            <Border Grid.Row="2" Style="{StaticResource BandContainerStyle}">
+                <Grid MinWidth="0" ClipToBounds="True" Margin="{x:Static local:TicketPrintLayoutXaml.TimestampCardPadding}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.6*" MinWidth="0" />
+                        <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.BandDividerColumn}" />
+                        <ColumnDefinition Width="1*" MinWidth="0" />
+                        <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.BandDividerColumn}" />
+                        <ColumnDefinition Width="1*" MinWidth="0" />
+                        <ColumnDefinition Width="{x:Static local:TicketPrintLayoutXaml.BandDividerColumn}" />
+                        <ColumnDefinition Width="0.85*" MinWidth="0" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center" MinWidth="0" Margin="0,0,6,0">
+                        <TextBlock Text="KHÁCH HÀNG" Style="{StaticResource InfoLabelStyle}" />
+                        <TextBlock x:Name="CustomerValueText" Text="{Binding CustomerName}" Style="{StaticResource InfoValueStyle}"
+                                   MaxHeight="{x:Static layout:WeighTicketPrintLayout.BodyInfoBandHeightDip}" />
+                    </StackPanel>
+
+                    <Border Grid.Column="1" Style="{StaticResource BandDividerStyle}" />
+
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center" MinWidth="0" Margin="6,0,6,0">
+                        <TextBlock Text="LOẠI HÀNG" Style="{StaticResource InfoLabelStyle}" />
+                        <TextBlock x:Name="CargoTypeValueText" Text="{Binding CargoTypeName}" Style="{StaticResource InfoValueStyle}" />
+                    </StackPanel>
+
+                    <Border Grid.Column="3" Style="{StaticResource BandDividerStyle}" />
+
+                    <StackPanel Grid.Column="4" VerticalAlignment="Center" MinWidth="0" Margin="6,0,6,0">
+                        <TextBlock Text="ĐƠN GIÁ" Style="{StaticResource InfoLabelStyle}" />
+                        <TextBlock x:Name="UnitPriceValueText" Style="{StaticResource InfoValueStyle}" Text="{Binding UnitPrice}" />
+                    </StackPanel>
+
+                    <Border Grid.Column="5" Style="{StaticResource BandDividerStyle}" />
+
+                    <StackPanel Grid.Column="6" VerticalAlignment="Center" MinWidth="0" Margin="6,0,0,0">
+                        <TextBlock Text="TRỪ HAO" Style="{StaticResource InfoLabelStyle}" />
+                        <TextBlock x:Name="DeductionWeightValueText" Style="{StaticResource InfoValueStyle}" Text="{Binding DeductionWeightDisplay}" />
+                    </StackPanel>
+                </Grid>
             </Border>
 
-            <Grid Grid.Row="1"
-                  x:Name="SignDateRowPanel"
-                  MinWidth="0"
-                  VerticalAlignment="Stretch">
+            <!-- Bottom row: Ghi chú takes the spare width, Thành tiền stays a contained highlight,
+                 with the sign-date line tucked underneath leading into the signature section. -->
+            <Grid Grid.Row="4" x:Name="SignDateRowPanel" MinWidth="0" ClipToBounds="False">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" MinWidth="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="0" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center" MinWidth="0" Margin="0,0,10,0">
+                        <TextBlock Text="GHI CHÚ" Style="{StaticResource NotesLabelStyle}" />
+                        <TextBlock Style="{StaticResource NotesValueStyle}" Text="{Binding Notes}" />
+                    </StackPanel>
+
+                    <Border Grid.Column="1" Style="{StaticResource TotalCardStyle}">
+                        <Grid MinWidth="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" MinWidth="0" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="THÀNH TIỀN" Style="{StaticResource TotalCardLabelStyle}" />
+                            <Viewbox Grid.Column="1" Style="{StaticResource TotalCardValueAutoFitViewbox}">
+                                <TextBlock x:Name="TotalAmountValueText" Style="{StaticResource TotalCardValueStyle}" Text="{Binding TotalAmount}" />
+                            </Viewbox>
+                        </Grid>
+                    </Border>
+                </Grid>
+
                 <TextBlock x:Name="SignDateText"
+                           Grid.Row="1"
                            Text="{Binding SignDateText}"
                            FontFamily="Segoe UI, Arial"
                            FontSize="{x:Static typo:WeighTicketPrintTypography.SignDateDip}"
-                           Foreground="Black"
-                           TextAlignment="Center"
-                           HorizontalAlignment="Stretch"
-                           VerticalAlignment="Center"
+                           Foreground="#777777"
+                           TextAlignment="Right"
+                           HorizontalAlignment="Right"
+                           Margin="0,1,0,0"
                            TextWrapping="NoWrap"
                            TextTrimming="None"
                            MinWidth="0" />
-            </Grid>
             </Grid>
         </Grid>
 
@@ -800,8 +775,6 @@
                     <Border Height="{x:Static layout:WeighTicketPrintLayout.SignatureBlankHeightDip}" />
                 </StackPanel>
 
-                <Border Grid.Column="1" Background="Black" Opacity="0.35" />
-
                 <StackPanel Grid.Column="2" MinWidth="0" Margin="{x:Static local:TicketPrintLayoutXaml.SignatureRoleInset}">
                     <TextBlock Text="CHỦ HÀNG"
                                FontFamily="Segoe UI, Arial"
@@ -811,8 +784,6 @@
                                HorizontalAlignment="Stretch" />
                     <Border Height="{x:Static layout:WeighTicketPrintLayout.SignatureBlankHeightDip}" />
                 </StackPanel>
-
-                <Border Grid.Column="3" Background="Black" Opacity="0.35" />
 
                 <StackPanel Grid.Column="4" MinWidth="0" Margin="{x:Static local:TicketPrintLayoutXaml.SignatureRoleInset}">
                     <TextBlock Text="NGƯỜI CÂN"

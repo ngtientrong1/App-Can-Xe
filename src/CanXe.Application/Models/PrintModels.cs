@@ -44,6 +44,7 @@ public sealed class WeighTicketPrintModel
     public decimal? GrossWeightKg { get; init; }
     public decimal? TareWeightKg { get; init; }
     public decimal? NetWeightKg { get; init; }
+    public decimal? DeductionWeightKg { get; init; }
     public decimal? Weight1Kg { get; init; }
     public decimal? Weight2Kg { get; init; }
     public decimal? UnitPriceVndPerKg { get; init; }

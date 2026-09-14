@@ -19,6 +19,7 @@ public sealed class WeighTicketFilterResult
     public decimal TotalBillableWeightKg { get; init; }
     public decimal TotalAmountVnd { get; init; }
     public int MissingPriceCount { get; init; }
+    public int PendingSecondWeighCount { get; init; }
 }
 
 public sealed class ActiveFilterChip

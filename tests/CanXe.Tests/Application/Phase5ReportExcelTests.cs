@@ -57,7 +57,7 @@ public sealed class Phase5ReportExcelTests : IAsyncLifetime
             ToDate = DateTimeOffset.Now.AddDays(1)
         });
         Assert.Single(byPlate.Rows);
-        Assert.Equal("51C-99999", byPlate.Rows[0].LicensePlate);
+        Assert.Equal("51C-999.99", byPlate.Rows[0].LicensePlate);
 
         var byCargo = await report.QueryAsync(new ReportFilter
         {
@@ -93,15 +93,15 @@ public sealed class Phase5ReportExcelTests : IAsyncLifetime
             ToDate = DateTimeOffset.Now.AddDays(1)
         });
         Assert.Single(awaiting.Rows);
-        Assert.Equal("51X-00001", awaiting.Rows[0].LicensePlate);
+        Assert.Equal("51X-000.01", awaiting.Rows[0].LicensePlate);
 
         var all = await report.QueryAsync(new ReportFilter
         {
             FromDate = DateTimeOffset.Now.AddDays(-30),
             ToDate = DateTimeOffset.Now.AddDays(1)
         });
-        Assert.DoesNotContain(all.Rows, r => r.LicensePlate == "51Y-00002");
-        Assert.Contains(all.Rows, r => r.LicensePlate == "51X-00001");
+        Assert.DoesNotContain(all.Rows, r => r.LicensePlate == "51Y-000.02");
+        Assert.Contains(all.Rows, r => r.LicensePlate == "51X-000.01");
     }
 
     [Fact]

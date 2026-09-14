@@ -11,6 +11,7 @@ using CanXe.Domain.Services;
 using CanXe.Desktop.Controls;
 using CanXe.Desktop.Services;
 using CanXe.Infrastructure.Logging;
+using CanXe.Infrastructure.Scale;
 using CanXe.ScaleProtocol.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -37,6 +38,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly AppSettings _settings;
     private readonly bool _developerModeEnabled;
     private readonly AppPaths _appPaths;
+    private readonly ISerialPortResetter _serialPortResetter;
 
     private WeighTicketDraft _draft = new();
     private CancellationTokenSource? _customerSearchCts;
@@ -80,8 +82,10 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         DeveloperViewModel developerViewModel,
         CatalogViewModel catalogViewModel,
         ReportViewModel reportViewModel,
-        AppPaths appPaths)
+        AppPaths appPaths,
+        ISerialPortResetter? serialPortResetter = null)
     {
+        _serialPortResetter = serialPortResetter ?? new NoOpSerialPortResetter();
         _weighTicketService = weighTicketService;
         _fastEntrySearch = fastEntrySearch;
         _scaleService = scaleService;
@@ -212,6 +216,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string _footerTotalBillable = "0 kg";
     [ObservableProperty] private string _footerTotalAmount = "0 VNĐ";
     [ObservableProperty] private string _footerMissingPriceCount = "0";
+    [ObservableProperty] private string _footerPendingSecondWeighCount = "0";
     [ObservableProperty] private bool _isToastVisible;
     [ObservableProperty] private string? _toastMessage;
     [ObservableProperty] private string _headerScaleStatus = "● Đầu cân: Đang kết nối";
@@ -870,6 +875,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         FooterTotalBillable = $"{result.TotalBillableWeightKg:N0} kg";
         FooterTotalAmount = $"{result.TotalAmountVnd:N0} VNĐ";
         FooterMissingPriceCount = result.MissingPriceCount.ToString(CultureInfo.CurrentCulture);
+        FooterPendingSecondWeighCount = result.PendingSecondWeighCount.ToString(CultureInfo.CurrentCulture);
     }
 
     private void UpsertSavedTicketInList(WeighTicketListItem savedTicket, bool treatAsNewListEntry)
@@ -1392,6 +1398,13 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         UpdateDisplaysFromDraft();
     }
 
+    public void CommitLicensePlateEdit()
+    {
+        if (string.IsNullOrWhiteSpace(LicensePlate))
+            return;
+        LicensePlate = PlateNormalizer.FormatDisplay(LicensePlate);
+    }
+
     public void BeginUnitPriceEdit() => _unitPriceIsEditing = true;
 
     public void CommitUnitPriceEdit()
@@ -1464,9 +1477,12 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             if (target is null)
                 return;
 
-            target.Clear();
-            foreach (var item in items)
-                target.Add(item);
+            if (!SuggestionsUnchanged(target, items))
+            {
+                target.Clear();
+                foreach (var item in items)
+                    target.Add(item);
+            }
 
             if (items.Count == 0)
             {
@@ -1634,9 +1650,39 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private static void FillSuggestions(ObservableCollection<AutocompleteSuggestionItem> target, IEnumerable<AutocompleteSuggestionItem> items)
     {
+        var next = items.Take(AutocompleteDropDownPolicy.DefaultMaxVisibleItems).ToList();
+
+        // A debounced search can complete while the dropdown is already open (e.g. while the user
+        // is mid-click on a row). Clearing and re-adding every item regenerates all containers and
+        // visibly reflows the list underneath the cursor, even when the results didn't actually
+        // change. Skip the rebuild in that case so an open dropdown only reflows when it must.
+        if (SuggestionsUnchanged(target, next))
+            return;
+
         target.Clear();
-        foreach (var item in items.Take(AutocompleteDropDownPolicy.DefaultMaxVisibleItems))
+        foreach (var item in next)
             target.Add(item);
+    }
+
+    private static bool SuggestionsUnchanged(
+        IReadOnlyList<AutocompleteSuggestionItem> current,
+        IReadOnlyList<AutocompleteSuggestionItem> next)
+    {
+        if (current.Count != next.Count)
+            return false;
+
+        for (var i = 0; i < current.Count; i++)
+        {
+            var a = current[i];
+            var b = next[i];
+            if (a.IsNewEntryOption != b.IsNewEntryOption ||
+                !string.Equals(a.PrimaryText, b.PrimaryText, StringComparison.Ordinal) ||
+                !string.Equals(a.SecondaryText, b.SecondaryText, StringComparison.Ordinal) ||
+                !string.Equals(a.TertiaryText, b.TertiaryText, StringComparison.Ordinal))
+                return false;
+        }
+
+        return true;
     }
 
     private async Task SearchCustomersAsync()
@@ -1724,6 +1770,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         FooterTotalBillable = $"{result.TotalBillableWeightKg:N0} kg";
         FooterTotalAmount = $"{result.TotalAmountVnd:N0} VNĐ";
         FooterMissingPriceCount = result.MissingPriceCount.ToString(CultureInfo.CurrentCulture);
+        FooterPendingSecondWeighCount = result.PendingSecondWeighCount.ToString(CultureInfo.CurrentCulture);
     }
 
     private async Task RefreshFooterSummaryAsync()
@@ -1738,6 +1785,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         FooterTotalBillable = $"{result.TotalBillableWeightKg:N0} kg";
         FooterTotalAmount = $"{result.TotalAmountVnd:N0} VNĐ";
         FooterMissingPriceCount = result.MissingPriceCount.ToString(CultureInfo.CurrentCulture);
+        FooterPendingSecondWeighCount = result.PendingSecondWeighCount.ToString(CultureInfo.CurrentCulture);
     }
 
     partial void OnIsCompactModeChanged(bool value) => NotifyWorkAreaLayoutChanged();

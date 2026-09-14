@@ -26,11 +26,33 @@ public static class ScaleHardwareProbe
         Handshake = dto.Handshake
     };
 
-    public static Task<ScaleHardwareProbeResult> ReadValidFrameAsync(
+    public static async Task<ScaleHardwareProbeResult> ReadValidFrameAsync(
         ScaleSerialSettings settings,
         TimeSpan timeout,
-        CancellationToken cancellationToken = default) =>
-        Task.Run(() => ReadValidFrameCore(settings, timeout, cancellationToken), cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        var probeTask = Task.Run(() => ReadValidFrameCore(settings, timeout, cancellationToken), cancellationToken);
+        // Slack beyond the probe's own internal read-loop timeout, in case Open()/Close() itself
+        // hangs on a wedged USB-to-serial driver (SerialPort.Open()/Close() are not cancelable).
+        var guardTimeout = timeout + TimeSpan.FromSeconds(5);
+        var winner = await Task.WhenAny(probeTask, Task.Delay(guardTimeout, CancellationToken.None))
+            .ConfigureAwait(false);
+        if (!ReferenceEquals(winner, probeTask))
+        {
+            ScaleProbeDiagnosticsLogger.Write($"Probe hung beyond {guardTimeout} on {settings.PortName}");
+            return new ScaleHardwareProbeResult(
+                PortOpened: false,
+                BytesReceived: 0,
+                CandidateFrames: 0,
+                ValidFrames: 0,
+                LastValidWeightKg: null,
+                Elapsed: guardTimeout,
+                Error: $"{settings.PortName} không phản hồi — có thể driver USB-to-Serial bị treo. Hãy rút/cắm lại cáp USB rồi thử lại.",
+                AccessDenied: false);
+        }
+
+        return await probeTask.ConfigureAwait(false);
+    }
 
     private static ScaleHardwareProbeResult ReadValidFrameCore(
         ScaleSerialSettings settings,

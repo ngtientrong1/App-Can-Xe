@@ -126,7 +126,7 @@ public sealed class Phase5Rc9ContinuationMetadataTests : IAsyncLifetime
 
         var detail = await service.GetTicketDetailAsync(w2Save.SavedTicket!.Id);
         Assert.Equal("Khách continuation", detail.CustomerName);
-        Assert.Equal("51A-99999", detail.LicensePlate);
+        Assert.Equal("51A-999.99", detail.LicensePlate);
         Assert.Equal("Gạo rc9", detail.CargoTypeName);
         Assert.Equal(4200m, detail.UnitPriceVndPerKg);
         Assert.Equal("Ghi chú rc9", detail.Notes);
@@ -156,7 +156,7 @@ public sealed class Phase5Rc9ContinuationMetadataTests : IAsyncLifetime
 
         var loaded = await service.LoadTicketForContinuationAsync(save.SavedTicket!.Id);
         Assert.Equal("Khách load rc9", loaded.DraftCustomer);
-        Assert.Equal("51B-88888", loaded.DraftVehicle);
+        Assert.Equal("51B-888.88", loaded.DraftVehicle);
         Assert.Equal("Ngô", loaded.DraftCargoType);
         Assert.Equal(3500m, loaded.DraftUnitPrice);
         Assert.Equal("Note load", loaded.DraftNotes);

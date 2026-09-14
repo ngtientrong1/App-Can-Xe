@@ -42,7 +42,7 @@ public class FilterSummaryCalculatorMvpTests
 public class VehicleAutoFillTests
 {
     [Fact]
-    public void ApplyBoth_FillsCustomerAndFrequentCargo()
+    public void ApplyBoth_FillsCustomerAndRecentCargo()
     {
         var context = new VehicleUsageContext
         {
@@ -50,6 +50,8 @@ public class VehicleAutoFillTests
             PlateNumber = "81C-04621",
             RecentCustomerId = 10,
             RecentCustomerName = "Chị Thanh",
+            RecentCargoTypeId = 20,
+            RecentCargoTypeName = "Rô tươi",
             FrequentCargoTypeId = 20,
             FrequentCargoTypeName = "Rô tươi"
         };

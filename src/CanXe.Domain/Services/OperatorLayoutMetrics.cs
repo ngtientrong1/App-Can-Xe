@@ -2,8 +2,8 @@ namespace CanXe.Domain.Services;
 
 public static class OperatorLayoutMetrics
 {
-    public const double DataGridHeaderHeight = 46;
-    public const double DataGridRowHeight = 44;
+    public const double DataGridHeaderHeight = 50;
+    public const double DataGridRowHeight = 52;
     public const double SummaryFooterMaxHeight = 72;
     public const double StatusBarHeight = 38;
     public const double ActionBarHeight = 60;
@@ -12,22 +12,23 @@ public static class OperatorLayoutMetrics
     public const double AppHeaderHeight = 72;
     public const double NavigationBarHeight = 52;
     public const double PageVerticalMargin = 16;
+    public const double KpiStripHeight = 84;
 
     public static double GetWorkspaceMaxHeight(double windowHeight)
     {
         if (windowHeight < 850)
-            return 420;
+            return 500;
 
         if (windowHeight < 1200)
-            return 460;
+            return 580;
 
         var usable = GetUsableContentHeight(windowHeight);
         var target = usable * 0.40;
-        return Math.Clamp(target, 420, 480);
+        return Math.Clamp(target, 500, 620);
     }
 
     public static double GetWorkspaceMinHeight(double windowHeight) =>
-        windowHeight < 850 ? 260 : 360;
+        windowHeight < 850 ? 420 : 480;
 
     public static double GetDataGridMinHeight(double windowHeight) =>
         windowHeight < 850 ? 220 : 280;
@@ -80,5 +81,5 @@ public static class OperatorLayoutMetrics
         (int)Math.Floor((gridHeight - DataGridHeaderHeight) / DataGridRowHeight);
 
     public static double GetUsableContentHeight(double windowHeight) =>
-        windowHeight - AppHeaderHeight - NavigationBarHeight - PageVerticalMargin;
+        windowHeight - AppHeaderHeight - NavigationBarHeight - PageVerticalMargin - KpiStripHeight;
 }

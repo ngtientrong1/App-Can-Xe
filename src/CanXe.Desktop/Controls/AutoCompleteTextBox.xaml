@@ -46,7 +46,7 @@
 
                         <Grid.RowDefinitions>
 
-                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
 
                             <RowDefinition Height="Auto"/>
 
@@ -113,6 +113,22 @@
                         </Border>
 
                     </Grid>
+
+                    <ControlTemplate.Triggers>
+
+                        <Trigger Property="IsMultiline" Value="True">
+
+                            <Setter TargetName="PART_TextBox" Property="TextWrapping" Value="Wrap"/>
+
+                            <Setter TargetName="PART_TextBox" Property="AcceptsReturn" Value="True"/>
+
+                            <Setter TargetName="PART_TextBox" Property="VerticalContentAlignment" Value="Top"/>
+
+                            <Setter TargetName="PART_TextBox" Property="VerticalScrollBarVisibility" Value="Auto"/>
+
+                        </Trigger>
+
+                    </ControlTemplate.Triggers>
 
                 </ControlTemplate>
 

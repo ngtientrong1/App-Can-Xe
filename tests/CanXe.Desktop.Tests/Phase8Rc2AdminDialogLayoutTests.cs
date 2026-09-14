@@ -48,8 +48,8 @@ public sealed class Phase8Rc2AdminDialogLayoutTests
     public void Desktop_Version_Is_1_0_2()
     {
         var csproj = File.ReadAllText(ResolveDesktopFile("CanXe.Desktop.csproj"));
-        Assert.Contains("<Version>1.0.6</Version>", csproj, StringComparison.Ordinal);
-        Assert.Contains("<InformationalVersion>1.0.6</InformationalVersion>", csproj, StringComparison.Ordinal);
+        Assert.Contains("<Version>1.0.7</Version>", csproj, StringComparison.Ordinal);
+        Assert.Contains("<InformationalVersion>1.0.7</InformationalVersion>", csproj, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -62,8 +62,8 @@ public sealed class Phase8Rc2AdminDialogLayoutTests
             if (File.Exists(iss))
             {
                 var text = File.ReadAllText(iss);
-                Assert.Contains("#define MyAppVersion \"1.0.6\"", text, StringComparison.Ordinal);
-                Assert.Contains("CanXeTienTrong-Setup-1.0.6", text, StringComparison.Ordinal);
+                Assert.Contains("#define MyAppVersion \"1.0.7\"", text, StringComparison.Ordinal);
+                Assert.Contains("CanXeTienTrong-Setup-1.0.7", text, StringComparison.Ordinal);
                 return;
             }
 

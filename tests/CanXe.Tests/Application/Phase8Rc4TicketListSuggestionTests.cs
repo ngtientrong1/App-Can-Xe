@@ -283,13 +283,13 @@ public sealed class Phase8Rc4TicketListGridLayoutTests
     {
         var xaml = File.ReadAllText(ResolveDesktopFile("MainWindow.xaml"));
         Assert.Contains("Header=\"Số phiếu\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Width=\"76\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Width=\"117\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Header=\"Biển số\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Width=\"108\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Width=\"171\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Header=\"Loại hàng\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Width=\"140\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Width=\"200\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Header=\"Trạng thái\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Width=\"132\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Width=\"160\"", xaml, StringComparison.Ordinal);
     }
 
     [Fact]

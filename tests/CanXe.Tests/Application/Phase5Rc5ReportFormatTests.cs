@@ -141,7 +141,7 @@ public sealed class Phase5Rc5ReportFormatTests : IAsyncLifetime
         });
 
         Assert.Single(awaiting.Rows);
-        Assert.Equal("51X-00001", awaiting.Rows[0].LicensePlate);
+        Assert.Equal("51X-000.01", awaiting.Rows[0].LicensePlate);
     }
 
     private static int FindHeaderRow(IXLWorksheet sheet)

@@ -1,0 +1,19 @@
+Cân Xe Tiến Trọng 1.0.7
+
+Cải tiến:
+- Giao diện phóng to thêm 15% so với 1.0.6 (canvas thiết kế 2209x1090, scale đồng nhất qua Viewbox)
+
+Khắc phục lỗi cổng COM (PL2303HXD):
+- Tắt "USB Selective Suspend" trên power plan đang dùng (lúc cài đặt và mỗi lần mở app) —
+  nguyên nhân phổ biến khiến adapter USB-to-serial "ngủ" và phải rút cắm lại
+- Thêm cơ chế "keep-alive": chọc cổng mỗi 2 giây khi đang kết nối (đọc trạng thái CTS,
+  không ghi dữ liệu vào đường truyền của cân) để giữ thiết bị luôn hoạt động
+- Giữ nguyên toàn bộ hệ thống phục hồi cũ: watchdog no-data timeout, reset qua Scheduled Task
+  (pnputil / USB hub power-cycle), backoff 2s/5s/10s/30s
+
+Không đổi:
+- Workflow cân, template in A4 two-up, Excel, backup/restore, camera, COM protocol 1200 8N1
+
+Lưu ý:
+- Dữ liệu vẫn lưu tại %LocalAppData%\CanXe
+- Cài đặt/cập nhật không xóa dữ liệu cũ

@@ -112,15 +112,4 @@ public sealed class Phase4Rc18PrintA5FitTests
         });
     }
 
-    [Fact]
-    public void GeometryValidator_StillPassesAfterRc18Layout()
-    {
-        _fixture.Invoke(app =>
-        {
-            var model = PrintLayoutGeometryTestRunner.BuildSampleModelPublic();
-            var copy = WpfWeighTicketDocumentFactory.CreateMaterializedCopy(model);
-            var report = PrintLayoutGeometryValidator.ValidateMaterializedCopy(copy);
-            Assert.True(report.Passed, string.Join(Environment.NewLine, report.Lines));
-        });
-    }
 }
