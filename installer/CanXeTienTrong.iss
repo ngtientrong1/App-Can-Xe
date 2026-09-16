@@ -67,7 +67,13 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDi
 ; adapter needs elevated pnputil calls, so that one privileged step is delegated to a Scheduled
 ; Task that runs as SYSTEM — registered here (installer is already elevated) with a security
 ; descriptor that lets any standard user trigger it via "schtasks /Run" without a UAC prompt.
-Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""{#MyResetTaskName}"" /TR ""\""{app}\{#MyResetHelperExeName}\"""" /SC ONDEMAND /RU SYSTEM /RL HIGHEST /F"; Flags: runhidden; StatusMsg: "Configuring automatic COM port recovery..."
+; "ONDEMAND" is not a valid schtasks.exe /SC schedule type (valid values: MINUTE, HOURLY, DAILY,
+; WEEKLY, MONTHLY, ONCE, ONSTART, ONLOGON, ONIDLE, ONEVENT) — passing it made this step fail
+; silently every time (Inno doesn't check [Run] exit codes), so the task was never created and
+; every runtime "schtasks /Run" from ScheduledTaskSerialPortResetter failed with "cannot find the
+; file specified". "/SC ONCE" with a start date/time already in the past registers a task with a
+; trigger that will never fire on its own, while still being fully runnable on demand via /Run.
+Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""{#MyResetTaskName}"" /TR ""\""{app}\{#MyResetHelperExeName}\"""" /SC ONCE /ST 00:00 /SD 01/01/2000 /RU SYSTEM /RL HIGHEST /F"; Flags: runhidden; StatusMsg: "Configuring automatic COM port recovery..."
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$s=New-Object -ComObject Schedule.Service; $s.Connect(); $f=$s.GetFolder('\{#MyResetTaskFolder}'); $t=$f.GetTask('{#MyResetTaskLeaf}'); $t.SetSecurityDescriptor('D:(A;;GA;;;BA)(A;;GA;;;SY)(A;;GRGX;;;AU)',0)"""; Flags: runhidden
 ; Disable "USB selective suspend" on the active power plan so the PL2303HXD USB-to-serial adapter
 ; is never power-suspended by Windows (a common cause of it going silent until physically
