@@ -82,4 +82,30 @@ public static class OperatorLayoutMetrics
 
     public static double GetUsableContentHeight(double windowHeight) =>
         windowHeight - AppHeaderHeight - NavigationBarHeight - PageVerticalMargin - KpiStripHeight;
+
+    private const double WeighCanvasDesignWidth = 2209;
+    private const double WeighCanvasDesignHeight = 1090;
+
+    /// <summary>
+    /// The Phiếu Cân section is a fixed-aspect design canvas scaled uniformly to fit the window
+    /// (see MainWindow.xaml), calibrated so a typical maximized 1920x1080 window fills it with no
+    /// letterboxing. On an ultrawide (21:9+) window the available area is proportionally wider than
+    /// the canvas, so Stretch="Uniform" leaves empty bars on both sides. Widening the canvas to match
+    /// the window's own aspect ratio (keeping the design height fixed) removes that letterboxing while
+    /// leaving every proportion inside the canvas — fonts, paddings, column splits — unchanged, and has
+    /// no effect on windows at or narrower than the design aspect ratio.
+    /// </summary>
+    public static double GetWeighCanvasWidth(double windowWidth, double windowHeight)
+    {
+        var availableHeight = windowHeight - AppHeaderHeight - NavigationBarHeight - PageVerticalMargin;
+        if (availableHeight <= 0 || windowWidth <= 0)
+            return WeighCanvasDesignWidth;
+
+        var designAspect = WeighCanvasDesignWidth / WeighCanvasDesignHeight;
+        var availableAspect = windowWidth / availableHeight;
+
+        return availableAspect > designAspect
+            ? WeighCanvasDesignHeight * availableAspect
+            : WeighCanvasDesignWidth;
+    }
 }

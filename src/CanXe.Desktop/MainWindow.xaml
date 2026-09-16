@@ -207,7 +207,7 @@
              keeps every proportion (fonts, paddings, column widths) identical at
              any screen resolution instead of relying on discrete size breakpoints. -->
         <Viewbox Grid.Row="2" Stretch="Uniform" Visibility="{Binding IsWeighTicketSectionVisible, Converter={StaticResource BoolToVis}}">
-        <Grid Width="2209" Height="1090">
+        <Grid Width="{Binding WeighCanvasWidth}" Height="1090">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
