@@ -1,4 +1,5 @@
 using System.IO;
+using System.IO.Ports;
 using CanXe.Domain.Models;
 using CanXe.Domain.Services;
 using CanXe.Desktop.Services;
@@ -191,7 +192,7 @@ public sealed partial class MainViewModel
             OnPropertyChanged(nameof(IsRetryConnectVisible));
 
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            linked.CancelAfter(TimeSpan.FromSeconds(8));
+            linked.CancelAfter(TimeSpan.FromSeconds(16));
             var token = linked.Token;
 
             try
@@ -218,22 +219,24 @@ public sealed partial class MainViewModel
                 OperatorStatusMessage = "Đang thử khôi phục cổng COM...";
                 var reset = await _serialPortResetter.TryResetAsync(portName, token).ConfigureAwait(false);
                 ScaleWatchdogLogger.Write("ScaleUsbResetAttempted", $"{reason}:{portName}:{(reset ? "ok" : "failed")}");
+
+                if (reset)
+                {
+                    // A successful reset tore down and is re-creating the port's PnP device node —
+                    // wait for it to actually reappear instead of racing it with a blind fixed delay.
+                    OperatorStatusMessage = "Đang chờ cổng COM khởi động lại...";
+                    var reappeared = await WaitForPortToReappearAsync(
+                        portName, ScaleWatchdogPolicy.PostResetPortReappearTimeout, token).ConfigureAwait(false);
+                    ScaleWatchdogLogger.Write(
+                        "ScaleUsbResetSettle", $"{reason}:{portName}:{(reappeared ? "ready" : "timeout")}");
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 ScaleWatchdogLogger.Write("ScaleReconnectFailed", $"{reason}:reset:{ex.GetType().Name}");
             }
 
-            try
-            {
-                await Task.Delay(ScaleWatchdogPolicy.ReconnectSettleDelay, token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                ScaleWatchdogLogger.Write("ScaleReconnectFailed", $"{reason}:cancelled");
-                OperatorStatusMessage = "Mất kết nối đầu cân";
-                return;
-            }
+            await Task.Delay(ScaleWatchdogPolicy.ReconnectSettleDelay, token).ConfigureAwait(false);
 
             _hasReceivedHardwareFrame = false;
             _loggedFirstFrame = false;
@@ -255,6 +258,21 @@ public sealed partial class MainViewModel
                 StartScaleWatchdog();
             }
         }
+        catch (OperationCanceledException)
+        {
+            // The 16s reconnect budget (disconnect + reset + port-reappear poll + connect) ran out,
+            // or the app is shutting down. Either way this must not silently end the auto-recovery
+            // loop: previously an uncaught/early-returned cancellation here left the operator with a
+            // frozen "đang chờ..." status and no further reconnect attempts until they noticed and
+            // clicked "THỬ KẾT NỐI LẠI" themselves.
+            if (_isShuttingDown || AppShutdownCoordinator.IsShuttingDown)
+                return;
+
+            ScaleWatchdogLogger.Write("ScaleReconnectFailed", $"{reason}:timeout");
+            _reconnectRetryCount++;
+            OperatorStatusMessage = "Mất kết nối đầu cân";
+            StartScaleWatchdog();
+        }
         finally
         {
             IsScaleConnecting = false;
@@ -262,6 +280,27 @@ public sealed partial class MainViewModel
             RefreshLiveWeightDisplay();
             OnPropertyChanged(nameof(IsRetryConnectVisible));
             _reconnectGate.Exit();
+        }
+    }
+
+    /// <summary>
+    /// Polls <see cref="SerialPort.GetPortNames"/> until <paramref name="portName"/> reappears or
+    /// <paramref name="timeout"/> elapses. Returns true as soon as it's seen; also re-checks once
+    /// more right at the deadline in case it appeared between the last poll and the timeout.
+    /// </summary>
+    private static async Task<bool> WaitForPortToReappearAsync(
+        string portName, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var deadline = DateTimeOffset.UtcNow + timeout;
+        while (true)
+        {
+            if (SerialPort.GetPortNames().Contains(portName, StringComparer.OrdinalIgnoreCase))
+                return true;
+
+            if (DateTimeOffset.UtcNow >= deadline)
+                return false;
+
+            await Task.Delay(ScaleWatchdogPolicy.PostResetPortPollInterval, cancellationToken).ConfigureAwait(false);
         }
     }
 

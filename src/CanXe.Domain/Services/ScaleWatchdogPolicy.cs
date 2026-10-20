@@ -17,6 +17,18 @@ public static class ScaleWatchdogPolicy
     /// <summary>Brief settle delay between disconnect and reconnect.</summary>
     public static TimeSpan ReconnectSettleDelay { get; } = TimeSpan.FromMilliseconds(400);
 
+    /// <summary>
+    /// After a successful OS-level USB reset (hub-cycle / pnputil disable-enable / parent-hub
+    /// cycle), the port's PnP device node is torn down and re-created asynchronously — re-opening
+    /// it too soon fails with "a device which does not exist was specified" even though the reset
+    /// itself reported success. Cap how long to poll for the port name to reappear before giving up
+    /// and attempting the open anyway.
+    /// </summary>
+    public static TimeSpan PostResetPortReappearTimeout { get; } = TimeSpan.FromSeconds(6);
+
+    /// <summary>Poll interval while waiting for the port to reappear after a reset.</summary>
+    public static TimeSpan PostResetPortPollInterval { get; } = TimeSpan.FromMilliseconds(250);
+
     public static bool IsDataAlive(DateTimeOffset? lastValidFrameAt, DateTimeOffset now) =>
         lastValidFrameAt is not null
         && now - lastValidFrameAt.Value <= DataAliveWindow;
