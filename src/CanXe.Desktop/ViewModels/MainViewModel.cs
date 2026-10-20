@@ -1445,7 +1445,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                 break;
             case AutocompleteField.CargoType:
                 CargoTypeName = text;
-                _ = ApplyCargoDefaultUnitPriceIfEmptyAsync(text);
                 _focusService.FocusUnitPriceField();
                 break;
             case AutocompleteField.Notes:
@@ -1502,20 +1501,6 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             WeighWorkflowLogger.Write("INPUT_HISTORY_FAILED", $"field={field} type={ex.GetType().Name}");
             AppExceptionLogger.WriteError($"ShowFieldHistoryAsync.{field}", ex);
         }
-    }
-
-    private async Task ApplyCargoDefaultUnitPriceIfEmptyAsync(string cargoName)
-    {
-        if (!string.IsNullOrWhiteSpace(UnitPriceText))
-            return;
-
-        var defaultPrice = await _fastEntrySearch.GetCargoDefaultUnitPriceAsync(cargoName);
-        if (defaultPrice is not decimal price || price <= 0)
-            return;
-
-        UnitPriceText = UnitPriceInputHelper.FormatDisplay(price);
-        _draft.DraftUnitPrice = price;
-        UpdateDisplaysFromDraft();
     }
 
     public async Task OnVehiclePlateCommittedAsync(string? plate)
