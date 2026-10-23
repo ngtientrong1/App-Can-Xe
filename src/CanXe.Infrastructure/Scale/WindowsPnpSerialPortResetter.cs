@@ -40,16 +40,25 @@ namespace CanXe.Infrastructure.Scale;
 [SupportedOSPlatform("windows")]
 public sealed class WindowsPnpSerialPortResetter : ISerialPortResetter
 {
+    private const string ProlificHardwareIdPrefix = @"USB\VID_067B&PID_2303";
+
+    /// <summary>Why the last <see cref="TryResetAsync"/> failed, so a SYSTEM-run helper can report it back.</summary>
+    public string? LastFailure { get; private set; }
+
     public async Task<bool> TryResetAsync(string portName, CancellationToken cancellationToken = default)
     {
+        LastFailure = null;
         if (string.IsNullOrWhiteSpace(portName))
             return false;
 
-        var instanceId = FindPnpInstanceId(portName);
+        // When the adapter wedges, Windows can delete the COM port outright, so the by-name lookup
+        // finds nothing. Fall back to the adapter's hardware id, which still matches a present
+        // devnode that lost its COM name (e.g. stopped with a driver error).
+        var instanceId = FindPnpInstanceId(portName) ?? FindPnpInstanceIdByHardwareId();
         if (instanceId is null)
         {
-            LifecycleLogger.Write("UsbSerialReset", $"deviceNotFound:{portName}");
-            return false;
+            LifecycleLogger.Write("UsbSerialReset", $"deviceNotFound:{portName}:rescanning");
+            return await TryRescanAsync(portName, cancellationToken).ConfigureAwait(false);
         }
 
         if (UsbHubPortCycler.TryCyclePort(instanceId))
@@ -73,23 +82,69 @@ public sealed class WindowsPnpSerialPortResetter : ISerialPortResetter
             }
 
             LifecycleLogger.Write("UsbSerialReset", $"enableFailed:{portName}:{enabled.Summary}");
+            LastFailure = $"hubCycleFailed;enableFailed:{enabled.Summary}";
         }
         else
         {
             LifecycleLogger.Write("UsbSerialReset", $"disableFailed:{portName}:{disabled.Summary}");
+            LastFailure = $"hubCycleFailed;disableFailed:{disabled.Summary}";
         }
 
         LifecycleLogger.Write("UsbSerialReset", $"pnpUtilFailed:{portName}:fallingBackToParentHubCycle");
         return await TryResetParentHubAsync(portName, instanceId, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<bool> TryResetParentHubAsync(
+    private async Task<bool> TryRescanAsync(string portName, CancellationToken cancellationToken)
+    {
+        var scan = await RunPnpUtilAsync("/scan-devices", null, cancellationToken).ConfigureAwait(false);
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(6);
+        while (scan.Success)
+        {
+            if (System.IO.Ports.SerialPort.GetPortNames().Contains(portName, StringComparer.OrdinalIgnoreCase))
+            {
+                LifecycleLogger.Write("UsbSerialReset", $"ok:rescan:{portName}");
+                return true;
+            }
+
+            if (DateTimeOffset.UtcNow >= deadline)
+                break;
+
+            await Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken).ConfigureAwait(false);
+        }
+
+        LastFailure = $"deviceNotFound;rescan:{(scan.Success ? "portStillMissing" : scan.Summary)}";
+        LifecycleLogger.Write("UsbSerialReset", $"rescanFailed:{portName}:{LastFailure}");
+        return false;
+    }
+
+    private static string? FindPnpInstanceIdByHardwareId()
+    {
+        try
+        {
+            using var entities = new ManagementObjectSearcher(
+                "SELECT PNPDeviceID FROM Win32_PnPEntity WHERE PNPDeviceID LIKE 'USB\\\\VID_067B&PID_2303%'");
+            foreach (var device in entities.Get())
+            {
+                if (device["PNPDeviceID"] is string id && id.StartsWith(ProlificHardwareIdPrefix, StringComparison.OrdinalIgnoreCase))
+                    return id;
+            }
+        }
+        catch (ManagementException)
+        {
+            // WMI unavailable — treat as not found.
+        }
+
+        return null;
+    }
+
+    private async Task<bool> TryResetParentHubAsync(
         string portName, string instanceId, CancellationToken cancellationToken)
     {
         var parentInstanceId = UsbHubPortCycler.TryGetParentDeviceId(instanceId);
         if (parentInstanceId is null)
         {
             LifecycleLogger.Write("UsbSerialReset", $"parentHubNotFound:{portName}");
+            LastFailure = $"{LastFailure};parentHubNotFound";
             return false;
         }
 
@@ -97,6 +152,7 @@ public sealed class WindowsPnpSerialPortResetter : ISerialPortResetter
         if (!hubDisabled.Success)
         {
             LifecycleLogger.Write("UsbSerialReset", $"parentHubDisableFailed:{portName}:{hubDisabled.Summary}");
+            LastFailure = $"{LastFailure};parentHubDisableFailed:{hubDisabled.Summary}";
             return false;
         }
 
@@ -108,6 +164,8 @@ public sealed class WindowsPnpSerialPortResetter : ISerialPortResetter
         LifecycleLogger.Write(
             "UsbSerialReset",
             hubEnabled.Success ? $"ok:parentHubCycle:{portName}" : $"parentHubEnableFailed:{portName}:{hubEnabled.Summary}");
+        if (!hubEnabled.Success)
+            LastFailure = $"{LastFailure};parentHubEnableFailed:{hubEnabled.Summary}";
         return hubEnabled.Success;
     }
 
@@ -145,7 +203,7 @@ public sealed class WindowsPnpSerialPortResetter : ISerialPortResetter
 
     private static async Task<(bool Success, string Summary)> RunPnpUtilAsync(
         string action,
-        string instanceId,
+        string? instanceId,
         CancellationToken cancellationToken)
     {
         try
@@ -159,8 +217,11 @@ public sealed class WindowsPnpSerialPortResetter : ISerialPortResetter
                 CreateNoWindow = true
             };
             startInfo.ArgumentList.Add(action);
-            startInfo.ArgumentList.Add(instanceId);
-            startInfo.ArgumentList.Add("/force");
+            if (instanceId is not null)
+            {
+                startInfo.ArgumentList.Add(instanceId);
+                startInfo.ArgumentList.Add("/force");
+            }
 
             using var process = Process.Start(startInfo);
             if (process is null)

@@ -33,7 +33,7 @@ internal static class Program
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             var ok = await resetter.TryResetAsync(portName, cts.Token);
 
-            await WriteResultAsync(ok ? "ok" : $"failed: reset unsuccessful for {portName}");
+            await WriteResultAsync(ok ? "ok" : $"failed: reset unsuccessful for {portName} [{resetter.LastFailure ?? "unknown"}]");
             return ok ? 0 : 1;
         }
         catch (Exception ex)
