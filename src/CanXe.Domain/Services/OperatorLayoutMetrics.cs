@@ -85,27 +85,26 @@ public static class OperatorLayoutMetrics
 
     private const double WeighCanvasDesignWidth = 2209;
     private const double WeighCanvasDesignHeight = 1090;
+    private const double WeighCanvasMinHeight = 980;
+    private const double WeighCanvasMaxHeight = 1300;
 
     /// <summary>
-    /// The Phiếu Cân section is a fixed-aspect design canvas scaled uniformly to fit the window
-    /// (see MainWindow.xaml), calibrated so a typical maximized 1920x1080 window fills it with no
-    /// letterboxing. On an ultrawide (21:9+) window the available area is proportionally wider than
-    /// the canvas, so Stretch="Uniform" leaves empty bars on both sides. Widening the canvas to match
-    /// the window's own aspect ratio (keeping the design height fixed) removes that letterboxing while
-    /// leaving every proportion inside the canvas — fonts, paddings, column splits — unchanged, and has
-    /// no effect on windows at or narrower than the design aspect ratio.
+    /// The Phiếu Cân section is a design canvas scaled uniformly (Viewbox) into the space left under
+    /// the header and navigation bar. When that space's aspect ratio differs from the canvas's, the
+    /// Viewbox letterboxes it and the content ends up smaller than the screen allows. Given the space
+    /// actually available, pick a canvas whose aspect ratio matches it so it fills edge to edge: keep
+    /// the design width and vary the height within sane limits (the ticket list absorbs the change),
+    /// and only widen the canvas beyond the design width once the height limit is reached (ultrawide).
+    /// A typical 1920x1080 window yields exactly the design size.
     /// </summary>
-    public static double GetWeighCanvasWidth(double windowWidth, double windowHeight)
+    public static (double Width, double Height) GetWeighCanvasSize(double hostWidth, double hostHeight)
     {
-        var availableHeight = windowHeight - AppHeaderHeight - NavigationBarHeight - PageVerticalMargin;
-        if (availableHeight <= 0 || windowWidth <= 0)
-            return WeighCanvasDesignWidth;
+        if (hostWidth <= 0 || hostHeight <= 0)
+            return (WeighCanvasDesignWidth, WeighCanvasDesignHeight);
 
-        var designAspect = WeighCanvasDesignWidth / WeighCanvasDesignHeight;
-        var availableAspect = windowWidth / availableHeight;
-
-        return availableAspect > designAspect
-            ? WeighCanvasDesignHeight * availableAspect
-            : WeighCanvasDesignWidth;
+        var aspect = hostWidth / hostHeight;
+        var height = Math.Clamp(WeighCanvasDesignWidth / aspect, WeighCanvasMinHeight, WeighCanvasMaxHeight);
+        var width = Math.Max(WeighCanvasDesignWidth, height * aspect);
+        return (width, height);
     }
 }

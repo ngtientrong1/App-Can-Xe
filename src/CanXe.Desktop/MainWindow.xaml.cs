@@ -54,6 +54,12 @@ public partial class MainWindow : Window
             vm.UpdateWindowSize(e.NewSize.Width, e.NewSize.Height);
     }
 
+    private void WeighTicketHost_OnSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+            vm.UpdateWeighHostSize(e.NewSize.Width, e.NewSize.Height);
+    }
+
     private void UnitPriceField_OnGotFocus(object sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel vm)

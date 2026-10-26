@@ -268,8 +268,22 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     public double WeighPanelValueFontSize =>
         WorkAreaLayoutCalculator.GetWeighPanelValueFontSize(WindowWidth);
 
-    public double WeighCanvasWidth =>
-        OperatorLayoutMetrics.GetWeighCanvasWidth(WindowWidth, WindowHeight);
+    private double _weighHostWidth;
+    private double _weighHostHeight;
+
+    public double WeighCanvasWidth => OperatorLayoutMetrics.GetWeighCanvasSize(_weighHostWidth, _weighHostHeight).Width;
+    public double WeighCanvasHeight => OperatorLayoutMetrics.GetWeighCanvasSize(_weighHostWidth, _weighHostHeight).Height;
+
+    public void UpdateWeighHostSize(double width, double height)
+    {
+        if (Math.Abs(width - _weighHostWidth) < 0.5 && Math.Abs(height - _weighHostHeight) < 0.5)
+            return;
+
+        _weighHostWidth = width;
+        _weighHostHeight = height;
+        OnPropertyChanged(nameof(WeighCanvasWidth));
+        OnPropertyChanged(nameof(WeighCanvasHeight));
+    }
 
     public double SummaryValueFontSize =>
         WorkAreaLayoutCalculator.GetSummaryValueFontSize(WindowWidth);

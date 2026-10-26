@@ -1,4 +1,4 @@
-﻿<Window x:Class="CanXe.Desktop.MainWindow"
+<Window x:Class="CanXe.Desktop.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -206,8 +206,9 @@
         <!-- Fixed 16:9 design canvas, uniformly scaled to fit the actual window —
              keeps every proportion (fonts, paddings, column widths) identical at
              any screen resolution instead of relying on discrete size breakpoints. -->
-        <Viewbox Grid.Row="2" Stretch="Uniform" Visibility="{Binding IsWeighTicketSectionVisible, Converter={StaticResource BoolToVis}}">
-        <Grid Width="{Binding WeighCanvasWidth}" Height="1090">
+        <Grid Grid.Row="2" x:Name="WeighTicketHost" SizeChanged="WeighTicketHost_OnSizeChanged">
+        <Viewbox Stretch="Uniform" Visibility="{Binding IsWeighTicketSectionVisible, Converter={StaticResource BoolToVis}}">
+        <Grid Width="{Binding WeighCanvasWidth}" Height="{Binding WeighCanvasHeight}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -943,6 +944,7 @@
         </UniformGrid>
         </Grid>
         </Viewbox>
+        </Grid>
 
         <!-- Section: DANH MỤC -->
         <Grid Grid.Row="2" Visibility="{Binding IsCatalogSectionVisible, Converter={StaticResource BoolToVis}}">
