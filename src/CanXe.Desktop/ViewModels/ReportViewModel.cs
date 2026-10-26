@@ -1,8 +1,12 @@
 using System.Collections.ObjectModel;
+using System.Printing;
 using System.Windows;
+using System.Windows.Controls;
 using CanXe.Application.Interfaces;
 using CanXe.Application.Models;
 using CanXe.Application.Services;
+using CanXe.Desktop.Controls;
+using CanXe.Desktop.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
@@ -14,15 +18,18 @@ public sealed partial class ReportViewModel : ObservableObject
     private readonly IReportService _reportService;
     private readonly IPrintNotificationService _notificationService;
     private readonly StationSettingsService _stationSettings;
+    private readonly FastEntrySearchService _fastEntrySearch;
 
     public ReportViewModel(
         IReportService reportService,
         IPrintNotificationService notificationService,
-        StationSettingsService stationSettings)
+        StationSettingsService stationSettings,
+        FastEntrySearchService fastEntrySearch)
     {
         _reportService = reportService;
         _notificationService = notificationService;
         _stationSettings = stationSettings;
+        _fastEntrySearch = fastEntrySearch;
         FromDate = DateTime.Today.AddDays(-7);
         ToDate = DateTime.Today;
     }
@@ -44,6 +51,133 @@ public sealed partial class ReportViewModel : ObservableObject
     [ObservableProperty] private int _summaryAwaitingSecondWeighCount;
 
     public ObservableCollection<ReportRowDto> Rows { get; } = [];
+    public ObservableCollection<AutocompleteSuggestionItem> CustomerSuggestions { get; } = [];
+    public ObservableCollection<AutocompleteSuggestionItem> VehicleSuggestions { get; } = [];
+    public ObservableCollection<AutocompleteSuggestionItem> CargoSuggestions { get; } = [];
+
+    partial void OnCustomerKeywordChanged(string? value) =>
+        _ = RefreshSuggestionsAsync(CustomerSuggestions, value, t => _fastEntrySearch.SearchCustomersAsync(t));
+
+    partial void OnCargoTypeKeywordChanged(string? value) =>
+        _ = RefreshSuggestionsAsync(CargoSuggestions, value, t => _fastEntrySearch.SearchCargoTypesAsync(t));
+
+    partial void OnLicensePlateKeywordChanged(string? value) =>
+        _ = RefreshSuggestionsAsync(VehicleSuggestions, value, t => _fastEntrySearch.SearchVehiclesAsync(t, CustomerKeyword));
+
+    private static async Task RefreshSuggestionsAsync(
+        ObservableCollection<AutocompleteSuggestionItem> target,
+        string? value,
+        Func<string, Task<IReadOnlyList<AutocompleteSuggestionItem>>> search)
+    {
+        try
+        {
+            await Task.Delay(200);
+            var items = await search(value ?? string.Empty);
+            target.Clear();
+            foreach (var item in items.Where(i => !i.IsNewEntryOption))
+                target.Add(item);
+        }
+        catch (Exception ex) when (ex is TaskCanceledException or InvalidOperationException)
+        {
+        }
+    }
+
+    /// <summary>Double-click on an empty filter box: list every catalog entry to pick from.</summary>
+    public async Task ShowHistoryAsync(AutocompleteField field, AutoCompleteTextBox box)
+    {
+        try
+        {
+            var (items, target) = field switch
+            {
+                AutocompleteField.Customer => (await _fastEntrySearch.GetCustomerHistoryAsync(), CustomerSuggestions),
+                AutocompleteField.Vehicle => (await _fastEntrySearch.GetVehicleHistoryAsync(), VehicleSuggestions),
+                _ => (await _fastEntrySearch.GetCargoTypeHistoryAsync(), CargoSuggestions)
+            };
+
+            target.Clear();
+            foreach (var item in items)
+                target.Add(item);
+
+            if (items.Count > 0)
+                box.OpenHistoryDropDown();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task PrintReportAsync()
+    {
+        if (IsBusy)
+            return;
+
+        IsBusy = true;
+        try
+        {
+            // Print exactly what the filter on screen describes, even if LỌC wasn't pressed after the last edit.
+            var filter = BuildFilter();
+            var result = await _reportService.QueryAsync(filter);
+            ApplyResult(result);
+
+            if (result.Rows.Count == 0)
+            {
+                MessageBox.Show(
+                    "Không có phiếu nào theo bộ lọc hiện tại để in.",
+                    "In báo cáo",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var station = await _stationSettings.GetStationAsync();
+
+            var dialog = new PrintDialog();
+            try
+            {
+                dialog.PrintTicket.PageOrientation = PageOrientation.Portrait;
+            }
+            catch (Exception)
+            {
+                // No usable default printer ticket — the dialog still lets the user pick one.
+            }
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            var model = new ReportPrintModel
+            {
+                Station = station,
+                Period = ReportPrintHelper.DescribePeriod(filter),
+                Criteria = ReportPrintHelper.DescribeCriteria(filter),
+                Rows = result.Rows,
+                Summary = result.Summary,
+                DistinctVehicles = ReportPrintHelper.CountDistinctVehicles(result.Rows)
+            };
+
+            // The report is designed landscape. On a portrait sheet (the printer's normal feed, e.g. Brother)
+            // the same page is turned 90 degrees; on a landscape sheet it prints as designed.
+            var sheetWidth = dialog.PrintableAreaWidth;
+            var sheetHeight = dialog.PrintableAreaHeight;
+            var portraitSheet = sheetHeight > sheetWidth;
+            var document = ReportPrintDocumentBuilder.Build(
+                model,
+                portraitSheet ? sheetHeight : sheetWidth,
+                portraitSheet ? sheetWidth : sheetHeight,
+                rotateToPortrait: portraitSheet);
+            dialog.PrintDocument(document.DocumentPaginator, "Báo cáo phiếu cân");
+            StatusMessage = $"Đã gửi lệnh in báo cáo ({result.Summary.TicketCount} phiếu).";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Lỗi in báo cáo", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
 
     [RelayCommand]
     private async Task ApplyFilterAsync()

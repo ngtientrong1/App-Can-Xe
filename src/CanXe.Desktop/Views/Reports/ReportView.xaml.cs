@@ -2,12 +2,49 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using CanXe.Application.Models;
+using CanXe.Desktop.Controls;
+using CanXe.Desktop.ViewModels;
 
 namespace CanXe.Desktop.Views.Reports;
 
 public partial class ReportView
 {
-    public ReportView() => InitializeComponent();
+    public ReportView()
+    {
+        InitializeComponent();
+        Loaded += (_, _) =>
+        {
+            WireFilterBox(CustomerBox, AutocompleteField.Customer);
+            WireFilterBox(VehicleBox, AutocompleteField.Vehicle);
+            WireFilterBox(CargoBox, AutocompleteField.CargoType);
+        };
+    }
+
+    // Picking an entry from the dropdown filters straight away; typed text still needs LỌC.
+    private void WireFilterBox(AutoCompleteTextBox box, AutocompleteField field)
+    {
+        if (box.Tag is true)
+            return;
+
+        box.Tag = true;
+
+        box.ItemCommitted += (_, _) =>
+        {
+            if (DataContext is ReportViewModel vm &&
+                box.SelectedItem is AutocompleteSuggestionItem { IsNewEntryOption: false } &&
+                vm.ApplyFilterCommand.CanExecute(null))
+            {
+                vm.ApplyFilterCommand.Execute(null);
+            }
+        };
+
+        box.HistoryRequested += (_, _) =>
+        {
+            if (DataContext is ReportViewModel vm)
+                _ = vm.ShowHistoryAsync(field, box);
+        };
+    }
 
     private void ReportDataGrid_OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {

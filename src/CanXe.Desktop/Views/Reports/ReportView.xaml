@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:models="clr-namespace:CanXe.Application.Models;assembly=CanXe.Application"
              xmlns:conv="clr-namespace:CanXe.Desktop.Converters"
+             xmlns:ctrl="clr-namespace:CanXe.Desktop.Controls"
              VerticalAlignment="Stretch"
              HorizontalAlignment="Stretch"
              Foreground="{DynamicResource PrimaryTextBrush}">
@@ -51,21 +52,22 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" Margin="0,0,8,0">
                         <TextBlock Text="Khách hàng" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
-                        <TextBox Text="{Binding CustomerKeyword}" Style="{StaticResource CanXeTextBoxStyle}"/>
+                        <ctrl:AutoCompleteTextBox x:Name="CustomerBox" FontSize="16" Text="{Binding CustomerKeyword, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{Binding CustomerSuggestions}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Margin="0,0,8,0">
                         <TextBlock Text="Biển số xe" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
-                        <TextBox Text="{Binding LicensePlateKeyword}" Style="{StaticResource CanXeTextBoxStyle}"/>
+                        <ctrl:AutoCompleteTextBox x:Name="VehicleBox" FontSize="16" Text="{Binding LicensePlateKeyword, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{Binding VehicleSuggestions}"/>
                     </StackPanel>
                     <StackPanel Grid.Column="2">
                         <TextBlock Text="Loại hàng" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
-                        <TextBox Text="{Binding CargoTypeKeyword}" Style="{StaticResource CanXeTextBoxStyle}"/>
+                        <ctrl:AutoCompleteTextBox x:Name="CargoBox" FontSize="16" Text="{Binding CargoTypeKeyword, UpdateSourceTrigger=PropertyChanged}" ItemsSource="{Binding CargoSuggestions}"/>
                     </StackPanel>
                 </Grid>
                 <WrapPanel Margin="0,12,0,0">
                     <Button Content="LỌC" Command="{Binding ApplyFilterCommand}" Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,0,8,0"/>
                     <Button Content="XÓA LỌC" Command="{Binding ClearFilterCommand}" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
-                    <Button Content="XUẤT EXCEL" Command="{Binding ExportExcelCommand}" Style="{StaticResource FilterButton}"/>
+                    <Button Content="XUẤT EXCEL" Command="{Binding ExportExcelCommand}" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
+                    <Button Content="IN BÁO CÁO" Command="{Binding PrintReportCommand}" Style="{StaticResource FilterButton}"/>
                 </WrapPanel>
             </StackPanel>
         </Border>

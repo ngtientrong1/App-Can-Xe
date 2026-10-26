@@ -41,6 +41,15 @@ internal static class Program
                 return 0;
             }
 
+            if (args.Length >= 2 && string.Equals(args[0], "--report-print-test", StringComparison.OrdinalIgnoreCase))
+            {
+                var rows = args.Length >= 3 && int.TryParse(args[2], out var n) ? n : 40;
+                return CanXe.Desktop.Services.ReportPrintTestRunner.Run(
+                    args[1], rows,
+                    portrait: args.Contains("--portrait", StringComparer.OrdinalIgnoreCase),
+                    multiCustomer: args.Contains("--multi", StringComparer.OrdinalIgnoreCase));
+            }
+
             var cli = DiagnosticsArgumentParser.Parse(args);
 
             if (cli.ShowHelp)
