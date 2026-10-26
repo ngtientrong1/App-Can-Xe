@@ -596,7 +596,8 @@ public sealed class CustomerRepository : ICustomerRepository
     public async Task<Customer> SaveCatalogAsync(Customer customer, CancellationToken cancellationToken = default)
     {
         customer.UpdatedAt = DateTimeOffset.Now;
-        if (customer.Id == 0)
+        var isNew = customer.Id == 0;
+        if (isNew)
         {
             customer.CreatedAt = DateTimeOffset.Now;
             _db.Customers.Add(customer);
@@ -606,7 +607,24 @@ public sealed class CustomerRepository : ICustomerRepository
             _db.Customers.Update(customer);
         }
 
+        // Tickets keep a name snapshot next to the id; push a catalog rename into past tickets.
+        // Tickets saved before the catalog entry existed have no id, so match those by the old name.
+        var oldName = isNew ? null : _db.Entry(customer).Property(c => c.Name).OriginalValue;
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+        if (!isNew)
+        {
+            var id = customer.Id;
+            var name = customer.Name;
+            await _db.WeighTickets
+                .Where(t => t.CustomerNameSnapshot != name
+                    && (t.CustomerId == id || (t.CustomerId == null && t.CustomerNameSnapshot == oldName)))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(t => t.CustomerNameSnapshot, name)
+                    .SetProperty(t => t.CustomerId, id), cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
         return customer;
     }
 
@@ -727,7 +745,8 @@ public sealed class CargoTypeRepository : ICargoTypeRepository
     public async Task<CargoType> SaveCatalogAsync(CargoType cargoType, CancellationToken cancellationToken = default)
     {
         cargoType.UpdatedAt = DateTimeOffset.Now;
-        if (cargoType.Id == 0)
+        var isNew = cargoType.Id == 0;
+        if (isNew)
         {
             cargoType.CreatedAt = DateTimeOffset.Now;
             _db.CargoTypes.Add(cargoType);
@@ -737,7 +756,22 @@ public sealed class CargoTypeRepository : ICargoTypeRepository
             _db.CargoTypes.Update(cargoType);
         }
 
+        var oldName = isNew ? null : _db.Entry(cargoType).Property(c => c.Name).OriginalValue;
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+        if (!isNew)
+        {
+            var id = cargoType.Id;
+            var name = cargoType.Name;
+            await _db.WeighTickets
+                .Where(t => t.CargoTypeNameSnapshot != name
+                    && (t.CargoTypeId == id || (t.CargoTypeId == null && t.CargoTypeNameSnapshot == oldName)))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(t => t.CargoTypeNameSnapshot, name)
+                    .SetProperty(t => t.CargoTypeId, id), cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
         return cargoType;
     }
 
@@ -894,7 +928,8 @@ public sealed class VehicleRepository : IVehicleRepository
     public async Task<Vehicle> SaveCatalogAsync(Vehicle vehicle, CancellationToken cancellationToken = default)
     {
         vehicle.UpdatedAt = DateTimeOffset.Now;
-        if (vehicle.Id == 0)
+        var isNew = vehicle.Id == 0;
+        if (isNew)
         {
             vehicle.CreatedAt = DateTimeOffset.Now;
             _db.Vehicles.Add(vehicle);
@@ -904,7 +939,22 @@ public sealed class VehicleRepository : IVehicleRepository
             _db.Vehicles.Update(vehicle);
         }
 
+        var oldPlate = isNew ? null : _db.Entry(vehicle).Property(v => v.PlateNumber).OriginalValue;
+        await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
+        if (!isNew)
+        {
+            var id = vehicle.Id;
+            var plate = vehicle.PlateNumber;
+            await _db.WeighTickets
+                .Where(t => t.LicensePlateSnapshot != plate
+                    && (t.VehicleId == id || (t.VehicleId == null && t.LicensePlateSnapshot == oldPlate)))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(t => t.LicensePlateSnapshot, plate)
+                    .SetProperty(t => t.VehicleId, id), cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
         return vehicle;
     }
 
