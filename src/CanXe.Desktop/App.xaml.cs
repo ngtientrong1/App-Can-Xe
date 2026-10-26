@@ -41,6 +41,15 @@ public partial class App : System.Windows.Application
             var photoRoot = Path.Combine(appData, "Photos");
             Directory.CreateDirectory(photoRoot);
 
+            // First run on a new machine: start from the shipped catalog (customers, vehicles,
+            // cargo types) instead of an empty database. Never overwrites an existing database.
+            var seedPath = Path.Combine(AppContext.BaseDirectory, "seed", CanXe.Infrastructure.Data.CatalogSeedExporter.SeedFileName);
+            if (!File.Exists(dbPath) && File.Exists(seedPath))
+            {
+                File.Copy(seedPath, dbPath);
+                LifecycleLogger.Write("CatalogSeedApplied");
+            }
+
             var settings = LoadSettings();
 
             LifecycleLogger.Write("ServicesStarting");

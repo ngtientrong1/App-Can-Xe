@@ -31,6 +31,16 @@ internal static class Program
     {
         try
         {
+            if (args.Length >= 2 && string.Equals(args[0], "--export-catalog-seed", StringComparison.OrdinalIgnoreCase))
+            {
+                var liveDb = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CanXe", "canxe.db");
+                var seed = await CanXe.Infrastructure.Data.CatalogSeedExporter.ExportAsync(liveDb, args[1]);
+                Console.WriteLine(
+                    $"Seed written: {args[1]} (customers={seed.Customers}, vehicles={seed.Vehicles}, cargoTypes={seed.CargoTypes})");
+                return 0;
+            }
+
             var cli = DiagnosticsArgumentParser.Parse(args);
 
             if (cli.ShowHelp)
@@ -415,6 +425,7 @@ internal static class Program
               --scale-live <seconds>
               --take-weight-performance <cycles>
               --verbose-scale-frames
+              --export-catalog-seed <out.db>   (catalogs only, no tickets/settings)
 
             Exit codes:
 
