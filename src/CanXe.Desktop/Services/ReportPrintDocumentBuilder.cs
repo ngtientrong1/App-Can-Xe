@@ -38,8 +38,10 @@ public static class ReportPrintDocumentBuilder
     private static readonly Brush Stripe = new SolidColorBrush(Color.FromRgb(0xEE, 0xF3, 0xF9));
     private static readonly Brush Hairline = new SolidColorBrush(Color.FromRgb(0xC9, 0xD3, 0xE0));
 
-    private const double PageMargin = 14;
-    private const double RowHeight = 52;
+    // Real printers cannot print to the paper edge (typically 4-6 mm of hardware margin) and the
+    // printable area's origin is not always honoured, so keep about 8 mm of clear border.
+    private const double PageMargin = 30;
+    private const double RowHeight = 48;
     private const double TableHeaderHeight = 50;
     private const double FooterReserve = 26;
     private const double BodyFontSize = 22;
@@ -149,7 +151,7 @@ public static class ReportPrintDocumentBuilder
         var columns = new List<Column>
         {
             new("Ngày giờ", 17, r => r.TicketDateTime.ToString("dd/MM/yy HH:mm", Vn)),
-            new("Số phiếu", 9, r => r.DisplayNumber)
+            new("Số phiếu", 12, r => r.DisplayNumber)
         };
 
         if (!singleCustomer)
@@ -184,9 +186,12 @@ public static class ReportPrintDocumentBuilder
         Grid.SetRow(body, 0);
         grid.Children.Add(body);
 
-        var footer = Text($"Trang {number}/{total}", 16, FontWeights.SemiBold, TextAlignment.Right, Muted);
-        Grid.SetRow(footer, 1);
-        grid.Children.Add(footer);
+        if (total > 1)
+        {
+            var footer = Text($"Trang {number}/{total}", 16, FontWeights.SemiBold, TextAlignment.Right, Muted);
+            Grid.SetRow(footer, 1);
+            grid.Children.Add(footer);
+        }
 
         // The landscape design sits on a host the size of the landscape page; for a portrait sheet the
         // host is turned 90 degrees clockwise (its top edge ends up on the right) and moved back on-sheet.
@@ -303,22 +308,21 @@ public static class ReportPrintDocumentBuilder
         if (s.AwaitingSecondWeighCount > 0)
             panel.Children.Add(Note($"Lưu ý: {s.AwaitingSecondWeighCount.ToString("N0", Vn)} phiếu đang chờ cân lần 2."));
 
+        // Only the customer confirms the report: one signature block on the right.
+        var signature = new StackPanel
+        {
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Width = 360,
+            Margin = new Thickness(0, 8, 40, 0)
+        };
         var date = Text(
             $"Ngày {model.PrintedAt.Day} tháng {model.PrintedAt.Month} năm {model.PrintedAt.Year}",
             18, FontWeights.Normal, TextAlignment.Center, Ink);
         date.FontStyle = FontStyles.Italic;
-        date.Margin = new Thickness(0, 12, 0, 0);
-        panel.Children.Add(date);
-
-        var signatures = new Grid { Height = 92 };
-        signatures.ColumnDefinitions.Add(new ColumnDefinition());
-        signatures.ColumnDefinitions.Add(new ColumnDefinition());
-        var left = Text("Người lập báo cáo", 20, FontWeights.Bold, TextAlignment.Center, Ink);
-        var right = Text("Khách hàng xác nhận", 20, FontWeights.Bold, TextAlignment.Center, Ink);
-        Grid.SetColumn(right, 1);
-        signatures.Children.Add(left);
-        signatures.Children.Add(right);
-        panel.Children.Add(signatures);
+        signature.Children.Add(date);
+        signature.Children.Add(Text("Khách hàng xác nhận", 20, FontWeights.Bold, TextAlignment.Center, Ink));
+        signature.Children.Add(new Border { Height = 60 });
+        panel.Children.Add(signature);
         return panel;
     }
 
@@ -339,7 +343,7 @@ public static class ReportPrintDocumentBuilder
             Background = emphasize ? Accent : Stripe,
             BorderBrush = emphasize ? Accent : Hairline,
             BorderThickness = new Thickness(1.5),
-            MinHeight = 104
+            MinHeight = 92
         };
         Grid.SetColumn(card, column);
         grid.Children.Add(card);
