@@ -54,7 +54,7 @@ public static class ReportPrintDocumentBuilder
         (17, true), (16, true), (16, false), (15, true), (14, true), (14, false)
     ];
 
-    private sealed record Column(string Header, Func<ReportRowDto, string> Cell, bool Wrappable = false);
+    private sealed record Column(string Header, Func<ReportRowDto, string> Cell, bool Wrappable = false, bool CappedWidth = false);
 
     private sealed record TableLayout(
         double FontSize, double HeaderFontSize, double RowHeight, double HeaderHeight, bool Wrap, double[] Widths);
@@ -166,7 +166,7 @@ public static class ReportPrintDocumentBuilder
         };
 
         if (!singleCustomer)
-            columns.Add(new("Khách hàng", r => r.CustomerName ?? "—", Wrappable: true));
+            columns.Add(new("Khách hàng", r => r.CustomerName ?? "—", Wrappable: true, CappedWidth: true));
 
         columns.Add(new("Biển số", r => r.LicensePlate ?? "—"));
         columns.Add(new("Loại hàng", r => r.CargoTypeName ?? "—", Wrappable: true));
@@ -191,6 +191,8 @@ public static class ReportPrintDocumentBuilder
     {
         const double cellPadding = 18;
         const double wrapShare = 0.62;
+        // A long customer name wraps onto a second line instead of squeezing the other columns.
+        const double cappedShare = 0.22;
 
         // The widest strings decide each column; checking the longest few keeps this fast on big reports.
         var samples = columns
@@ -202,22 +204,35 @@ public static class ReportPrintDocumentBuilder
         {
             var headerSize = size - 2;
             var needed = new double[columns.Count];
+            var anyCapped = false;
             for (var i = 0; i < columns.Count; i++)
             {
+                var wrapsHere = wrap && columns[i].Wrappable;
                 var widest = 0.0;
                 var widestWord = 0.0;
                 foreach (var text in samples[i])
                 {
                     widest = Math.Max(widest, MeasureText(text, size, FontWeights.SemiBold));
-                    if (wrap && columns[i].Wrappable)
+                    if (wrapsHere || columns[i].CappedWidth)
                     {
                         foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
                             widestWord = Math.Max(widestWord, MeasureText(word, size, FontWeights.SemiBold));
                     }
                 }
 
-                if (wrap && columns[i].Wrappable)
+                if (wrapsHere)
+                {
                     widest = Math.Max(widestWord, widest * wrapShare);
+                }
+                else if (columns[i].CappedWidth)
+                {
+                    var cap = Math.Max(widestWord, width * cappedShare);
+                    if (widest > cap)
+                    {
+                        widest = cap;
+                        anyCapped = true;
+                    }
+                }
 
                 needed[i] = Math.Max(widest, MeasureText(columns[i].Header, headerSize, FontWeights.Bold)) + cellPadding;
             }
@@ -227,9 +242,9 @@ public static class ReportPrintDocumentBuilder
             last = new TableLayout(
                 size,
                 headerSize,
-                Math.Round(size * (wrap ? 3.1 : 2.2)),
+                Math.Round(size * (wrap || anyCapped ? 3.1 : 2.2)),
                 Math.Round(size * 2.3),
-                wrap,
+                wrap || anyCapped,
                 needed.Select(n => n * scale).ToArray());
 
             if (total <= width)
