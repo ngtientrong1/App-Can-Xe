@@ -116,6 +116,26 @@ public static class ReportPrintDocumentBuilder
         return document;
     }
 
+    /// <summary>Renders every page of <paramref name="document"/> to a bitmap (for on-screen preview).</summary>
+    public static List<System.Windows.Media.Imaging.BitmapSource> RenderPages(FixedDocument document, double scale)
+    {
+        var size = document.DocumentPaginator.PageSize;
+        var pixelWidth = (int)Math.Ceiling(size.Width * scale);
+        var pixelHeight = (int)Math.Ceiling(size.Height * scale);
+
+        var images = new List<System.Windows.Media.Imaging.BitmapSource>();
+        foreach (var pageContent in document.Pages)
+        {
+            var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(
+                pixelWidth, pixelHeight, 96 * scale, 96 * scale, PixelFormats.Pbgra32);
+            bitmap.Render(pageContent.GetPageRoot(false));
+            bitmap.Freeze();
+            images.Add(bitmap);
+        }
+
+        return images;
+    }
+
     private static List<Column> BuildColumns(IReadOnlyList<ReportRowDto> rows)
     {
         // Fewer columns means bigger text. The customer is already in the title when the report is for

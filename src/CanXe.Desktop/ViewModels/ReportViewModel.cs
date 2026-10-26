@@ -7,6 +7,7 @@ using CanXe.Application.Models;
 using CanXe.Application.Services;
 using CanXe.Desktop.Controls;
 using CanXe.Desktop.Services;
+using CanXe.Desktop.Views.Reports;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
@@ -107,6 +108,77 @@ public sealed partial class ReportViewModel : ObservableObject
         }
     }
 
+    /// <summary>Re-runs the filter on screen (even if LỌC wasn't pressed after the last edit) for printing or preview.</summary>
+    private async Task<(ReportFilter Filter, ReportResult Result, StationSettingsDto Station)?> PrepareReportAsync(string title)
+    {
+        var filter = BuildFilter();
+        var result = await _reportService.QueryAsync(filter);
+        ApplyResult(result);
+
+        if (result.Rows.Count == 0)
+        {
+            MessageBox.Show(
+                "Không có phiếu nào theo bộ lọc hiện tại.",
+                title,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return null;
+        }
+
+        var station = await _stationSettings.GetStationAsync();
+        return (filter, result, station);
+    }
+
+    private static ReportPrintModel BuildPrintModel(ReportFilter filter, ReportResult result, StationSettingsDto station) =>
+        new()
+        {
+            Station = station,
+            Period = ReportPrintHelper.DescribePeriod(filter),
+            Criteria = ReportPrintHelper.DescribeCriteria(filter),
+            Rows = result.Rows,
+            Summary = result.Summary,
+            DistinctVehicles = ReportPrintHelper.CountDistinctVehicles(result.Rows)
+        };
+
+    [RelayCommand]
+    private async Task PreviewReportAsync()
+    {
+        if (IsBusy)
+            return;
+
+        var wantsPrint = false;
+        IsBusy = true;
+        try
+        {
+            var prepared = await PrepareReportAsync("Xem báo cáo");
+            if (prepared is null)
+                return;
+
+            var (filter, result, station) = prepared.Value;
+
+            // Previewed as designed (landscape), one image per page; printing rebuilds it for the chosen sheet.
+            var document = ReportPrintDocumentBuilder.Build(BuildPrintModel(filter, result, station), 1122.5, 793.7);
+            var pages = ReportPrintDocumentBuilder.RenderPages(document, 1.5);
+
+            var window = new ReportPreviewWindow(pages, result.Summary.TicketCount)
+            {
+                Owner = System.Windows.Application.Current?.MainWindow
+            };
+            wantsPrint = window.ShowDialog() == true;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Lỗi xem báo cáo", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
+        if (wantsPrint)
+            await PrintReportAsync();
+    }
+
     [RelayCommand]
     private async Task PrintReportAsync()
     {
@@ -116,22 +188,11 @@ public sealed partial class ReportViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            // Print exactly what the filter on screen describes, even if LỌC wasn't pressed after the last edit.
-            var filter = BuildFilter();
-            var result = await _reportService.QueryAsync(filter);
-            ApplyResult(result);
-
-            if (result.Rows.Count == 0)
-            {
-                MessageBox.Show(
-                    "Không có phiếu nào theo bộ lọc hiện tại để in.",
-                    "In báo cáo",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+            var prepared = await PrepareReportAsync("In báo cáo");
+            if (prepared is null)
                 return;
-            }
 
-            var station = await _stationSettings.GetStationAsync();
+            var (filter, result, station) = prepared.Value;
 
             var dialog = new PrintDialog();
             try
@@ -146,15 +207,7 @@ public sealed partial class ReportViewModel : ObservableObject
             if (dialog.ShowDialog() != true)
                 return;
 
-            var model = new ReportPrintModel
-            {
-                Station = station,
-                Period = ReportPrintHelper.DescribePeriod(filter),
-                Criteria = ReportPrintHelper.DescribeCriteria(filter),
-                Rows = result.Rows,
-                Summary = result.Summary,
-                DistinctVehicles = ReportPrintHelper.CountDistinctVehicles(result.Rows)
-            };
+            var model = BuildPrintModel(filter, result, station);
 
             // The report is designed landscape. On a portrait sheet (the printer's normal feed, e.g. Brother)
             // the same page is turned 90 degrees; on a landscape sheet it prints as designed.

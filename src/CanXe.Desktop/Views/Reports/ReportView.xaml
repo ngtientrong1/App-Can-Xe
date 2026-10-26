@@ -67,6 +67,7 @@
                     <Button Content="LỌC" Command="{Binding ApplyFilterCommand}" Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,0,8,0"/>
                     <Button Content="XÓA LỌC" Command="{Binding ClearFilterCommand}" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
                     <Button Content="XUẤT EXCEL" Command="{Binding ExportExcelCommand}" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
+                    <Button Content="XEM BÁO CÁO" Command="{Binding PreviewReportCommand}" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
                     <Button Content="IN BÁO CÁO" Command="{Binding PrintReportCommand}" Style="{StaticResource FilterButton}"/>
                 </WrapPanel>
             </StackPanel>
