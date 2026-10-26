@@ -305,7 +305,7 @@ public class AutoCompleteTextBox : Control
 
             case Key.Enter:
                 _moveFocusAfterCommit = true;
-                CommitText(Text.Trim(), SelectedItem, moveFocus: true);
+                CommitText((Text ?? string.Empty).Trim(), SelectedItem, moveFocus: true);
                 e.Handled = true;
                 break;
 
@@ -314,7 +314,7 @@ public class AutoCompleteTextBox : Control
                 if (hasPopup && HighlightedIndex >= 0)
                     CommitHighlighted();
                 else
-                    CommitText(Text.Trim(), SelectedItem, moveFocus: !e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Shift));
+                    CommitText((Text ?? string.Empty).Trim(), SelectedItem, moveFocus: !e.KeyboardDevice.Modifiers.HasFlag(ModifierKeys.Shift));
                 break;
 
             case Key.Escape when IsDropDownOpen:
@@ -333,7 +333,7 @@ public class AutoCompleteTextBox : Control
             return;
         }
 
-        CommitText(Text.Trim(), SelectedItem, _moveFocusAfterCommit);
+        CommitText((Text ?? string.Empty).Trim(), SelectedItem, _moveFocusAfterCommit);
     }
 
     private void CommitItem(object item, bool moveFocus)
@@ -341,7 +341,7 @@ public class AutoCompleteTextBox : Control
         if (item is AutocompleteSuggestionItem suggestion)
         {
             if (suggestion.IsNewEntryOption)
-                CommitText(Text.Trim(), suggestion, moveFocus);
+                CommitText((Text ?? string.Empty).Trim(), suggestion, moveFocus);
             else
                 CommitText(suggestion.PrimaryText ?? string.Empty, suggestion, moveFocus);
             return;

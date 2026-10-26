@@ -40,6 +40,9 @@ public partial class MainWindow : Window
         WireAutocomplete(VehicleField, AutocompleteField.Vehicle);
         WireAutocomplete(CargoField, AutocompleteField.CargoType);
         WireAutocomplete(NotesField, AutocompleteField.Notes);
+        WireFilterAutocomplete(FilterCustomerField, AutocompleteField.Customer);
+        WireFilterAutocomplete(FilterCargoField, AutocompleteField.CargoType);
+        WireFilterAutocomplete(FilterVehicleField, AutocompleteField.Vehicle);
 
         if (DataContext is MainViewModel vm)
             vm.UpdateWindowSize(ActualWidth, ActualHeight);
@@ -114,6 +117,26 @@ public partial class MainWindow : Window
                 return;
 
             _ = vm.ShowFieldHistoryAsync(field, box);
+        };
+    }
+
+    private void WireFilterAutocomplete(Controls.AutoCompleteTextBox box, AutocompleteField field)
+    {
+        // Picking an entry from the dropdown filters straight away; typing still needs ÁP DỤNG.
+        box.ItemCommitted += (_, _) =>
+        {
+            if (DataContext is MainViewModel vm &&
+                box.SelectedItem is AutocompleteSuggestionItem { IsNewEntryOption: false } &&
+                vm.ApplyFilterCommand.CanExecute(null))
+            {
+                vm.ApplyFilterCommand.Execute(null);
+            }
+        };
+
+        box.HistoryRequested += (_, _) =>
+        {
+            if (DataContext is MainViewModel vm)
+                _ = vm.ShowFieldHistoryAsync(field, box, forFilter: true);
         };
     }
 

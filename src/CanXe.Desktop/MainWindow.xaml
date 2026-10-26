@@ -747,15 +747,21 @@
                 <WrapPanel Margin="0,0,0,4">
                     <StackPanel Width="150" Margin="0,0,8,6">
                         <TextBlock Text="Khách hàng" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                        <TextBox Text="{Binding FilterCustomerName, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
+                        <ctrl:AutoCompleteTextBox x:Name="FilterCustomerField" TabIndex="-1" FontSize="15"
+                                                  Text="{Binding FilterCustomerName, UpdateSourceTrigger=PropertyChanged}"
+                                                  ItemsSource="{Binding FilterCustomerSuggestions}"/>
                     </StackPanel>
                     <StackPanel Width="130" Margin="0,0,8,6">
                         <TextBlock Text="Loại hàng" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                        <TextBox Text="{Binding FilterCargoTypeName, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
+                        <ctrl:AutoCompleteTextBox x:Name="FilterCargoField" TabIndex="-1" FontSize="15"
+                                                  Text="{Binding FilterCargoTypeName, UpdateSourceTrigger=PropertyChanged}"
+                                                  ItemsSource="{Binding FilterCargoSuggestions}"/>
                     </StackPanel>
                     <StackPanel Width="120" Margin="0,0,8,6">
                         <TextBlock Text="Biển số" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>
-                        <TextBox Text="{Binding FilterLicensePlate, UpdateSourceTrigger=PropertyChanged}" TabIndex="-1"/>
+                        <ctrl:AutoCompleteTextBox x:Name="FilterVehicleField" TabIndex="-1" FontSize="15"
+                                                  Text="{Binding FilterLicensePlate, UpdateSourceTrigger=PropertyChanged}"
+                                                  ItemsSource="{Binding FilterVehicleSuggestions}"/>
                     </StackPanel>
                     <StackPanel Width="100" Margin="0,0,8,6">
                         <TextBlock Text="Số phiếu" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryTextBrush}"/>

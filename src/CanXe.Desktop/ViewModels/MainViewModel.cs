@@ -1454,7 +1454,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    public async Task ShowFieldHistoryAsync(AutocompleteField field, AutoCompleteTextBox box)
+    public async Task ShowFieldHistoryAsync(AutocompleteField field, AutoCompleteTextBox box, bool forFilter = false)
     {
         try
         {
@@ -1468,12 +1468,15 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
                 _ => Array.Empty<AutocompleteSuggestionItem>()
             };
 
-            ObservableCollection<AutocompleteSuggestionItem>? target = field switch
+            ObservableCollection<AutocompleteSuggestionItem>? target = (field, forFilter) switch
             {
-                AutocompleteField.Customer => CustomerSuggestions,
-                AutocompleteField.Vehicle => VehicleSuggestions,
-                AutocompleteField.CargoType => CargoTypeSuggestions,
-                AutocompleteField.Notes => NotesSuggestions,
+                (AutocompleteField.Customer, true) => FilterCustomerSuggestions,
+                (AutocompleteField.Vehicle, true) => FilterVehicleSuggestions,
+                (AutocompleteField.CargoType, true) => FilterCargoSuggestions,
+                (AutocompleteField.Customer, _) => CustomerSuggestions,
+                (AutocompleteField.Vehicle, _) => VehicleSuggestions,
+                (AutocompleteField.CargoType, _) => CargoTypeSuggestions,
+                (AutocompleteField.Notes, false) => NotesSuggestions,
                 _ => null
             };
 
