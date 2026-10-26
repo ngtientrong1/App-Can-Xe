@@ -41,18 +41,29 @@ public static class ReportPrintDocumentBuilder
     // Real printers cannot print to the paper edge (typically 4-6 mm of hardware margin) and the
     // printable area's origin is not always honoured, so keep about 8 mm of clear border.
     private const double PageMargin = 30;
-    private const double RowHeight = 48;
-    private const double TableHeaderHeight = 50;
     private const double FooterReserve = 26;
-    private const double BodyFontSize = 22;
-    private const double HeaderFontSize = 20;
 
-    private sealed record Column(string Header, double Weight, Func<ReportRowDto, string> Cell);
+    // Tried in order; the first (size, wrap) at which every column's widest text fits is used. Single-line
+    // rows at the two largest sizes come first, then two-line rows (long text wraps) at large sizes, and
+    // only then smaller single-line text.
+    private static readonly (double Size, bool Wrap)[] LayoutCandidates =
+    [
+        (22, false), (20, false),
+        (22, true), (20, true), (19, true), (18, true),
+        (19, false), (18, false),
+        (17, true), (16, true), (16, false), (15, true), (14, true), (14, false)
+    ];
+
+    private sealed record Column(string Header, Func<ReportRowDto, string> Cell, bool Wrappable = false);
+
+    private sealed record TableLayout(
+        double FontSize, double HeaderFontSize, double RowHeight, double HeaderHeight, bool Wrap, double[] Widths);
 
     public static FixedDocument Build(ReportPrintModel model, double pageWidth, double pageHeight, bool rotateToPortrait = false)
     {
         var columns = BuildColumns(model.Rows);
         var contentWidth = pageWidth - 2 * PageMargin;
+        var layout = ComputeLayout(columns, model.Rows, contentWidth);
         var contentHeight = pageHeight - 2 * PageMargin;
         var available = contentHeight - FooterReserve;
 
@@ -60,8 +71,8 @@ public static class ReportPrintDocumentBuilder
         var nextHeaderHeight = MeasureHeight(BuildContinuationHeader(model), contentWidth);
         var totalsHeight = MeasureHeight(BuildTotals(model), contentWidth);
 
-        var firstCapacity = Math.Max(1, (int)((available - firstHeaderHeight - TableHeaderHeight) / RowHeight));
-        var nextCapacity = Math.Max(1, (int)((available - nextHeaderHeight - TableHeaderHeight) / RowHeight));
+        var firstCapacity = Math.Max(1, (int)((available - firstHeaderHeight - layout.HeaderHeight) / layout.RowHeight));
+        var nextCapacity = Math.Max(1, (int)((available - nextHeaderHeight - layout.HeaderHeight) / layout.RowHeight));
 
         var pages = new List<(int Start, int Count)>();
         var index = 0;
@@ -78,7 +89,7 @@ public static class ReportPrintDocumentBuilder
             pages.Add((0, 0));
 
         var lastHeader = pages.Count == 1 ? firstHeaderHeight : nextHeaderHeight;
-        var usedOnLast = lastHeader + TableHeaderHeight + pages[^1].Count * RowHeight;
+        var usedOnLast = lastHeader + layout.HeaderHeight + pages[^1].Count * layout.RowHeight;
         var totalsOnOwnPage = usedOnLast + 12 + totalsHeight > available;
         var totalPages = pages.Count + (totalsOnOwnPage ? 1 : 0);
 
@@ -91,11 +102,11 @@ public static class ReportPrintDocumentBuilder
         {
             var body = new StackPanel();
             body.Children.Add(p == 0 ? BuildFirstHeader(model) : BuildContinuationHeader(model));
-            body.Children.Add(BuildHeaderRow(columns, contentWidth));
+            body.Children.Add(BuildHeaderRow(columns, layout, contentWidth));
 
             var (start, count) = pages[p];
             for (var i = start; i < start + count; i++)
-                body.Children.Add(BuildDataRow(columns, model.Rows[i], contentWidth, striped: (i - start) % 2 == 1));
+                body.Children.Add(BuildDataRow(columns, layout, model.Rows[i], contentWidth, striped: (i - start) % 2 == 1));
 
             if (p == pages.Count - 1 && !totalsOnOwnPage)
             {
@@ -150,26 +161,92 @@ public static class ReportPrintDocumentBuilder
 
         var columns = new List<Column>
         {
-            new("Ngày giờ", 17, r => r.TicketDateTime.ToString("dd/MM/yy HH:mm", Vn)),
-            new("Số phiếu", 12, r => r.DisplayNumber)
+            new("Ngày giờ", r => r.TicketDateTime.ToString("dd/MM/yy HH:mm", Vn), Wrappable: true),
+            new("Số phiếu", r => r.DisplayNumber)
         };
 
         if (!singleCustomer)
-            columns.Add(new("Khách hàng", 20, r => r.CustomerName ?? "—"));
+            columns.Add(new("Khách hàng", r => r.CustomerName ?? "—", Wrappable: true));
 
-        columns.Add(new("Biển số", 14, r => r.LicensePlate ?? "—"));
-        columns.Add(new("Loại hàng", 14, r => r.CargoTypeName ?? "—"));
-        columns.Add(new("Tổng", 10, r => Number(r.GrossWeightKg)));
-        columns.Add(new("Bì", 10, r => Number(r.TareWeightKg)));
-        columns.Add(new("Hàng", 10, r => Number(r.NetWeightKg)));
+        columns.Add(new("Biển số", r => r.LicensePlate ?? "—"));
+        columns.Add(new("Loại hàng", r => r.CargoTypeName ?? "—", Wrappable: true));
+        columns.Add(new("Tổng", r => Number(r.GrossWeightKg)));
+        columns.Add(new("Bì", r => Number(r.TareWeightKg)));
+        columns.Add(new("Hàng", r => Number(r.NetWeightKg)));
 
         if (billableDiffers)
-            columns.Add(new("KL tính tiền", 12, r => Number(r.BillableWeightKg)));
+            columns.Add(new("KL tính tiền", r => Number(r.BillableWeightKg)));
 
-        columns.Add(new("Đơn giá", 10, r => Number(r.UnitPriceVndPerKg)));
-        columns.Add(new("Thành tiền", 15, r => Number(r.TotalAmountVnd)));
+        columns.Add(new("Đơn giá", r => Number(r.UnitPriceVndPerKg)));
+        columns.Add(new("Thành tiền", r => Number(r.TotalAmountVnd)));
         return columns;
     }
+
+    /// <summary>
+    /// Picks the largest text size at which every column fits, and sizes the columns in proportion to
+    /// what they need. Long values (date, customer, cargo) may wrap onto a second line instead of
+    /// shrinking the whole table, so crowded reports stay large and nothing is cut off with an ellipsis.
+    /// </summary>
+    private static TableLayout ComputeLayout(IReadOnlyList<Column> columns, IReadOnlyList<ReportRowDto> rows, double width)
+    {
+        const double cellPadding = 18;
+        const double wrapShare = 0.62;
+
+        // The widest strings decide each column; checking the longest few keeps this fast on big reports.
+        var samples = columns
+            .Select(c => rows.Select(c.Cell).Distinct().OrderByDescending(s => s.Length).Take(30).ToArray())
+            .ToArray();
+
+        TableLayout? last = null;
+        foreach (var (size, wrap) in LayoutCandidates)
+        {
+            var headerSize = size - 2;
+            var needed = new double[columns.Count];
+            for (var i = 0; i < columns.Count; i++)
+            {
+                var widest = 0.0;
+                var widestWord = 0.0;
+                foreach (var text in samples[i])
+                {
+                    widest = Math.Max(widest, MeasureText(text, size, FontWeights.SemiBold));
+                    if (wrap && columns[i].Wrappable)
+                    {
+                        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                            widestWord = Math.Max(widestWord, MeasureText(word, size, FontWeights.SemiBold));
+                    }
+                }
+
+                if (wrap && columns[i].Wrappable)
+                    widest = Math.Max(widestWord, widest * wrapShare);
+
+                needed[i] = Math.Max(widest, MeasureText(columns[i].Header, headerSize, FontWeights.Bold)) + cellPadding;
+            }
+
+            var total = needed.Sum();
+            var scale = width / total;
+            last = new TableLayout(
+                size,
+                headerSize,
+                Math.Round(size * (wrap ? 3.1 : 2.2)),
+                Math.Round(size * 2.3),
+                wrap,
+                needed.Select(n => n * scale).ToArray());
+
+            if (total <= width)
+                return last;
+        }
+
+        return last!;
+    }
+    private static double MeasureText(string text, double size, FontWeight weight) =>
+        new FormattedText(
+            text,
+            Vn,
+            FlowDirection.LeftToRight,
+            new Typeface(Font, FontStyles.Normal, weight, FontStretches.Normal),
+            size,
+            Brushes.Black,
+            1.0).Width;
 
     private static PageContent CreatePage(
         UIElement body, int number, int total, double width, double height, bool rotateToPortrait)
@@ -358,37 +435,40 @@ public static class ReportPrintDocumentBuilder
 
     private static string Number(decimal? value) => value.HasValue ? value.Value.ToString("N0", Vn) : "—";
 
-    private static Border BuildHeaderRow(IReadOnlyList<Column> columns, double width) =>
-        BuildRow(columns, width, columns.Select(c => c.Header).ToArray(), isHeader: true, striped: false);
+    private static Border BuildHeaderRow(IReadOnlyList<Column> columns, TableLayout layout, double width) =>
+        BuildRow(layout, width, columns.Select(c => c.Header).ToArray(), isHeader: true, striped: false);
 
-    private static Border BuildDataRow(IReadOnlyList<Column> columns, ReportRowDto row, double width, bool striped) =>
-        BuildRow(columns, width, columns.Select(c => c.Cell(row)).ToArray(), isHeader: false, striped);
+    private static Border BuildDataRow(IReadOnlyList<Column> columns, TableLayout layout, ReportRowDto row, double width, bool striped) =>
+        BuildRow(layout, width, columns.Select(c => c.Cell(row)).ToArray(), isHeader: false, striped);
 
-    private static Border BuildRow(IReadOnlyList<Column> columns, double width, string[] cells, bool isHeader, bool striped)
+    private static Border BuildRow(TableLayout layout, double width, string[] cells, bool isHeader, bool striped)
     {
         var grid = new Grid { Width = width };
-        foreach (var column in columns)
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(column.Weight, GridUnitType.Star) });
+        foreach (var columnWidth in layout.Widths)
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(columnWidth, GridUnitType.Star) });
 
         for (var c = 0; c < cells.Length; c++)
         {
             var text = Text(
                 cells[c],
-                isHeader ? HeaderFontSize : BodyFontSize,
+                isHeader ? layout.HeaderFontSize : layout.FontSize,
                 isHeader ? FontWeights.Bold : FontWeights.SemiBold,
                 TextAlignment.Center,
                 isHeader ? Brushes.White : Ink);
             text.VerticalAlignment = VerticalAlignment.Center;
             text.HorizontalAlignment = HorizontalAlignment.Center;
             text.Margin = new Thickness(4, 0, 4, 0);
-            text.TextTrimming = TextTrimming.CharacterEllipsis;
+            if (!isHeader && layout.Wrap)
+                text.TextWrapping = TextWrapping.Wrap;
+            else
+                text.TextTrimming = TextTrimming.CharacterEllipsis;
             Grid.SetColumn(text, c);
             grid.Children.Add(text);
         }
 
         return new Border
         {
-            Height = isHeader ? TableHeaderHeight : RowHeight,
+            Height = isHeader ? layout.HeaderHeight : layout.RowHeight,
             Child = grid,
             Background = isHeader ? Accent : striped ? Stripe : Brushes.White,
             BorderBrush = Hairline,

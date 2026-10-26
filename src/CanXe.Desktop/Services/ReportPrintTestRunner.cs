@@ -43,13 +43,13 @@ public static class ReportPrintTestRunner
         {
             TicketDateTime = new DateTimeOffset(2026, 10, 1 + (i % 25), 7 + (i % 10), i % 60, 0, TimeSpan.FromHours(7)),
             DisplayNumber = $"{i}/10",
-            CustomerName = multiCustomer && i % 2 == 0 ? "Cty Lê Toàn Lộc" : "Công Ty Đại Lợi",
+            CustomerName = multiCustomer && i % 2 == 0 ? "Cty Tiến Thịnh Phát Logistics" : "Công Ty Đại Lợi",
             LicensePlate = plates[i % plates.Length],
             CargoTypeName = "Cà tươi",
             GrossWeightKg = 21390 + i * 10,
             TareWeightKg = 11570,
             NetWeightKg = 9820 + i * 10,
-            BillableWeightKg = 9820 + i * 10,
+            BillableWeightKg = multiCustomer ? 9803 + i * 10 : 9820 + i * 10,
             UnitPriceVndPerKg = i % 7 == 0 ? null : 20000,
             TotalAmountVnd = i % 7 == 0 ? null : (9820 + i * 10) * 20000m
         }).ToList();
