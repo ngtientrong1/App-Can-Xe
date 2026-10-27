@@ -1,0 +1,166 @@
+@model CanXe.Debt.Web.PeriodCardModel
+@{
+    var v = Model.View;
+    var open = v.IsOpen;
+}
+<section class="period @(open ? "open" : "")" id="@(open ? "ky-mo" : "ky-" + v.Id)">
+    <div class="period-head">
+        <h3>@(open ? $"Kỳ đang mở · {Fmt.Range(v.From, null)}" : $"Kỳ {Fmt.Range(v.From, v.To)}")</h3>
+        @switch (v.Status)
+        {
+            case PeriodStatus.Open: <span class="badge pending">Chưa chốt</span> break;
+            case PeriodStatus.Owing: <span class="badge unpaid">Còn nợ @Fmt.Vnd(v.Remaining)</span> break;
+            case PeriodStatus.Settled: <span class="badge paid">Đã tất toán</span> break;
+            default: <span class="badge partial">Đã ứng trước @Fmt.Vnd(-v.Remaining)</span> break;
+        }
+    </div>
+
+    <div class="mini-stats">
+        <div><div class="label">Nợ từ kỳ trước</div><div class="value">@Fmt.Balance(v.CarryIn)</div></div>
+        <div><div class="label">Tiền hàng · @v.PricedCount xe · @Fmt.Kg(v.BillableKg) kg</div><div class="value">@Fmt.Vnd(v.TicketsTotal)</div></div>
+        <div><div class="label">Tổng phải trả</div><div class="value">@Fmt.Balance(v.Payable)</div></div>
+        <div><div class="label">Đã trả@(v.Payments.Count > 0 ? $" · {v.Payments.Count} lần" : "")</div><div class="value credit">@Fmt.Vnd(v.Paid)</div></div>
+    </div>
+
+    @if (v.ByStation.Count > 0)
+    {
+        <div class="chips" aria-label="Cà theo điểm cân">
+            @foreach (var s in v.ByStation)
+            {
+                <span class="chip"><span class="@Fmt.StationClass(s.StationCode)">@s.StationName</span> @s.TruckCount xe · @Fmt.Kg(s.BillableKg) kg · <strong>@Fmt.Vnd(s.Amount)</strong></span>
+            }
+        </div>
+    }
+
+    @if (v.AwaitingCount > 0 || v.NoPriceCount > 0)
+    {
+        <div class="alert warn" role="status">
+            @if (v.AwaitingCount > 0) { <span><strong>@v.AwaitingCount xe</strong> chờ cân lần 2 (trả xác). </span> }
+            @if (v.NoPriceCount > 0) { <span><strong>@v.NoPriceCount xe</strong> chưa có đơn giá. </span> }
+            Chưa tính vào tiền. Khi app cân có đủ số cân và giá, nhập lại file là các xe này tự cộng vào kỳ này.
+        </div>
+    }
+    @if (v.ChangedAfterCloseCount > 0)
+    {
+        <div class="alert warn" role="status">
+            <strong>@v.ChangedAfterCloseCount xe</strong> được nhập hoặc đổi giá sau khi chốt kỳ (tổng @Fmt.Vnd(v.ChangedAfterCloseAmount)). Tiền hàng và số còn nợ của kỳ đã tính lại.
+        </div>
+    }
+
+    @if (v.Payments.Count > 0)
+    {
+        <div>
+            @foreach (var p in v.Payments)
+            {
+                <div class="pay-line">
+                    <span>
+                        @Fmt.Date(p.PaidOn) · @(p.Method == PaymentMethod.Cash ? "Tiền mặt" : string.IsNullOrWhiteSpace(p.BankName) ? "Chuyển khoản" : $"Chuyển khoản ({p.BankName})")
+                        @if (!string.IsNullOrWhiteSpace(p.ReceivedBy)) { <span> · @p.ReceivedBy nhận</span> }
+                        @if (!string.IsNullOrWhiteSpace(p.Note)) { <span class="muted"> · @p.Note</span> }
+                        <span class="muted small"> · nhập bởi @p.CreatedBy lúc @Fmt.DateTime(p.CreatedAt)</span>
+                    </span>
+                    <span>
+                        <span class="amount">@Fmt.Vnd(p.AmountVnd)</span>
+                        @if (Model.SeasonOpen)
+                        {
+                            <details class="no-print">
+                                <summary>Hủy</summary>
+                                <form method="post" asp-page="/Customers/Detail" asp-page-handler="Void" asp-route-id="@Model.CustomerId" asp-route-SeasonId="@Model.SeasonId" class="inline-form" data-confirm="Hủy khoản trả này?">
+                                    <input type="hidden" name="VoidId" value="@p.Id" />
+                                    <input type="text" name="VoidReason" placeholder="Lý do hủy" required />
+                                    <button type="submit" class="danger">Hủy</button>
+                                </form>
+                            </details>
+                        }
+                    </span>
+                </div>
+            }
+        </div>
+    }
+
+    @if (open)
+    {
+        <div class="outcome open">Tạm tính nếu chốt bây giờ: @(v.Remaining > 0 ? $"còn nợ {Fmt.Vnd(v.Remaining)}" : v.Remaining < 0 ? $"đã ứng trước {Fmt.Vnd(-v.Remaining)}" : "không còn nợ")</div>
+    }
+    else if (v.Status == PeriodStatus.Owing)
+    {
+        <div class="outcome owe">Còn nợ @Fmt.Vnd(v.Remaining) → chuyển sang kỳ sau</div>
+    }
+    else if (v.Status == PeriodStatus.PaidAhead)
+    {
+        <div class="outcome ahead">Đã ứng trước @Fmt.Vnd(-v.Remaining) → trừ vào kỳ sau</div>
+    }
+    else
+    {
+        <div class="outcome done">Đã tất toán kỳ này</div>
+    }
+
+    @if (v.Tickets.Count > 0)
+    {
+        <details>
+            <summary>Xem @v.TruckCount xe trong kỳ</summary>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Biển số</th><th>Loại hàng</th>
+                        <th class="num">Tổng</th><th class="num">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
+                        <th class="num">Đơn giá</th><th class="num">Thành tiền</th><th>Tình trạng</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var t in v.Tickets)
+                    {
+                        <tr class="@(t.Stage == TicketStage.Priced ? "" : "dim")">
+                            <td class="nowrap">@Fmt.DateTime(t.TicketDateTime)</td>
+                            <td>@t.DisplayNumber</td>
+                            <td><span class="@Fmt.StationClass(t.StationCode)">@Model.StationName(t.StationCode)</span></td>
+                            <td class="nowrap">@t.LicensePlate</td>
+                            <td>@t.Cargo</td>
+                            @if (t.Stage == TicketStage.AwaitingSecondWeigh)
+                            {
+                                <td class="num" colspan="2">Cân lần 1: @Fmt.Kg(t.FirstWeightKg)</td>
+                                <td class="num">—</td>
+                            }
+                            else
+                            {
+                                <td class="num">@Fmt.Kg(t.GrossWeightKg)</td>
+                                <td class="num">@Fmt.Kg(t.TareWeightKg)</td>
+                                <td class="num">@Fmt.Kg(t.NetWeightKg)</td>
+                            }
+                            <td class="num">@Fmt.Kg(t.BillableWeightKg)</td>
+                            <td class="num">@Fmt.UnitPrice(t)</td>
+                            <td class="num">@Fmt.Vnd(t.AmountVnd)</td>
+                            <td>
+                                @switch (t.Stage)
+                                {
+                                    case TicketStage.AwaitingSecondWeigh: <span class="badge partial stage">Chờ cân lần 2</span> break;
+                                    case TicketStage.NoPrice: <span class="badge pending stage">Chưa có giá</span> break;
+                                    default: <span class="badge paid stage">Đã tính tiền</span> break;
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                    <tfoot>
+                    <tr>
+                        <th colspan="7" class="right">Tổng</th>
+                        <th class="num">@Fmt.Kg(v.NetKg)</th>
+                        <th class="num">@Fmt.Kg(v.BillableKg)</th>
+                        <th></th>
+                        <th class="num">@Fmt.Vnd(v.TicketsTotal)</th>
+                        <th></th>
+                    </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </details>
+    }
+
+    @if (Model.CanUndo)
+    {
+        <form method="post" asp-page="/Customers/Detail" asp-page-handler="Undo" asp-route-id="@Model.CustomerId" asp-route-SeasonId="@Model.SeasonId" class="no-print" data-confirm="Hủy chốt kỳ này? Các xe sẽ quay về kỳ đang mở.">
+            <button type="submit" class="secondary">Hủy chốt kỳ này</button>
+        </form>
+    }
+</section>

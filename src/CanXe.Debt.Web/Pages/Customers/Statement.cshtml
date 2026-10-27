@@ -1,26 +1,31 @@
 @page "{id:int}"
 @inject SeasonService Seasons
 @inject LedgerService Ledger
+@inject SettlementService Settlements
+@inject CustomerService Customers
 @functions {
     [BindProperty(SupportsGet = true)] public int Id { get; set; }
     [BindProperty(SupportsGet = true)] public int? SeasonId { get; set; }
-    public CustomerLedgerView? View { get; set; }
+    public Customer? Customer { get; set; }
+    public Season? Season { get; set; }
+    public CustomerSettlement? Settlement { get; set; }
     public Dictionary<string, string> Stations { get; set; } = [];
 
     public async Task<IActionResult> OnGetAsync()
     {
-        var season = SeasonId is { } sid ? await Seasons.GetAsync(sid) : await Seasons.GetCurrentAsync();
-        if (season is null)
+        Season = SeasonId is { } sid ? await Seasons.GetAsync(sid) : await Seasons.GetCurrentAsync();
+        Customer = await Customers.GetAsync(Id);
+        if (Season is null || Customer is null)
             return NotFound();
-        View = await Ledger.GetCustomerAsync(Id, season);
+        Settlement = await Settlements.GetAsync(Id, Season);
         Stations = await Ledger.GetStationNamesAsync();
-        return View is null ? NotFound() : Page();
+        return Page();
     }
 }
 @{
-    var customer = View!.Customer;
-    var ledger = View.Ledger;
-    var season = View.Season;
+    var customer = Customer!;
+    var season = Season!;
+    var s = Settlement!;
     ViewData["Title"] = "Bảng kê công nợ " + customer.Name;
 }
 <div class="page-head no-print">
@@ -41,69 +46,78 @@
 </div>
 
 <div class="stats">
-    <div class="stat"><div class="label">Tổng phải trả (@Fmt.Kg(View.TotalBillableKg) kg tính tiền)</div><div class="value">@Fmt.Vnd(ledger.Billed)</div></div>
-    <div class="stat"><div class="label">Đã trả</div><div class="value">@Fmt.Vnd(ledger.Paid)</div></div>
-    <div class="stat debt"><div class="label">@(ledger.Balance >= 0 ? "CÒN NỢ" : "ĐÃ ỨNG TRƯỚC")</div><div class="value">@Fmt.Vnd(Math.Abs(ledger.Balance))</div></div>
+    <div class="stat"><div class="label">Tổng tiền hàng (@Fmt.Kg(s.Periods.Sum(p => p.BillableKg)) kg tính tiền)</div><div class="value">@Fmt.Vnd(s.TotalBilled)</div></div>
+    <div class="stat"><div class="label">Đã trả</div><div class="value">@Fmt.Vnd(s.TotalPaid)</div></div>
+    <div class="stat debt"><div class="label">@(s.Balance >= 0 ? "CÒN NỢ" : "ĐÃ ỨNG TRƯỚC")</div><div class="value">@Fmt.Vnd(Math.Abs(s.Balance))</div></div>
 </div>
 
-<div class="card">
-    <h2>Sổ công nợ</h2>
-    <table class="ledger">
-        <thead><tr><th>Ngày</th><th>Nội dung</th><th class="num">Phải trả</th><th class="num">Đã trả</th><th class="num">Còn nợ</th></tr></thead>
-        <tbody>
-        @foreach (var line in View.Statement)
-        {
-            <tr class="@(line.Kind == StatementLineKind.Payment ? "payment-row" : "")">
-                <td class="nowrap">@Fmt.Date(line.Date)</td>
-                <td>@line.Description@(line.Kind == StatementLineKind.Tickets ? $" · {Fmt.Kg(line.TotalBillableKg)} kg" : "")</td>
-                <td class="num">@(line.Debit > 0 ? Fmt.Vnd(line.Debit) : "")</td>
-                <td class="num credit">@(line.Credit > 0 ? Fmt.Vnd(line.Credit) : "")</td>
-                <td class="num">@Fmt.Balance(line.Balance)</td>
-            </tr>
-        }
-        </tbody>
-        <tfoot><tr><th colspan="2" class="right">Tổng</th><th class="num">@Fmt.Vnd(ledger.Billed)</th><th class="num">@Fmt.Vnd(ledger.Paid)</th><th class="num">@Fmt.Balance(ledger.Balance)</th></tr></tfoot>
-    </table>
-</div>
-
-<div class="card">
-    <h2>Chi tiết các xe</h2>
-    <table>
-        <thead>
-        <tr>
-            <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Biển số</th><th>Loại hàng</th>
-            <th class="num">Tổng</th><th class="num">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
-            <th class="num">Đơn giá</th><th class="num">Thành tiền</th>
-        </tr>
-        </thead>
-        <tbody>
-        @foreach (var row in View.Tickets)
-        {
-            var t = row.Ticket;
+@foreach (var p in s.Periods)
+{
+    <div class="card">
+        <h2>@(p.IsOpen ? $"Kỳ chưa chốt · {Fmt.Range(p.From, null)}" : $"Kỳ {Fmt.Range(p.From, p.To)}")</h2>
+        <table>
+            <thead>
             <tr>
-                <td class="nowrap">@Fmt.DateTime(t.TicketDateTime)</td>
-                <td>@t.DisplayNumber</td>
-                <td>@Stations.GetValueOrDefault(t.StationCode, t.StationCode)</td>
-                <td class="nowrap">@t.LicensePlate</td>
-                <td>@t.Cargo</td>
-                <td class="num">@Fmt.Kg(t.GrossWeightKg)</td>
-                <td class="num">@Fmt.Kg(t.TareWeightKg)</td>
-                <td class="num">@Fmt.Kg(t.NetWeightKg)</td>
-                <td class="num">@Fmt.Kg(t.BillableWeightKg)</td>
-                <td class="num">@Fmt.UnitPrice(t)</td>
-                <td class="num">@(t.AmountVnd is null ? "Chưa có giá" : Fmt.Vnd(t.AmountVnd))</td>
+                <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Biển số</th><th>Loại hàng</th>
+                <th class="num">Tổng</th><th class="num">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
+                <th class="num">Đơn giá</th><th class="num">Thành tiền</th>
             </tr>
-        }
-        </tbody>
-        <tfoot>
-        <tr>
-            <th colspan="7" class="right">Tổng @View.Tickets.Count xe</th>
-            <th class="num">@Fmt.Kg(View.TotalNetKg)</th>
-            <th class="num">@Fmt.Kg(View.TotalBillableKg)</th>
-            <th></th>
-            <th class="num">@Fmt.Vnd(ledger.Billed)</th>
-        </tr>
-        </tfoot>
-    </table>
-</div>
+            </thead>
+            <tbody>
+            @foreach (var t in p.Tickets)
+            {
+                <tr>
+                    <td class="nowrap">@Fmt.DateTime(t.TicketDateTime)</td>
+                    <td>@t.DisplayNumber</td>
+                    <td>@Stations.GetValueOrDefault(t.StationCode, t.StationCode)</td>
+                    <td class="nowrap">@t.LicensePlate</td>
+                    <td>@t.Cargo</td>
+                    @if (t.Stage == TicketStage.AwaitingSecondWeigh)
+                    {
+                        <td class="num" colspan="3">Chờ cân lần 2 (cân lần 1: @Fmt.Kg(t.FirstWeightKg))</td>
+                    }
+                    else
+                    {
+                        <td class="num">@Fmt.Kg(t.GrossWeightKg)</td>
+                        <td class="num">@Fmt.Kg(t.TareWeightKg)</td>
+                        <td class="num">@Fmt.Kg(t.NetWeightKg)</td>
+                    }
+                    <td class="num">@Fmt.Kg(t.BillableWeightKg)</td>
+                    <td class="num">@Fmt.UnitPrice(t)</td>
+                    <td class="num">@(t.Stage == TicketStage.Priced ? Fmt.Vnd(t.AmountVnd) : "Chưa có giá")</td>
+                </tr>
+            }
+            </tbody>
+            <tfoot>
+            <tr>
+                <th colspan="7" class="right">Tổng @p.PricedCount xe đã tính tiền</th>
+                <th class="num">@Fmt.Kg(p.NetKg)</th>
+                <th class="num">@Fmt.Kg(p.BillableKg)</th>
+                <th></th>
+                <th class="num">@Fmt.Vnd(p.TicketsTotal)</th>
+            </tr>
+            </tfoot>
+        </table>
+
+        <table class="ledger">
+            <tbody>
+            <tr><td>Nợ từ kỳ trước</td><td class="num">@Fmt.Balance(p.CarryIn)</td></tr>
+            <tr><td>Tiền hàng kỳ này</td><td class="num">@Fmt.Vnd(p.TicketsTotal)</td></tr>
+            <tr><th>Tổng phải trả</th><th class="num">@Fmt.Balance(p.Payable)</th></tr>
+            @foreach (var pay in p.Payments)
+            {
+                <tr class="payment-row">
+                    <td>
+                        @Fmt.Date(pay.PaidOn) · @(pay.Method == PaymentMethod.Cash ? "Tiền mặt" : string.IsNullOrWhiteSpace(pay.BankName) ? "Chuyển khoản" : $"Chuyển khoản ({pay.BankName})")
+                        @(string.IsNullOrWhiteSpace(pay.ReceivedBy) ? "" : $" · {pay.ReceivedBy} nhận")
+                        @(string.IsNullOrWhiteSpace(pay.Note) ? "" : $" · {pay.Note}")
+                    </td>
+                    <td class="num credit">− @Fmt.Vnd(pay.AmountVnd)</td>
+                </tr>
+            }
+            <tr><th>@(p.IsOpen ? "Tạm tính còn nợ" : p.Remaining < 0 ? "Đã ứng trước" : p.Remaining == 0 ? "Đã tất toán" : "Còn nợ, chuyển sang kỳ sau")</th><th class="num">@Fmt.Balance(p.Remaining)</th></tr>
+            </tbody>
+        </table>
+    </div>
+}
 <p class="muted">In ngày @Fmt.DateTime(DateTimeOffset.Now)</p>

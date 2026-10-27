@@ -49,6 +49,25 @@ Hằng ngày
 - Nhập lại file cũ hay file trùng ngày đều an toàn, không bị nhân đôi.
 
 
+Trả tiền theo kỳ (gom nhiều ngày, trả một cục)
+----------------------------------------------
+- Mở một chủ hàng: mục "Kỳ đang mở" gom các xe chưa chốt. Chọn "Chốt đến ngày" > "Xem trước" > "Chốt kỳ này".
+- Kỳ chốt xong có tổng phải trả = nợ kỳ trước + tiền hàng kỳ này. Ghi nhận trả tiền cho kỳ đó:
+  trả hết thì tất toán; trả một phần thì số còn lại tự chuyển sang kỳ sau; trả dư thì trừ vào kỳ sau.
+- Một kỳ trả được nhiều lần. Mỗi lần ghi ngày, tiền mặt/chuyển khoản, ngân hàng và người nhận.
+- Mục "Chốt kỳ" trên thanh trên cùng chốt cho nhiều chủ hàng cùng lúc.
+- Xe cân hôm nay nhưng mai mới trả xác, hoặc chưa có giá: vẫn hiện trong kỳ, chưa tính tiền.
+  Khi app cân có đủ số cân và giá, xuất file rồi nhập lại: xe tự cập nhật vào đúng kỳ, không bị trùng.
+  Nếu kỳ đã chốt thì thẻ kỳ báo "xe nhập/đổi giá sau khi chốt" và tính lại số còn nợ.
+- Mỗi xe và mỗi kỳ đều ghi rõ điểm cân (Đắk Hà / Đắk Tô) bằng nhãn màu.
+
+
+Sao lưu
+-------
+- Tự động mỗi ngày một bản vào C:\ProgramData\CanXeDebt\backup (giữ 30 bản). Quản trị xem ở mục "Sao lưu".
+- Nên đặt thêm "Thư mục phụ" (USB hoặc thư mục OneDrive) trong mục Sao lưu để mỗi bản được chép sang ổ khác.
+- Trước khi chốt mùa app tự sao lưu một bản và giữ mãi.
+
 Kiểm tra / xử lý sự cố
 ----------------------
 - Xem dịch vụ:    sc query CanXeDebt

@@ -131,7 +131,8 @@ public sealed class PaymentService(DebtDbContext db)
 {
     public async Task<OperationResult<Payment>> AddAsync(
         int customerId, int seasonId, DateOnly paidOn, long amountVnd, PaymentMethod method,
-        string? note, string user, string? receivedBy = null, string? bankName = null, CancellationToken ct = default)
+        string? note, string user, string? receivedBy = null, string? bankName = null, int? periodId = null,
+        CancellationToken ct = default)
     {
         if (amountVnd <= 0)
             return OperationResult<Payment>.Fail("Số tiền trả phải lớn hơn 0.");
@@ -146,10 +147,14 @@ public sealed class PaymentService(DebtDbContext db)
         if (!season.Contains(paidOn))
             return OperationResult<Payment>.Fail($"Ngày trả phải từ {season.StartDate:dd/MM/yyyy} trở đi.");
 
+        if (periodId is { } pid && !await db.Periods.AnyAsync(p => p.Id == pid && p.CustomerId == customerId && p.SeasonId == seasonId, ct))
+            return OperationResult<Payment>.Fail("Kỳ này không thuộc chủ hàng hoặc mùa đang chọn.");
+
         var payment = new Payment
         {
             CustomerId = customerId,
             SeasonId = seasonId,
+            PeriodId = periodId,
             PaidOn = paidOn,
             AmountVnd = amountVnd,
             Method = method,

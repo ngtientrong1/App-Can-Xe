@@ -1,0 +1,101 @@
+@page
+@inject SeasonService Seasons
+@inject SettlementService Settlements
+@functions {
+    [BindProperty(SupportsGet = true)] public DateOnly? To { get; set; }
+    [BindProperty] public DateOnly CloseTo { get; set; }
+
+    public Season? Season { get; set; }
+    public IReadOnlyList<BatchRow> Rows { get; set; } = [];
+    public string? Error { get; set; }
+    public string? Message { get; set; }
+
+    public async Task OnGetAsync()
+    {
+        Message = TempData["Message"] as string;
+        await LoadAsync();
+    }
+
+    public async Task<IActionResult> OnPostAsync()
+    {
+        Season = await Seasons.GetCurrentAsync();
+        if (Season is null)
+            return NotFound();
+
+        var result = await Settlements.CloseBatchAsync(Season.Id, CloseTo, User.Identity!.Name!);
+        if (!result.Ok)
+        {
+            Error = result.Error;
+            To = CloseTo;
+            await LoadAsync();
+            return Page();
+        }
+
+        TempData["Message"] = $"Đã chốt kỳ đến {Fmt.Date(CloseTo)} cho {result.Value} chủ hàng. Mở từng chủ hàng để ghi nhận trả tiền.";
+        return RedirectToPage();
+    }
+
+    private async Task LoadAsync()
+    {
+        Season ??= await Seasons.GetCurrentAsync();
+        To ??= DateOnly.FromDateTime(DateTime.Today);
+        if (Season is { IsClosed: false })
+            Rows = (await Settlements.PreviewBatchAsync(Season, To.Value)).Value ?? [];
+    }
+}
+@{
+    ViewData["Title"] = "Chốt kỳ hàng loạt";
+}
+<div class="page-head"><h1>Chốt kỳ hàng loạt</h1></div>
+@if (Message is not null) { <div class="alert ok" role="status">@Message</div> }
+@if (Error is not null) { <div class="alert error" role="alert">@Error</div> }
+@if (Season is null) { <div class="alert warn">Chưa có mùa cà nào.</div> return; }
+@if (Season.IsClosed) { <div class="alert warn">Mùa này đã chốt, không chốt thêm kỳ được.</div> return; }
+
+<div class="card">
+    <p>Chốt một lần cho tất cả chủ hàng có xe đến ngày bạn chọn. Mỗi chủ hàng bắt đầu kỳ từ ngày sau kỳ trước của họ. Chốt xong, mở từng chủ hàng để ghi nhận trả tiền.</p>
+    <form method="get" class="toolbar">
+        <div class="field"><label for="To">Chốt đến ngày</label><input id="To" name="To" type="date" value="@To!.Value.ToString("yyyy-MM-dd")" max="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")" /></div>
+        <button type="submit" class="secondary">Xem trước</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Sẽ chốt @Rows.Count chủ hàng</h2>
+    @if (Rows.Count == 0)
+    {
+        <p class="muted">Không có chủ hàng nào có xe mới trong khoảng này.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr><th>Chủ hàng</th><th>Kỳ từ ngày</th><th class="num">Số xe</th><th class="num">Tiền hàng</th><th class="num">Nợ kỳ trước</th><th class="num">Tổng phải trả</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var r in Rows)
+                {
+                    <tr>
+                        <td><a asp-page="/Customers/Detail" asp-route-id="@r.CustomerId">@r.CustomerName</a>
+                            @if (r.UnfinishedCount > 0) { <span class="badge pending">@r.UnfinishedCount xe chưa có giá/chờ cân</span> }
+                        </td>
+                        <td>@Fmt.Date(r.From)</td>
+                        <td class="num">@r.TruckCount</td>
+                        <td class="num">@Fmt.Vnd(r.TicketsTotal)</td>
+                        <td class="num">@Fmt.Balance(r.CarryIn)</td>
+                        <td class="num"><strong>@Fmt.Balance(r.Payable)</strong></td>
+                    </tr>
+                }
+                </tbody>
+                <tfoot>
+                <tr><th colspan="3" class="right">Tổng</th><th class="num">@Fmt.Vnd(Rows.Sum(r => r.TicketsTotal))</th><th class="num">@Fmt.Balance(Rows.Sum(r => r.CarryIn))</th><th class="num">@Fmt.Balance(Rows.Sum(r => r.Payable))</th></tr>
+                </tfoot>
+            </table>
+        </div>
+        <form method="post" data-confirm="Chốt kỳ cho @Rows.Count chủ hàng?">
+            <input type="hidden" name="CloseTo" value="@To.Value.ToString("yyyy-MM-dd")" />
+            <p><button type="submit">Chốt kỳ cho tất cả</button></p>
+        </form>
+    }
+</div>

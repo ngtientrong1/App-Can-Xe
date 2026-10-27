@@ -92,11 +92,15 @@
         {
             <div class="alert warn"><strong>@r.UnmappedTickets phiếu</strong> có tên chủ hàng chưa khớp. <a asp-page="/Names">Ghép tên chủ hàng</a></div>
         }
+        @if (r.AwaitingSecondWeigh > 0)
+        {
+            <div class="alert warn"><strong>@r.AwaitingSecondWeigh xe</strong> mới cân lần 1, đang chờ cân lần 2 (trả xác). Vẫn hiện trong sổ; khi cân xong, nhập lại file là tự cập nhật, không bị trùng.</div>
+        }
         @if (r.PendingPrice > 0)
         {
-            <div class="alert warn"><strong>@r.PendingPrice phiếu</strong> chưa có đơn giá nên chưa tính tiền.</div>
+            <div class="alert warn"><strong>@r.PendingPrice xe</strong> chưa có đơn giá nên chưa tính tiền. Khi có giá, nhập lại file là tự cộng vào sổ.</div>
         }
-        @if (r.UnmappedTickets == 0 && r.PendingPrice == 0 && r.Warnings.Count == 0)
+        @if (r.UnmappedTickets == 0 && r.PendingPrice == 0 && r.AwaitingSecondWeigh == 0 && r.Warnings.Count == 0)
         {
             <div class="alert ok">Nhập xong, không có gì cần xử lý thêm.</div>
         }

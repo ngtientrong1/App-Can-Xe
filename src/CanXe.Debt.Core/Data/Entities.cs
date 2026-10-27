@@ -68,12 +68,47 @@ public sealed class TicketRecord
     public decimal? SecondUnitPrice { get; set; }
     public long? AmountVnd { get; set; }
 
+    /// <summary>The truck has been weighed once and is waiting for the empty-truck weighing.</summary>
+    public bool AwaitingSecondWeigh { get; set; }
+
+    /// <summary>The only weight known while <see cref="AwaitingSecondWeigh"/>.</summary>
+    public decimal? FirstWeightKg { get; set; }
+
     public bool IsDeleted { get; set; }
     public required string ContentHash { get; set; }
     public int ImportBatchId { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
     public bool HasPriceSplit => SplitFirstWeightKg is > 0 && SecondUnitPrice is not null;
+
+    /// <summary>Where the ticket is on its way to becoming money owed.</summary>
+    public TicketStage Stage => AwaitingSecondWeigh ? TicketStage.AwaitingSecondWeigh : AmountVnd is null ? TicketStage.NoPrice : TicketStage.Priced;
+}
+
+public enum TicketStage
+{
+    /// <summary>Only the first weighing exists, so there is no weight to pay for yet.</summary>
+    AwaitingSecondWeigh,
+
+    /// <summary>Weighed but no unit price yet, so no amount yet.</summary>
+    NoPrice,
+    Priced
+}
+
+/// <summary>
+/// A settlement period ("kỳ") of one seller: a run of days gathered and paid together. Periods follow each other
+/// without gaps; whatever is left unpaid carries into the next one.
+/// </summary>
+public sealed class SettlementPeriod
+{
+    public int Id { get; set; }
+    public int CustomerId { get; set; }
+    public Customer? Customer { get; set; }
+    public int SeasonId { get; set; }
+    public DateOnly FromDate { get; set; }
+    public DateOnly ToDate { get; set; }
+    public DateTimeOffset ClosedAt { get; set; }
+    public required string ClosedBy { get; set; }
 }
 
 public sealed class Payment
@@ -82,6 +117,9 @@ public sealed class Payment
     public int CustomerId { get; set; }
     public Customer? Customer { get; set; }
     public int SeasonId { get; set; }
+
+    /// <summary>The settlement period this payment is for; null means the still-open period (paid ahead).</summary>
+    public int? PeriodId { get; set; }
     public DateOnly PaidOn { get; set; }
     public long AmountVnd { get; set; }
     public PaymentMethod Method { get; set; }

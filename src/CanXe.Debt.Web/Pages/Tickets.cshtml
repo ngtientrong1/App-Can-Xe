@@ -39,7 +39,9 @@
 
         var list = await query.Include(t => t.Customer).ToListAsync();
         if (Filter == "pending")
-            list = list.Where(t => t.AmountVnd is null && Policy.IsBilled(t.Cargo)).ToList();
+            list = list.Where(t => t.Stage != TicketStage.Priced && Policy.IsBilled(t.Cargo)).ToList();
+        else if (Filter == "awaiting")
+            list = list.Where(t => t.Stage == TicketStage.AwaitingSecondWeigh).ToList();
 
         var needle = NameNormalizer.Normalize(Q);
         if (needle.Length > 0)
@@ -76,7 +78,8 @@
             <label for="Filter">Hiện</label>
             <select id="Filter" name="Filter" data-autosubmit>
                 <option value="" selected="@string.IsNullOrEmpty(Filter)">Tất cả phiếu</option>
-                <option value="pending" selected="@(Filter == "pending")">Chưa có đơn giá</option>
+                <option value="pending" selected="@(Filter == "pending")">Chưa tính tiền (chờ cân / chưa có giá)</option>
+                <option value="awaiting" selected="@(Filter == "awaiting")">Chờ cân lần 2 (trả xác)</option>
                 <option value="unmapped" selected="@(Filter == "unmapped")">Chưa ghép chủ hàng</option>
             </select>
         </div>
@@ -102,7 +105,7 @@
                 <tr>
                     <td class="nowrap">@Fmt.DateTime(t.TicketDateTime)</td>
                     <td>@t.DisplayNumber</td>
-                    <td>@Stations.GetValueOrDefault(t.StationCode, t.StationCode)</td>
+                    <td><span class="@Fmt.StationClass(t.StationCode)">@Stations.GetValueOrDefault(t.StationCode, t.StationCode)</span></td>
                     <td>
                         @if (t.Customer is not null)
                         {
@@ -115,12 +118,19 @@
                     </td>
                     <td class="nowrap">@t.LicensePlate</td>
                     <td>@t.Cargo@(Policy.IsBilled(t.Cargo) ? "" : " (không tính nợ)")</td>
-                    <td class="num">@Fmt.Kg(t.GrossWeightKg)</td>
-                    <td class="num">@Fmt.Kg(t.TareWeightKg)</td>
-                    <td class="num">@Fmt.Kg(t.NetWeightKg)</td>
+                    @if (t.Stage == TicketStage.AwaitingSecondWeigh)
+                    {
+                        <td class="num" colspan="3">Chờ cân lần 2 (cân lần 1: @Fmt.Kg(t.FirstWeightKg))</td>
+                    }
+                    else
+                    {
+                        <td class="num">@Fmt.Kg(t.GrossWeightKg)</td>
+                        <td class="num">@Fmt.Kg(t.TareWeightKg)</td>
+                        <td class="num">@Fmt.Kg(t.NetWeightKg)</td>
+                    }
                     <td class="num">@Fmt.Kg(t.BillableWeightKg)</td>
                     <td class="num">@Fmt.UnitPrice(t)</td>
-                    <td class="num">@(t.AmountVnd is null ? "Chưa có giá" : Fmt.Vnd(t.AmountVnd))</td>
+                    <td class="num">@(t.Stage == TicketStage.Priced ? Fmt.Vnd(t.AmountVnd) : Fmt.StageText(t.Stage))</td>
                 </tr>
             }
             </tbody>

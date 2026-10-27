@@ -96,6 +96,18 @@ public sealed class DailyBackupService(BackupManager backups, IServiceScopeFacto
     }
 }
 
+/// <summary>What the period card needs besides the period itself.</summary>
+public sealed record PeriodCardModel(
+    PeriodView View,
+    int CustomerId,
+    int SeasonId,
+    bool SeasonOpen,
+    bool CanUndo,
+    IReadOnlyDictionary<string, string> Stations)
+{
+    public string StationName(string code) => Stations.GetValueOrDefault(code, code);
+}
+
 public static class Fmt
 {
     private static readonly NumberFormatInfo Vi = new()
@@ -137,6 +149,21 @@ public static class Fmt
         var allowed = text.All(c => char.IsDigit(c) || c is '.' or ',' or ' ');
         return allowed && digits.Length is > 0 and <= 15 && long.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out value);
     }
+
+    /// <summary>Colour class that tells scale stations apart at a glance; the same station always gets the same one.</summary>
+    public static string StationClass(string code) => "st st-" + (code.ToUpperInvariant().Sum(c => c) % 4);
+
+    public static string Range(DateOnly from, DateOnly? to) =>
+        to is null ? $"từ {from:dd/MM/yyyy}"
+        : from == to ? Date(from)
+        : $"{from:dd/MM} – {to:dd/MM/yyyy}";
+
+    public static string StageText(TicketStage stage) => stage switch
+    {
+        TicketStage.AwaitingSecondWeigh => "Chờ cân lần 2",
+        TicketStage.NoPrice => "Chưa có giá",
+        _ => "Đã tính tiền"
+    };
 
     public static string Method(PaymentMethod method) => method == PaymentMethod.Cash ? "Tiền mặt" : "Chuyển khoản";
 }

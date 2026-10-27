@@ -18,7 +18,8 @@ public sealed record ImportResult(
     int OutsideSeason,
     int UnmappedTickets,
     int PendingPrice,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings,
+    int AwaitingSecondWeigh = 0);
 
 public sealed class ImportService(DebtDbContext db)
 {
@@ -130,8 +131,9 @@ public sealed class ImportService(DebtDbContext db)
             batch.Id, stationCode, stationName, batch.FromDate, batch.ToDate, file.Tickets.Count,
             added, updated, unchanged, skipped, outside,
             touched.Count(t => t.CustomerId is null),
-            billable.Count(t => t.AmountVnd is null),
-            warnings));
+            billable.Count(t => t.Stage == TicketStage.NoPrice),
+            warnings,
+            billable.Count(t => t.Stage == TicketStage.AwaitingSecondWeigh)));
     }
 
     public static string? Validate(DebtExportFile? file)
@@ -201,6 +203,8 @@ public sealed class ImportService(DebtDbContext db)
         ticket.TareWeightKg = source.TareWeightKg;
         ticket.NetWeightKg = source.NetWeightKg;
         ticket.BillableWeightKg = source.BillableWeightKg;
+        ticket.AwaitingSecondWeigh = source.AwaitingSecondWeigh;
+        ticket.FirstWeightKg = source.FirstWeightKg;
         ticket.UnitPrice = source.UnitPrice;
         ticket.SplitFirstWeightKg = source.SplitFirstWeightKg;
         ticket.SecondUnitPrice = source.SecondUnitPrice;

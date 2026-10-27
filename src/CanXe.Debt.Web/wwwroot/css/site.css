@@ -168,6 +168,39 @@ button:hover, .btn:hover { filter: brightness(1.08); }
 details summary { cursor: pointer; color: var(--brand); }
 .inline-form { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
 
+.st { display: inline-block; padding: 1px 9px; border-radius: 6px; font-size: .85rem; font-weight: 600; white-space: nowrap; border: 1px solid transparent; }
+.st-0 { background: #e0ecff; color: #1b3f8f; border-color: #b9d0fb; }
+.st-1 { background: #e3f3e6; color: #1d5a2c; border-color: #b6dcbe; }
+.st-2 { background: #fdebd3; color: #7a4a05; border-color: #f2cf9a; }
+.st-3 { background: #f1e2f6; color: #6a2380; border-color: #dcbfe8; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .st-0 { background: #1b2c4d; color: #a9c6ff; border-color: #2f4a7d; }
+  :root:not([data-theme="light"]) .st-1 { background: #173424; color: #9fdcae; border-color: #28583c; }
+  :root:not([data-theme="light"]) .st-2 { background: #3a2f14; color: #f0cb85; border-color: #6a5223; }
+  :root:not([data-theme="light"]) .st-3 { background: #35213d; color: #deb4ee; border-color: #5b3869; }
+}
+
+.period { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 14px 18px; margin-bottom: 16px; }
+.period.open { border: 2px solid var(--brand); }
+.period-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.period-head h3 { margin: 0; font-size: 1.15rem; }
+.mini-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 10px 0; }
+.mini-stats > div { background: color-mix(in srgb, var(--surface) 92%, var(--ink)); border-radius: 8px; padding: 8px 12px; }
+.mini-stats .label { font-size: .82rem; color: var(--muted); }
+.mini-stats .value { font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.chip { display: inline-flex; gap: 8px; align-items: center; background: color-mix(in srgb, var(--surface) 94%, var(--ink)); border-radius: 8px; padding: 5px 10px; font-size: .92rem; }
+.pay-line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; padding: 8px 0; border-top: 1px solid var(--line); }
+.pay-line .amount { font-weight: 700; color: var(--ok); font-variant-numeric: tabular-nums; }
+.pay-line.voided { color: var(--muted); text-decoration: line-through; }
+.outcome { margin-top: 10px; padding: 10px 14px; border-radius: 8px; font-weight: 600; }
+.outcome.owe { background: var(--danger-soft); color: var(--danger); }
+.outcome.done { background: var(--ok-soft); color: var(--ok); }
+.outcome.ahead { background: var(--warn-soft); color: var(--warn); }
+.outcome.open { background: color-mix(in srgb, var(--surface) 90%, var(--ink)); }
+.stage { font-size: .8rem; }
+tr.dim td { color: var(--muted); }
+
 .small { font-size: .85rem; }
 .credit { color: var(--ok); font-weight: 700; }
 .payment-row td { background: color-mix(in srgb, var(--ok-soft) 45%, transparent); }

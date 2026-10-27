@@ -10,6 +10,7 @@ public sealed class DebtDbContext(DbContextOptions<DebtDbContext> options) : DbC
     public DbSet<TicketRecord> Tickets => Set<TicketRecord>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
+    public DbSet<SettlementPeriod> Periods => Set<SettlementPeriod>();
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<AppSetting> Settings => Set<AppSetting>();
 
@@ -25,6 +26,11 @@ public sealed class DebtDbContext(DbContextOptions<DebtDbContext> options) : DbC
         b.Entity<TicketRecord>().HasIndex(x => x.CustomerId);
         b.Entity<TicketRecord>().HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId);
         b.Entity<TicketRecord>().Ignore(x => x.HasPriceSplit);
+        b.Entity<TicketRecord>().Ignore(x => x.Stage);
+
+        b.Entity<SettlementPeriod>().HasIndex(x => new { x.CustomerId, x.SeasonId, x.FromDate }).IsUnique();
+        b.Entity<SettlementPeriod>().HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId);
+        b.Entity<Payment>().HasIndex(x => x.PeriodId);
 
         b.Entity<Payment>().HasIndex(x => new { x.CustomerId, x.SeasonId });
         b.Entity<Payment>().HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId);

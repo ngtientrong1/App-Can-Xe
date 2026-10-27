@@ -77,8 +77,8 @@
 @if (Overview.PendingTickets > 0)
 {
     <div class="alert warn" role="status">
-        <strong>@Overview.PendingTickets phiếu</strong> chưa có đơn giá, nên chưa tính tiền.
-        <a asp-page="/Tickets" asp-route-Filter="pending" asp-route-SeasonId="@season.Id">Xem các phiếu này</a>
+        <strong>@Overview.PendingTickets xe</strong> chưa có đơn giá hoặc đang chờ cân lần 2, nên chưa tính tiền.
+        <a asp-page="/Tickets" asp-route-Filter="pending" asp-route-SeasonId="@season.Id">Xem các xe này</a>
     </div>
 }
 

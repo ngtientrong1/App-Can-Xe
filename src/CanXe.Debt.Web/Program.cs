@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using CanXe.Debt.Data;
 using CanXe.Debt.Services;
 using CanXe.Debt.Web;
@@ -7,6 +7,11 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+
+// Dates are written dd/MM/yyyy everywhere; the "/" in a format string is the culture's own separator, so pin the culture.
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseWindowsService();
@@ -21,6 +26,7 @@ builder.Services.AddScoped<SettingsService>();
 builder.Services.AddScoped<CustomerService>();
 builder.Services.AddScoped<ImportService>();
 builder.Services.AddScoped<LedgerService>();
+builder.Services.AddScoped<SettlementService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddSingleton<LoginThrottle>();

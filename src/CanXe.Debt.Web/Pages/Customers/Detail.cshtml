@@ -1,22 +1,29 @@
 @page "{id:int}"
-@using System.Security.Claims
 @inject SeasonService Seasons
 @inject LedgerService Ledger
+@inject SettlementService Settlements
 @inject PaymentService Payments
+@inject CustomerService Customers
 @functions {
     [BindProperty(SupportsGet = true)] public int Id { get; set; }
     [BindProperty(SupportsGet = true)] public int? SeasonId { get; set; }
+    [BindProperty(SupportsGet = true)] public DateOnly? CloseTo { get; set; }
 
     [BindProperty] public DateOnly PaidOn { get; set; } = DateOnly.FromDateTime(DateTime.Today);
     [BindProperty] public string AmountText { get; set; } = "";
     [BindProperty] public PaymentMethod Method { get; set; } = PaymentMethod.Cash;
+    [BindProperty] public int? PeriodId { get; set; }
     [BindProperty] public string? BankName { get; set; }
     [BindProperty] public string? ReceivedBy { get; set; }
     [BindProperty] public string? Note { get; set; }
     [BindProperty] public int VoidId { get; set; }
     [BindProperty] public string? VoidReason { get; set; }
 
-    public CustomerLedgerView? View { get; set; }
+    public Customer? Customer { get; set; }
+    public Season? Season { get; set; }
+    public CustomerSettlement? Settlement { get; set; }
+    public PeriodView? ClosePreview { get; set; }
+    public string? CloseError { get; set; }
     public Dictionary<string, string> Stations { get; set; } = [];
     public string? Error { get; set; }
     public string? Message { get; set; }
@@ -24,7 +31,17 @@
     public async Task<IActionResult> OnGetAsync()
     {
         Message = TempData["Message"] as string;
-        return await LoadAsync() ? Page() : NotFound();
+        if (!await LoadAsync())
+            return NotFound();
+
+        if (CloseTo is { } to && Season is { IsClosed: false })
+        {
+            var preview = await Settlements.PreviewCloseAsync(Id, Season, to);
+            ClosePreview = preview.Value;
+            CloseError = preview.Error;
+        }
+
+        return Page();
     }
 
     public async Task<IActionResult> OnPostPayAsync()
@@ -39,7 +56,7 @@
         }
 
         var result = await Payments.AddAsync(
-            Id, View!.Season.Id, PaidOn, amount, Method, Note, User.Identity!.Name!, ReceivedBy, BankName);
+            Id, Season!.Id, PaidOn, amount, Method, Note, User.Identity!.Name!, ReceivedBy, BankName, PeriodId);
         if (!result.Ok)
         {
             Error = result.Error;
@@ -47,7 +64,39 @@
         }
 
         TempData["Message"] = $"Đã ghi nhận trả {Fmt.Vnd(amount)} đ ({Fmt.Method(Method).ToLowerInvariant()}).";
-        return RedirectToPage(new { id = Id, seasonId = View.Season.Id });
+        return RedirectToPage(new { id = Id, seasonId = Season.Id });
+    }
+
+    public async Task<IActionResult> OnPostCloseAsync(DateOnly closeTo)
+    {
+        if (!await LoadAsync())
+            return NotFound();
+
+        var result = await Settlements.ClosePeriodAsync(Id, Season!.Id, closeTo, User.Identity!.Name!);
+        if (!result.Ok)
+        {
+            Error = result.Error;
+            return Page();
+        }
+
+        TempData["Message"] = $"Đã chốt kỳ {Fmt.Range(result.Value!.FromDate, result.Value.ToDate)}. Giờ có thể ghi nhận trả tiền cho kỳ này.";
+        return RedirectToPage(new { id = Id, seasonId = Season.Id });
+    }
+
+    public async Task<IActionResult> OnPostUndoAsync()
+    {
+        if (!await LoadAsync())
+            return NotFound();
+
+        var result = await Settlements.UndoLastCloseAsync(Id, Season!.Id);
+        if (!result.Ok)
+        {
+            Error = result.Error;
+            return Page();
+        }
+
+        TempData["Message"] = "Đã hủy chốt kỳ gần nhất.";
+        return RedirectToPage(new { id = Id, seasonId = Season.Id });
     }
 
     public async Task<IActionResult> OnPostVoidAsync()
@@ -63,32 +112,39 @@
         }
 
         TempData["Message"] = "Đã hủy khoản trả (vẫn lưu lại trong lịch sử).";
-        return RedirectToPage(new { id = Id, seasonId = View!.Season.Id });
+        return RedirectToPage(new { id = Id, seasonId = Season!.Id });
     }
 
     private async Task<bool> LoadAsync()
     {
-        var season = SeasonId is { } sid ? await Seasons.GetAsync(sid) : await Seasons.GetCurrentAsync();
-        if (season is null)
+        Season = SeasonId is { } sid ? await Seasons.GetAsync(sid) : await Seasons.GetCurrentAsync();
+        Customer = await Customers.GetAsync(Id);
+        if (Season is null || Customer is null)
             return false;
 
-        View = await Ledger.GetCustomerAsync(Id, season);
+        Settlement = await Settlements.GetAsync(Id, Season);
         Stations = await Ledger.GetStationNamesAsync();
-        if (View is not null && !View.Season.Contains(PaidOn))
-            PaidOn = View.Season.EndDate ?? View.Season.StartDate;
-        return View is not null;
+        if (!Season.Contains(PaidOn))
+            PaidOn = Season.EndDate ?? Season.StartDate;
+        return Settlement is not null;
     }
-
-    private string Station(string code) => Stations.GetValueOrDefault(code, code);
 }
-@if (View is null) { return; }
+@if (Settlement is null || Customer is null || Season is null) { return; }
 @{
-    var customer = View.Customer;
-    var ledger = View.Ledger;
-    var season = View.Season;
-    ViewData["Title"] = customer.Name;
+    var customer = Customer;
+    var season = Season;
+    var s = Settlement;
     var open = !season.IsClosed;
-    var voided = View.Payments.Where(p => p.IsVoided).ToList();
+    ViewData["Title"] = customer.Name;
+
+    var openPeriod = s.Open;
+    var lastClosed = s.Closed.LastOrDefault();
+    var payable = s.Closed.Where(p => p.Remaining > 0).OrderBy(p => p.From).ToList();
+    var defaultPeriod = payable.FirstOrDefault()?.Id;
+    var allTickets = s.Periods.SelectMany(p => p.Tickets).ToList();
+    var latestTicketDate = openPeriod.Tickets.Count == 0 ? (DateOnly?)null : openPeriod.Tickets.Max(t => t.TicketDate);
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    var suggested = CloseTo ?? (latestTicketDate is { } l && l <= today ? l : today);
 }
 <div class="page-head">
     <div>
@@ -105,33 +161,38 @@
 @if (Error is not null) { <div class="alert error" role="alert">@Error</div> }
 
 <section class="stats" aria-label="Tổng hợp chủ hàng">
-    <div class="stat"><div class="label">Phải trả · @View.Tickets.Count(t => t.Settlement.Status != SettlementStatus.Pending) xe · @Fmt.Kg(View.TotalBillableKg) kg</div><div class="value">@Fmt.Vnd(ledger.Billed)</div></div>
-    <div class="stat good"><div class="label">Đã trả · mặt @Fmt.Vnd(View.CashPaid) · CK @Fmt.Vnd(View.TransferPaid)</div><div class="value">@Fmt.Vnd(ledger.Paid)</div></div>
-    @if (ledger.Balance >= 0)
+    <div class="stat"><div class="label">Tổng tiền hàng · @s.Periods.Sum(p => p.PricedCount) xe · @Fmt.Kg(s.Periods.Sum(p => p.BillableKg)) kg</div><div class="value">@Fmt.Vnd(s.TotalBilled)</div></div>
+    <div class="stat good"><div class="label">Đã trả</div><div class="value">@Fmt.Vnd(s.TotalPaid)</div></div>
+    @if (s.Balance >= 0)
     {
-        <div class="stat debt"><div class="label">Còn nợ</div><div class="value">@Fmt.Vnd(ledger.Balance)</div></div>
+        <div class="stat debt"><div class="label">Còn nợ chủ hàng</div><div class="value">@Fmt.Vnd(s.Balance)</div></div>
     }
     else
     {
-        <div class="stat good"><div class="label">Đã ứng trước (trừ vào các xe sau)</div><div class="value">@Fmt.Vnd(ledger.Credit)</div></div>
+        <div class="stat good"><div class="label">Đã ứng trước (trừ vào các xe sau)</div><div class="value">@Fmt.Vnd(-s.Balance)</div></div>
     }
 </section>
-
-@if (View.Tickets.Any(t => t.Settlement.Status == SettlementStatus.Pending))
-{
-    <div class="alert warn" role="status">Có phiếu chưa có đơn giá nên chưa tính vào nợ. Khi app cân cập nhật giá, hãy nhập lại file.</div>
-}
 
 @if (open)
 {
     <div class="card" id="thu">
         <h2>Ghi nhận trả tiền</h2>
-        <form method="post" asp-page-handler="Pay" asp-route-id="@customer.Id" asp-route-SeasonId="@season.Id">
+        <form method="post" asp-page-handler="Pay" asp-route-id="@customer.Id" asp-route-SeasonId="@season.Id" data-pay-form>
             <div class="form-grid">
+                <div class="field">
+                    <label for="PeriodId">Trả cho kỳ</label>
+                    <select id="PeriodId" name="PeriodId" data-pay-period>
+                        @foreach (var p in payable)
+                        {
+                            <option value="@p.Id" data-remaining="@p.Remaining" selected="@(p.Id == defaultPeriod)">Kỳ @Fmt.Range(p.From, p.To) · còn nợ @Fmt.Vnd(p.Remaining)</option>
+                        }
+                        <option value="" data-remaining="@openPeriod.Remaining" selected="@(defaultPeriod is null)">Kỳ đang mở (chưa chốt)@(openPeriod.Remaining > 0 ? $" · nợ tạm tính {Fmt.Vnd(openPeriod.Remaining)}" : "")</option>
+                    </select>
+                </div>
                 <div class="field"><label for="PaidOn">Ngày trả</label><input id="PaidOn" name="PaidOn" type="date" value="@PaidOn.ToString("yyyy-MM-dd")" required /></div>
                 <div class="field">
-                    <label for="AmountText">Số tiền (đồng)</label>
-                    <input id="AmountText" name="AmountText" type="text" inputmode="numeric" data-money value="@AmountText" autocomplete="off" required />
+                    <label for="AmountText">Số tiền trả (đồng)</label>
+                    <input id="AmountText" name="AmountText" type="text" inputmode="numeric" data-money data-pay-amount value="@AmountText" autocomplete="off" required />
                 </div>
                 <div class="field">
                     <label>Hình thức</label>
@@ -144,12 +205,10 @@
                 <div class="field"><label for="ReceivedBy">Người nhận tiền</label><input id="ReceivedBy" name="ReceivedBy" type="text" value="@ReceivedBy" placeholder="Ai nhận giùm…" /></div>
                 <div class="field"><label for="Note">Ghi chú (không bắt buộc)</label><input id="Note" name="Note" type="text" value="@Note" /></div>
             </div>
+            <div class="outcome open" data-pay-result></div>
             <p class="toolbar">
                 <button type="submit">Ghi nhận trả tiền</button>
-                @if (ledger.Balance > 0)
-                {
-                    <button type="button" class="secondary" data-fill="AmountText" data-value="@ledger.Balance">Trả hết (@Fmt.Vnd(ledger.Balance))</button>
-                }
+                <button type="button" class="secondary" data-pay-all>Trả hết kỳ đã chọn</button>
             </p>
         </form>
     </div>
@@ -159,148 +218,52 @@ else
     <div class="alert warn">Mùa này đã chốt nên không trả thêm hoặc hủy khoản trả được.</div>
 }
 
-<div class="card">
-    <h2>Sổ công nợ</h2>
-    @if (View.Statement.Count == 0)
-    {
-        <p class="muted">Chưa có phiếu hay khoản trả nào trong mùa này.</p>
-    }
-    else
-    {
-        <div class="table-wrap">
-            <table class="ledger">
-                <thead>
-                <tr>
-                    <th>Ngày</th><th>Nội dung</th>
-                    <th class="num">Phải trả</th><th class="num">Đã trả</th><th class="num">Còn nợ</th><th class="no-print"></th>
-                </tr>
-                </thead>
-                <tbody>
-                @foreach (var line in View.Statement)
-                {
-                    if (line.Kind == StatementLineKind.Tickets)
+@if (open)
+{
+    <div class="card" id="chot">
+        <h2>Chốt kỳ</h2>
+        <p class="muted">Gom các xe từ @Fmt.Date(openPeriod.From) đến ngày bạn chọn thành một kỳ để trả tiền một lần. Số còn nợ sẽ tự chuyển sang kỳ sau.</p>
+        <form method="get" class="toolbar">
+            <input type="hidden" name="SeasonId" value="@season.Id" />
+            <div class="field"><label for="CloseTo">Chốt đến ngày</label><input id="CloseTo" name="CloseTo" type="date" value="@suggested.ToString("yyyy-MM-dd")" min="@openPeriod.From.ToString("yyyy-MM-dd")" max="@today.ToString("yyyy-MM-dd")" /></div>
+            <button type="submit" class="secondary">Xem trước</button>
+        </form>
+        @if (CloseError is not null)
+        {
+            <div class="alert warn" role="status">@CloseError</div>
+        }
+        @if (ClosePreview is { } pv)
+        {
+            <div class="period">
+                <div class="period-head"><h3>Xem trước kỳ @Fmt.Range(pv.From, pv.To)</h3></div>
+                <div class="mini-stats">
+                    <div><div class="label">Nợ từ kỳ trước</div><div class="value">@Fmt.Balance(pv.CarryIn)</div></div>
+                    <div><div class="label">Tiền hàng · @pv.PricedCount xe · @Fmt.Kg(pv.BillableKg) kg</div><div class="value">@Fmt.Vnd(pv.TicketsTotal)</div></div>
+                    <div><div class="label">Đã trả trước (nếu có)</div><div class="value">@Fmt.Vnd(pv.Paid)</div></div>
+                    <div><div class="label">Tổng phải trả</div><div class="value">@Fmt.Balance(pv.Payable - pv.Paid)</div></div>
+                </div>
+                <div class="chips">
+                    @foreach (var st in pv.ByStation)
                     {
-                        <tr>
-                            <td class="nowrap">@Fmt.Date(line.Date)</td>
-                            <td>
-                                <details>
-                                    <summary>@line.Description · @Fmt.Kg(line.TotalBillableKg) kg@(line.PendingCount > 0 ? $" · {line.PendingCount} xe chưa có giá" : "")</summary>
-                                    <ul class="truck-list">
-                                        @foreach (var t in line.Tickets)
-                                        {
-                                            <li>@t.DisplayNumber · @t.LicensePlate · @Fmt.Kg(t.BillableWeightKg) kg × @Fmt.UnitPrice(t) = @(t.AmountVnd is null ? "chưa có giá" : Fmt.Vnd(t.AmountVnd))</li>
-                                        }
-                                    </ul>
-                                </details>
-                            </td>
-                            <td class="num">@Fmt.Vnd(line.Debit)</td>
-                            <td class="num"></td>
-                            <td class="num @(line.Balance > 0 ? "debt-pos" : line.Balance < 0 ? "debt-neg" : "debt-zero")">@Fmt.Balance(line.Balance)</td>
-                            <td class="no-print"></td>
-                        </tr>
+                        <span class="chip"><span class="@Fmt.StationClass(st.StationCode)">@st.StationName</span> @st.TruckCount xe · @Fmt.Kg(st.BillableKg) kg · <strong>@Fmt.Vnd(st.Amount)</strong></span>
                     }
-                    else
-                    {
-                        var p = line.Payment!;
-                        <tr class="payment-row">
-                            <td class="nowrap">@Fmt.Date(line.Date)</td>
-                            <td>@line.Description<div class="muted small">Nhập bởi @p.CreatedBy lúc @Fmt.DateTime(p.CreatedAt)</div></td>
-                            <td class="num"></td>
-                            <td class="num credit">@Fmt.Vnd(line.Credit)</td>
-                            <td class="num @(line.Balance > 0 ? "debt-pos" : line.Balance < 0 ? "debt-neg" : "debt-zero")">@Fmt.Balance(line.Balance)</td>
-                            <td class="no-print">
-                                @if (open)
-                                {
-                                    <details>
-                                        <summary>Hủy</summary>
-                                        <form method="post" asp-page-handler="Void" asp-route-id="@customer.Id" asp-route-SeasonId="@season.Id" class="inline-form" data-confirm="Hủy khoản trả này?">
-                                            <input type="hidden" name="VoidId" value="@p.Id" />
-                                            <input type="text" name="VoidReason" placeholder="Lý do hủy" required />
-                                            <button type="submit" class="danger">Hủy</button>
-                                        </form>
-                                    </details>
-                                }
-                            </td>
-                        </tr>
-                    }
-                }
-                </tbody>
-            </table>
-        </div>
-        <p class="muted">Bấm vào dòng số xe để xem từng xe. “Còn nợ” là số dư sau mỗi dòng; đã ứng trước thì hiện màu xanh.</p>
-    }
-
-    @if (voided.Count > 0)
-    {
-        <details>
-            <summary>@voided.Count khoản trả đã hủy</summary>
-            <ul>
-                @foreach (var p in voided)
+                </div>
+                @if (pv.AwaitingCount > 0 || pv.NoPriceCount > 0)
                 {
-                    <li>@Fmt.Date(p.PaidOn): @Fmt.Vnd(p.AmountVnd) đ (@Fmt.Method(p.Method)) — hủy bởi @p.VoidedBy: @p.VoidReason</li>
+                    <div class="alert warn">@pv.AwaitingCount xe chờ cân lần 2 và @pv.NoPriceCount xe chưa có giá trong kỳ này chưa được tính tiền. Có giá rồi nhập lại file là tự cộng vào kỳ.</div>
                 }
-            </ul>
-        </details>
-    }
-</div>
+                <form method="post" asp-page-handler="Close" asp-route-id="@customer.Id" asp-route-SeasonId="@season.Id">
+                    <input type="hidden" name="closeTo" value="@pv.To?.ToString("yyyy-MM-dd")" />
+                    <button type="submit">Chốt kỳ này</button>
+                </form>
+            </div>
+        }
+    </div>
+}
 
-<div class="card">
-    <h2>Chi tiết các xe đã cân (@View.Tickets.Count)</h2>
-    @if (View.Tickets.Count == 0)
-    {
-        <p class="muted">Chưa có phiếu nào của chủ hàng trong mùa này.</p>
-    }
-    else
-    {
-        <div class="table-wrap">
-            <table>
-                <thead>
-                <tr>
-                    <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Biển số</th><th>Loại hàng</th>
-                    <th class="num">Tổng</th><th class="num">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
-                    <th class="num">Đơn giá</th><th class="num">Thành tiền</th><th>Thanh toán</th>
-                </tr>
-                </thead>
-                <tbody>
-                @foreach (var row in View.Tickets)
-                {
-                    var t = row.Ticket;
-                    <tr>
-                        <td class="nowrap">@Fmt.DateTime(t.TicketDateTime)</td>
-                        <td>@t.DisplayNumber</td>
-                        <td>@Station(t.StationCode)</td>
-                        <td class="nowrap">@t.LicensePlate</td>
-                        <td>@t.Cargo</td>
-                        <td class="num">@Fmt.Kg(t.GrossWeightKg)</td>
-                        <td class="num">@Fmt.Kg(t.TareWeightKg)</td>
-                        <td class="num">@Fmt.Kg(t.NetWeightKg)</td>
-                        <td class="num">@Fmt.Kg(t.BillableWeightKg)</td>
-                        <td class="num">@Fmt.UnitPrice(t)</td>
-                        <td class="num">@Fmt.Vnd(t.AmountVnd)</td>
-                        <td>
-                            @switch (row.Settlement.Status)
-                            {
-                                case SettlementStatus.Paid: <span class="badge paid">Đã trả</span> break;
-                                case SettlementStatus.Partial: <span class="badge partial">Còn @Fmt.Vnd(row.Settlement.Remaining)</span> break;
-                                case SettlementStatus.Unpaid: <span class="badge unpaid">Chưa trả</span> break;
-                                default: <span class="badge pending">Chưa có giá</span> break;
-                            }
-                        </td>
-                    </tr>
-                }
-                </tbody>
-                <tfoot>
-                <tr>
-                    <th colspan="7" class="right">Tổng</th>
-                    <th class="num">@Fmt.Kg(View.TotalNetKg)</th>
-                    <th class="num">@Fmt.Kg(View.TotalBillableKg)</th>
-                    <th></th>
-                    <th class="num">@Fmt.Vnd(ledger.Billed)</th>
-                    <th></th>
-                </tr>
-                </tfoot>
-            </table>
-        </div>
-        <p class="muted">Tiền chủ hàng trả được trừ dần vào các xe cũ nhất trước để biết xe nào đã thanh toán.</p>
-    }
-</div>
+<h2>Các kỳ</h2>
+<partial name="_PeriodCard" model="new PeriodCardModel(openPeriod, customer.Id, season.Id, open, false, Stations)" />
+@foreach (var p in s.Closed.OrderByDescending(p => p.From))
+{
+    <partial name="_PeriodCard" model="new PeriodCardModel(p, customer.Id, season.Id, open, open && lastClosed is not null && p.Id == lastClosed.Id && p.Payments.Count == 0, Stations)" />
+}
