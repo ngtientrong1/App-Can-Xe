@@ -32,10 +32,15 @@
                 <a asp-page="/Names" class="@Active("/Names")">Ghép tên</a>
                 @if (isAdmin)
                 {
-                    <a asp-page="/Admin/Seasons" class="@Active("/Admin/Seasons")">Mùa cà</a>
-                    <a asp-page="/Admin/Backup" class="@Active("/Admin/Backup")">Sao lưu</a>
-                    <a asp-page="/Admin/Settings" class="@Active("/Admin/Settings")">Cài đặt</a>
-                    <a asp-page="/Admin/Users" class="@Active("/Admin/Users")">Tài khoản</a>
+                    <details class="menu @(current.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase) ? "active" : "")">
+                        <summary>Quản trị</summary>
+                        <div class="menu-pop">
+                            <a asp-page="/Admin/Seasons" class="@Active("/Admin/Seasons")">Mùa cà</a>
+                            <a asp-page="/Admin/Backup" class="@Active("/Admin/Backup")">Sao lưu</a>
+                            <a asp-page="/Admin/Settings" class="@Active("/Admin/Settings")">Cài đặt</a>
+                            <a asp-page="/Admin/Users" class="@Active("/Admin/Users")">Tài khoản</a>
+                        </div>
+                    </details>
                 }
             </nav>
             <div class="userbox">

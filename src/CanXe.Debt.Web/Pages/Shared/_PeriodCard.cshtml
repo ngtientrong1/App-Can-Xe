@@ -124,8 +124,8 @@
                 <table>
                     <thead>
                     <tr>
-                        <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Biển số</th><th>Loại hàng</th>
-                        <th class="num">Tổng</th><th class="num">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
+                        <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Biển số</th><th class="col-opt">Loại hàng</th>
+                        <th class="num col-opt">Tổng</th><th class="num col-opt">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
                         <th class="num">Đơn giá</th><th class="num">Thành tiền</th><th>Tình trạng</th><th>Ghi chú</th>
                     </tr>
                     </thead>
@@ -137,16 +137,17 @@
                             <td>@t.DisplayNumber</td>
                             <td><span class="@Fmt.StationClass(t.StationCode)">@Model.StationName(t.StationCode)</span></td>
                             <td class="nowrap">@t.LicensePlate</td>
-                            <td>@t.Cargo</td>
+                            <td class="col-opt">@t.Cargo</td>
                             @if (t.Stage == TicketStage.AwaitingSecondWeigh)
                             {
-                                <td class="num" colspan="2">Cân lần 1: @Fmt.Kg(t.FirstWeightKg)</td>
-                                <td class="num">—</td>
+                                <td class="num col-opt">—</td>
+                                <td class="num col-opt">—</td>
+                                <td class="num" title="Chờ cân lần 2">Lần 1: @Fmt.Kg(t.FirstWeightKg)</td>
                             }
                             else
                             {
-                                <td class="num">@Fmt.Kg(t.GrossWeightKg)</td>
-                                <td class="num">@Fmt.Kg(t.TareWeightKg)</td>
+                                <td class="num col-opt">@Fmt.Kg(t.GrossWeightKg)</td>
+                                <td class="num col-opt">@Fmt.Kg(t.TareWeightKg)</td>
                                 <td class="num">@Fmt.Kg(t.NetWeightKg)</td>
                             }
                             <td class="num">@Fmt.Kg(t.BillableWeightKg)</td>
@@ -166,7 +167,8 @@
                     </tbody>
                     <tfoot>
                     <tr>
-                        <th colspan="7" class="right">Tổng</th>
+                        <th colspan="4" class="right">Tổng</th>
+                        <th class="col-opt" colspan="3"></th>
                         <th class="num">@Fmt.Kg(v.NetKg)</th>
                         <th class="num">@Fmt.Kg(v.BillableKg)</th>
                         <th></th>

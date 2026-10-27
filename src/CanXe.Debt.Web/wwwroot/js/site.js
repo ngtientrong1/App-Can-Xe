@@ -24,6 +24,12 @@
     });
   });
 
+  document.addEventListener("click", function (e) {
+    document.querySelectorAll("details.menu[open]").forEach(function (menu) {
+      if (!menu.contains(e.target)) { menu.removeAttribute("open"); }
+    });
+  });
+
   document.querySelectorAll("[data-autosubmit]").forEach(function (el) {
     el.addEventListener("change", function () { el.form && el.form.submit(); });
   });

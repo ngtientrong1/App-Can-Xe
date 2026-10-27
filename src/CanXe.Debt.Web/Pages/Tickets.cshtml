@@ -95,8 +95,8 @@
         <table>
             <thead>
             <tr>
-                <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Chủ hàng (theo phiếu)</th><th>Biển số</th><th>Loại hàng</th>
-                <th class="num">Tổng</th><th class="num">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
+                <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Chủ hàng (theo phiếu)</th><th>Biển số</th><th class="col-opt">Loại hàng</th>
+                <th class="num col-opt">Tổng</th><th class="num col-opt">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
                 <th class="num">Đơn giá</th><th class="num">Thành tiền</th><th>Ghi chú</th>
             </tr>
             </thead>
@@ -118,15 +118,17 @@
                         }
                     </td>
                     <td class="nowrap">@t.LicensePlate</td>
-                    <td>@t.Cargo@(Policy.IsBilled(t.Cargo) ? "" : " (không tính nợ)")</td>
+                    <td class="col-opt">@t.Cargo@(Policy.IsBilled(t.Cargo) ? "" : " (không tính nợ)")</td>
                     @if (t.Stage == TicketStage.AwaitingSecondWeigh)
                     {
-                        <td class="num" colspan="3">Chờ cân lần 2 (cân lần 1: @Fmt.Kg(t.FirstWeightKg))</td>
+                        <td class="num col-opt">—</td>
+                        <td class="num col-opt">—</td>
+                        <td class="num" title="Chờ cân lần 2">Lần 1: @Fmt.Kg(t.FirstWeightKg)</td>
                     }
                     else
                     {
-                        <td class="num">@Fmt.Kg(t.GrossWeightKg)</td>
-                        <td class="num">@Fmt.Kg(t.TareWeightKg)</td>
+                        <td class="num col-opt">@Fmt.Kg(t.GrossWeightKg)</td>
+                        <td class="num col-opt">@Fmt.Kg(t.TareWeightKg)</td>
                         <td class="num">@Fmt.Kg(t.NetWeightKg)</td>
                     }
                     <td class="num">@Fmt.Kg(t.BillableWeightKg)</td>
