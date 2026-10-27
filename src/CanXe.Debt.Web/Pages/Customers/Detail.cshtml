@@ -186,7 +186,7 @@
         <div class="muted">@season.Name · @Fmt.Date(season.StartDate) – @(season.EndDate is { } e ? Fmt.Date(e) : "nay")@(customer.Phone is null ? "" : " · " + customer.Phone)</div>
     </div>
     <div class="toolbar">
-        <a class="btn secondary" asp-page="/Customers/Statement" asp-route-id="@customer.Id" asp-route-SeasonId="@season.Id">In bảng kê</a>
+        <a class="btn secondary" asp-page="/Customers/Statement" asp-route-id="@customer.Id" asp-route-SeasonId="@season.Id">In báo cáo (2 tờ)</a>
         <a class="btn secondary" asp-page="/Index" asp-route-SeasonId="@season.Id">← Tổng quan</a>
     </div>
 </div>

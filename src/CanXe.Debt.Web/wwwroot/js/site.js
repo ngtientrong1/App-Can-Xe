@@ -82,8 +82,14 @@
     el.addEventListener("change", function () { el.form && el.form.submit(); });
   });
 
+  // data-print="1" / "2" prints one sheet of the report; plain data-print prints everything on the page.
   document.querySelectorAll("[data-print]").forEach(function (el) {
-    el.addEventListener("click", function () { window.print(); });
+    el.addEventListener("click", function () {
+      var which = el.getAttribute("data-print") || "all";
+      document.body.setAttribute("data-print", which);
+      window.print();
+      document.body.removeAttribute("data-print");
+    });
   });
 
   document.querySelectorAll("form[data-confirm]").forEach(function (form) {

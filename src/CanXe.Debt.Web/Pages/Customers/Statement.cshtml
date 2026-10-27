@@ -6,10 +6,16 @@
 @functions {
     [BindProperty(SupportsGet = true)] public int Id { get; set; }
     [BindProperty(SupportsGet = true)] public int? SeasonId { get; set; }
+    [BindProperty(SupportsGet = true)] public string? From { get; set; }
+    [BindProperty(SupportsGet = true)] public string? To { get; set; }
+
     public Customer? Customer { get; set; }
     public Season? Season { get; set; }
     public CustomerSettlement? Settlement { get; set; }
     public Dictionary<string, string> Stations { get; set; } = [];
+    public DateOnly FromDate { get; set; }
+    public DateOnly ToDate { get; set; }
+    public string? RangeError { get; set; }
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -17,110 +23,228 @@
         Customer = await Customers.GetAsync(Id);
         if (Season is null || Customer is null)
             return NotFound();
+
         Settlement = await Settlements.GetAsync(Id, Season);
         Stations = await Ledger.GetStationNamesAsync();
+
+        var today = DateOnly.FromDateTime(System.DateTime.Today);
+        var seasonEnd = Season.EndDate is { } e && e < today ? e : today;
+        FromDate = Fmt.TryParseDate(From, out var f) ? f : Season.StartDate;
+        ToDate = Fmt.TryParseDate(To, out var t) ? t : seasonEnd;
+        if (ToDate < FromDate)
+        {
+            RangeError = "Ngày kết thúc nhỏ hơn ngày bắt đầu nên tôi đã đổi chỗ hai ngày cho bạn.";
+            (FromDate, ToDate) = (ToDate, FromDate);
+        }
+
         return Page();
     }
+
+    public sealed record PayLine(Payment Payment, string Label);
 }
 @{
     var customer = Customer!;
     var season = Season!;
     var s = Settlement!;
-    ViewData["Title"] = "Bảng kê công nợ " + customer.Name;
+    var from = FromDate;
+    var to = ToDate;
+    ViewData["Title"] = "Báo cáo công nợ " + customer.Name;
+
+    bool InRange(DateOnly d) => d >= from && d <= to;
+
+    // Everything below is cut to the chosen days. The opening debt is what was owed the day before the first day.
+    var allTickets = s.Periods.SelectMany(p => p.Tickets).ToList();
+    var allPayments = s.Periods.SelectMany(p => p.Payments.Select(pay => new PayLine(pay, p.IsOpen ? "Ứng trước (chưa gom lô)" : "Trả " + Fmt.LotLabel(p).ToLowerInvariant()))).ToList();
+    var opening = allTickets.Where(t => t.Stage == TicketStage.Priced && t.TicketDate < from).Sum(t => t.AmountVnd ?? 0)
+        - allPayments.Where(l => l.Payment.PaidOn < from).Sum(l => l.Payment.AmountVnd);
+    var billedInRange = allTickets.Where(t => t.Stage == TicketStage.Priced && InRange(t.TicketDate)).Sum(t => t.AmountVnd ?? 0);
+    var billedKgInRange = allTickets.Where(t => t.Stage == TicketStage.Priced && InRange(t.TicketDate)).Sum(t => t.BillableWeightKg ?? 0);
+    var payLines = allPayments.Where(l => InRange(l.Payment.PaidOn)).OrderBy(l => l.Payment.PaidOn).ThenBy(l => l.Payment.CreatedAt).ToList();
+    var paidInRange = payLines.Sum(l => l.Payment.AmountVnd);
+    var closing = opening + billedInRange - paidInRange;
+
+    var groups = s.Periods
+        .Select(p => new { Period = p, Tickets = p.Tickets.Where(t => InRange(t.TicketDate)).ToList(), Paid = p.Payments.Where(pay => InRange(pay.PaidOn)).Sum(pay => pay.AmountVnd) })
+        .Where(g => g.Tickets.Count > 0 || g.Paid > 0)
+        .ToList();
+    var sideBySide = payLines.Count <= 12 && groups.Count <= 8;
+    var rangeText = $"từ {Fmt.Date(from)} đến {Fmt.Date(to)}";
+
+    var today = DateOnly.FromDateTime(System.DateTime.Today);
+    var monthStart = new DateOnly(today.Year, today.Month, 1);
+    var seasonEnd = season.EndDate is { } se && se < today ? se : today;
 }
 <div class="page-head no-print">
-    <h1>Bảng kê công nợ</h1>
+    <h1>Báo cáo công nợ · @customer.Name</h1>
     <div class="toolbar">
-        <button type="button" data-print>In bảng kê</button>
+        <button type="button" data-print="all">In 2 tờ</button>
+        <button type="button" class="secondary" data-print="1">Chỉ in tờ 1</button>
+        <button type="button" class="secondary" data-print="2">Chỉ in tờ 2</button>
         <a class="btn secondary" asp-page="/Customers/Detail" asp-route-id="@customer.Id" asp-route-SeasonId="@season.Id">← Quay lại</a>
     </div>
 </div>
 
-<div class="statement-head">
-    <h1>BẢNG KÊ CÔNG NỢ</h1>
-</div>
-<div class="card">
-    <h2>@customer.Name</h2>
-    <div>@season.Name · từ @Fmt.Date(season.StartDate) @(season.EndDate is { } e ? $"đến {Fmt.Date(e)}" : "đến " + Fmt.Date(DateOnly.FromDateTime(DateTime.Today)))</div>
-    @if (customer.Phone is not null) { <div>Điện thoại: @customer.Phone</div> }
+<div class="card no-print">
+    <form method="get" class="form-grid range-form">
+        <input type="hidden" name="SeasonId" value="@season.Id" />
+        <div class="field"><label for="From">Từ ngày</label><input id="From" name="From" type="text" inputmode="numeric" data-date maxlength="10" placeholder="dd/MM/yyyy" autocomplete="off" value="@Fmt.Date(from)" /></div>
+        <div class="field"><label for="To">Đến ngày</label><input id="To" name="To" type="text" inputmode="numeric" data-date maxlength="10" placeholder="dd/MM/yyyy" autocomplete="off" value="@Fmt.Date(to)" /></div>
+        <div><button type="submit">Xem</button></div>
+        <div class="quick">
+            <a class="chip" asp-route-SeasonId="@season.Id" asp-route-From="@Fmt.Date(today.AddDays(-6))" asp-route-To="@Fmt.Date(today)">7 ngày gần đây</a>
+            <a class="chip" asp-route-SeasonId="@season.Id" asp-route-From="@Fmt.Date(monthStart)" asp-route-To="@Fmt.Date(today)">Tháng này</a>
+            <a class="chip" asp-route-SeasonId="@season.Id" asp-route-From="@Fmt.Date(season.StartDate)" asp-route-To="@Fmt.Date(seasonEnd)">Cả mùa</a>
+        </div>
+    </form>
+    @if (RangeError is not null) { <div class="alert warn">@RangeError</div> }
 </div>
 
-<div class="stats">
-    <div class="stat"><div class="label">Tổng tiền hàng (@Fmt.Kg(s.Periods.Sum(p => p.BillableKg)) kg tính tiền)</div><div class="value">@Fmt.Vnd(s.TotalBilled)</div></div>
-    <div class="stat"><div class="label">Đã trả</div><div class="value">@Fmt.Vnd(s.TotalPaid)</div></div>
-    <div class="stat debt"><div class="label">@(s.Balance >= 0 ? "CÒN NỢ" : "ĐÃ ỨNG TRƯỚC")</div><div class="value">@Fmt.Vnd(Math.Abs(s.Balance))</div></div>
-</div>
-
-@foreach (var p in s.Periods)
-{
-    <div class="card">
-        <h2>@(p.IsOpen ? $"Xe chờ chốt lô · {p.TruckCount} xe" : $"Lô {p.Number} · {Fmt.PeriodRange(p)}")</h2>
-        <table>
-            <thead>
-            <tr>
-                <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Biển số</th><th>Loại hàng</th>
-                <th class="num">Tổng</th><th class="num">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
-                <th class="num">Đơn giá</th><th class="num">Thành tiền</th><th>Ghi chú</th>
-            </tr>
-            </thead>
+<section class="sheet sheet-1">
+    <header class="sheet-head">
+        <div class="doc">BẢNG KÊ PHIẾU CÂN KÈM GIÁ</div><div class="sub">@season.Name · @rangeText</div>
+    </header>
+    <div class="who">Chủ hàng: <strong>@customer.Name</strong></div>
+    <table class="sheet-table">
+        <thead>
+        <tr>
+            <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Biển số</th>
+            <th class="num">Tổng</th><th class="num">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
+            <th class="num">Đơn giá</th><th class="num">Thành tiền</th>
+        </tr>
+        </thead>
+        @foreach (var g in groups.Where(g => g.Tickets.Count > 0))
+        {
+            var priced = g.Tickets.Where(t => t.Stage == TicketStage.Priced).ToList();
             <tbody>
-            @foreach (var t in p.Tickets)
+            <tr class="group"><td colspan="10">@(g.Period.IsOpen ? "Xe chưa gom lô" : Fmt.LotLabel(g.Period)) · @g.Tickets.Count xe</td></tr>
+            @foreach (var t in g.Tickets)
             {
                 <tr>
                     <td class="nowrap">@Fmt.DateTime(t.TicketDateTime)</td>
-                    <td>@t.DisplayNumber</td>
+                    <td class="nowrap">@t.DisplayNumber</td>
                     <td>@Stations.GetValueOrDefault(t.StationCode, t.StationCode)</td>
                     <td class="nowrap">@t.LicensePlate</td>
-                    <td>@t.Cargo</td>
                     @if (t.Stage == TicketStage.AwaitingSecondWeigh)
                     {
-                        <td class="num" colspan="3">Chờ cân lần 2 (cân lần 1: @Fmt.Kg(t.FirstWeightKg))</td>
+                        <td colspan="6">Chờ cân lần 2 (cân lần 1: @Fmt.Kg(t.FirstWeightKg) kg) · chưa tính tiền</td>
                     }
                     else
                     {
                         <td class="num">@Fmt.Kg(t.GrossWeightKg)</td>
                         <td class="num">@Fmt.Kg(t.TareWeightKg)</td>
                         <td class="num">@Fmt.Kg(t.NetWeightKg)</td>
+                        <td class="num">@Fmt.Kg(t.BillableWeightKg)</td>
+                        <td class="num">@Fmt.UnitPrice(t)</td>
+                        <td class="num">@(t.Stage == TicketStage.Priced ? Fmt.Vnd(t.AmountVnd) : "Chưa có giá")</td>
                     }
-                    <td class="num">@Fmt.Kg(t.BillableWeightKg)</td>
-                    <td class="num">@Fmt.UnitPrice(t)</td>
-                    <td class="num">@(t.Stage == TicketStage.Priced ? Fmt.Vnd(t.AmountVnd) : "Chưa có giá")</td>
-                    <td>@t.Notes</td>
                 </tr>
+                @if (!string.IsNullOrWhiteSpace(t.Notes))
+                {
+                    <tr class="note"><td></td><td colspan="9">Ghi chú: @t.Notes</td></tr>
+                }
             }
-            </tbody>
-            <tfoot>
-            <tr>
-                <th colspan="7" class="right">Tổng @p.PricedCount xe đã tính tiền</th>
-                <th class="num">@Fmt.Kg(p.NetKg)</th>
-                <th class="num">@Fmt.Kg(p.BillableKg)</th>
-                <th></th>
-                <th class="num">@Fmt.Vnd(p.TicketsTotal)</th>
-                <th></th>
+            <tr class="subtotal">
+                <td colspan="6">Cộng @(g.Period.IsOpen ? "xe chưa gom lô" : Fmt.LotLabel(g.Period).ToLowerInvariant()) (@priced.Count xe tính tiền)</td>
+                <td class="num">@Fmt.Kg(priced.Sum(t => t.NetWeightKg ?? 0))</td>
+                <td class="num">@Fmt.Kg(priced.Sum(t => t.BillableWeightKg ?? 0))</td>
+                <td></td>
+                <td class="num">@Fmt.Vnd(priced.Sum(t => t.AmountVnd ?? 0))</td>
             </tr>
-            </tfoot>
-        </table>
-
-        <table class="ledger">
-            <tbody>
-            <tr><td>Nợ từ lô trước</td><td class="num">@Fmt.Balance(p.CarryIn)</td></tr>
-            <tr><td>Tiền hàng lô này</td><td class="num">@Fmt.Vnd(p.TicketsTotal)</td></tr>
-            <tr><th>Tổng phải trả</th><th class="num">@Fmt.Balance(p.Payable)</th></tr>
-            @foreach (var pay in p.Payments)
-            {
-                <tr class="payment-row">
-                    <td>
-                        @Fmt.Date(pay.PaidOn) · @(p.IsOpen ? "Ứng trước · " : "")@(pay.Method == PaymentMethod.Cash ? "Tiền mặt" : pay.Method == PaymentMethod.Offset ? (string.IsNullOrWhiteSpace(pay.BankName) ? "Bù trừ công nợ" : $"Bù trừ ({pay.BankName})") : string.IsNullOrWhiteSpace(pay.BankName) ? "Chuyển khoản" : $"Chuyển khoản ({pay.BankName})")
-                        @(string.IsNullOrWhiteSpace(pay.PaidBy) ? "" : $" · {pay.PaidBy} chi")
-                        @(string.IsNullOrWhiteSpace(pay.ReceivedBy) ? "" : $" · {pay.ReceivedBy} nhận")
-                        @(string.IsNullOrWhiteSpace(pay.Note) ? "" : $" · {pay.Note}")
-                    </td>
-                    <td class="num credit">− @Fmt.Vnd(pay.AmountVnd)</td>
-                </tr>
-            }
-            <tr><th>@(p.IsOpen ? "Tạm tính còn nợ" : p.Remaining < 0 ? "Đã ứng trước" : p.Remaining == 0 ? "Đã tất toán" : "Còn nợ, chuyển sang lô sau")</th><th class="num">@Fmt.Balance(p.Remaining)</th></tr>
             </tbody>
-        </table>
+        }
+        @if (groups.All(g => g.Tickets.Count == 0))
+        {
+            <tbody><tr><td colspan="10" class="empty">Không có phiếu cân trong khoảng ngày này.</td></tr></tbody>
+        }
+        <tfoot>
+        <tr class="grand">
+            <td colspan="6">TỔNG CỘNG</td>
+            <td class="num">@Fmt.Kg(allTickets.Where(t => t.Stage == TicketStage.Priced && InRange(t.TicketDate)).Sum(t => t.NetWeightKg ?? 0))</td>
+            <td class="num">@Fmt.Kg(billedKgInRange)</td>
+            <td></td>
+            <td class="num">@Fmt.Vnd(billedInRange)</td>
+        </tr>
+        </tfoot>
+    </table>
+    <div class="printed">In ngày @Fmt.DateTime(DateTimeOffset.Now)</div>
+</section>
+
+<section class="sheet sheet-2">
+    <header class="sheet-head">
+        <div class="doc">BẢNG KÊ CÔNG NỢ THANH TOÁN</div><div class="sub">@season.Name · @rangeText</div>
+    </header>
+    <div class="who">Chủ hàng: <strong>@customer.Name</strong></div>
+
+    <div class="boxes">
+        <div class="box"><div class="lbl">@(opening < 0 ? "Đã ứng trước từ trước" : "Nợ đầu kỳ")</div><div class="val">@Fmt.Vnd(Math.Abs(opening))</div></div>
+        <div class="box"><div class="lbl">Tiền hàng trong kỳ (@Fmt.Kg(billedKgInRange) kg)</div><div class="val">@Fmt.Vnd(billedInRange)</div></div>
+        <div class="box"><div class="lbl">Đã trả trong kỳ</div><div class="val">@Fmt.Vnd(paidInRange)</div></div>
+        <div class="box total"><div class="lbl">@(closing < 0 ? "ĐÃ ỨNG TRƯỚC" : "CÒN NỢ") đến @Fmt.Date(to)</div><div class="val">@Fmt.Vnd(Math.Abs(closing))</div></div>
     </div>
-}
-<p class="muted">In ngày @Fmt.DateTime(DateTimeOffset.Now)</p>
+
+    <div class="@(sideBySide ? "two-col" : "one-col")">
+        <div>
+            <div class="part">Các lô</div>
+            <table class="sheet-table">
+                <thead>
+                <tr><th>Lô</th><th>Số phiếu</th><th class="num">Số xe</th><th class="num">Tiền hàng</th><th class="num">Đã trả</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var g in groups)
+                {
+                    var billed = g.Tickets.Where(t => t.Stage == TicketStage.Priced).Sum(t => t.AmountVnd ?? 0);
+                    var waiting = g.Tickets.Count(t => t.Stage != TicketStage.Priced);
+                    <tr>
+                        <td class="nowrap">@Fmt.LotLabel(g.Period)</td>
+                        <td>@Html.Raw(string.Join("<br />", g.Tickets.GroupBy(t => t.StationCode).Select(sg => System.Net.WebUtility.HtmlEncode(Stations.GetValueOrDefault(sg.Key, sg.Key)) + " " + (sg.Count() == 1 ? System.Net.WebUtility.HtmlEncode(sg.First().DisplayNumber) : System.Net.WebUtility.HtmlEncode(sg.First().DisplayNumber) + " → " + System.Net.WebUtility.HtmlEncode(sg.Last().DisplayNumber)))))</td>
+                        <td class="num">@g.Tickets.Count@(waiting > 0 ? $" ({waiting} chờ)" : "")</td>
+                        <td class="num">@Fmt.Vnd(billed)</td>
+                        <td class="num">@Fmt.Vnd(g.Paid)</td>
+                    </tr>
+                }
+                @if (groups.Count == 0)
+                {
+                    <tr><td colspan="5" class="empty">Không có phiếu hay khoản trả trong khoảng ngày này.</td></tr>
+                }
+                </tbody>
+                <tfoot>
+                <tr class="grand"><td colspan="2">CỘNG</td><td class="num">@groups.Sum(g => g.Tickets.Count)</td><td class="num">@Fmt.Vnd(billedInRange)</td><td class="num">@Fmt.Vnd(paidInRange)</td></tr>
+                </tfoot>
+            </table>
+        </div>
+        <div>
+            <div class="part">Các lần thanh toán</div>
+            <table class="sheet-table">
+                <thead>
+                <tr><th>Ngày</th><th>Nội dung</th><th>Hình thức</th><th class="num">Số tiền</th></tr>
+                </thead>
+                <tbody>
+                @foreach (var l in payLines)
+                {
+                    var pay = l.Payment;
+                    var who = string.Join(" · ", new[]
+                    {
+                        string.IsNullOrWhiteSpace(pay.PaidBy) ? null : $"{pay.PaidBy} chi",
+                        string.IsNullOrWhiteSpace(pay.ReceivedBy) ? null : $"{pay.ReceivedBy} nhận",
+                        string.IsNullOrWhiteSpace(pay.Note) ? null : pay.Note
+                    }.Where(x => x is not null));
+                    <tr>
+                        <td class="nowrap">@pay.PaidOn.ToString("dd/MM", System.Globalization.CultureInfo.InvariantCulture)</td>
+                        <td>@l.Label@(who.Length > 0 ? $" · {who}" : "")</td>
+                        <td>@Fmt.Method(pay.Method)@(string.IsNullOrWhiteSpace(pay.BankName) ? "" : $" · {pay.BankName}")</td>
+                        <td class="num">@Fmt.Vnd(pay.AmountVnd)</td>
+                    </tr>
+                }
+                @if (payLines.Count == 0)
+                {
+                    <tr><td colspan="4" class="empty">Chưa có khoản trả trong khoảng ngày này.</td></tr>
+                }
+                </tbody>
+                <tfoot>
+                <tr class="grand"><td colspan="3">CỘNG ĐÃ TRẢ</td><td class="num">@Fmt.Vnd(paidInRange)</td></tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    <div class="printed">Còn nợ = nợ đầu kỳ + tiền hàng trong kỳ − đã trả trong kỳ · In ngày @Fmt.DateTime(DateTimeOffset.Now)</div>
+</section>
