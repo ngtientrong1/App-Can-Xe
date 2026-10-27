@@ -49,7 +49,8 @@
                 NameNormalizer.Normalize(t.CustomerNameRaw).Contains(needle)
                 || NameNormalizer.Normalize(t.Customer?.Name).Contains(needle)
                 || NameNormalizer.Normalize(t.LicensePlate).Contains(needle)
-                || NameNormalizer.Normalize(t.DisplayNumber).Contains(needle)).ToList();
+                || NameNormalizer.Normalize(t.DisplayNumber).Contains(needle)
+                || NameNormalizer.Normalize(t.Notes).Contains(needle)).ToList();
 
         Total = list.Count;
         Rows = list.OrderByDescending(t => t.TicketDateTime).Take(PageSize).ToList();
@@ -83,7 +84,7 @@
                 <option value="unmapped" selected="@(Filter == "unmapped")">Chưa ghép chủ hàng</option>
             </select>
         </div>
-        <div class="field"><label for="Q">Tìm (chủ hàng, biển số, số phiếu)</label><input id="Q" name="Q" type="search" value="@Q" /></div>
+        <div class="field"><label for="Q">Tìm (chủ hàng, biển số, số phiếu, ghi chú)</label><input id="Q" name="Q" type="search" value="@Q" /></div>
         <button type="submit">Tìm</button>
     </form>
 </div>
@@ -96,7 +97,7 @@
             <tr>
                 <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Chủ hàng (theo phiếu)</th><th>Biển số</th><th>Loại hàng</th>
                 <th class="num">Tổng</th><th class="num">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
-                <th class="num">Đơn giá</th><th class="num">Thành tiền</th>
+                <th class="num">Đơn giá</th><th class="num">Thành tiền</th><th>Ghi chú</th>
             </tr>
             </thead>
             <tbody>
@@ -131,6 +132,7 @@
                     <td class="num">@Fmt.Kg(t.BillableWeightKg)</td>
                     <td class="num">@Fmt.UnitPrice(t)</td>
                     <td class="num">@(t.Stage == TicketStage.Priced ? Fmt.Vnd(t.AmountVnd) : Fmt.StageText(t.Stage))</td>
+                    <td>@t.Notes</td>
                 </tr>
             }
             </tbody>

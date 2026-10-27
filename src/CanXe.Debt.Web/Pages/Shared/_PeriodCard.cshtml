@@ -54,7 +54,8 @@
             {
                 <div class="pay-line">
                     <span>
-                        @Fmt.Date(p.PaidOn) · @(p.Method == PaymentMethod.Cash ? "Tiền mặt" : string.IsNullOrWhiteSpace(p.BankName) ? "Chuyển khoản" : $"Chuyển khoản ({p.BankName})")
+                        @Fmt.Date(p.PaidOn) · @(open ? "Ứng trước · " : "")@(p.Method == PaymentMethod.Cash ? "Tiền mặt" : p.Method == PaymentMethod.Offset ? (string.IsNullOrWhiteSpace(p.BankName) ? "Bù trừ công nợ" : $"Bù trừ ({p.BankName})") : string.IsNullOrWhiteSpace(p.BankName) ? "Chuyển khoản" : $"Chuyển khoản ({p.BankName})")
+                        @if (!string.IsNullOrWhiteSpace(p.PaidBy)) { <span> · @p.PaidBy chi</span> }
                         @if (!string.IsNullOrWhiteSpace(p.ReceivedBy)) { <span> · @p.ReceivedBy nhận</span> }
                         @if (!string.IsNullOrWhiteSpace(p.Note)) { <span class="muted"> · @p.Note</span> }
                         <span class="muted small"> · nhập bởi @p.CreatedBy lúc @Fmt.DateTime(p.CreatedAt)</span>
@@ -99,13 +100,33 @@
     {
         <details>
             <summary>Xem @v.TruckCount xe trong kỳ</summary>
+            <h4 class="small-head">Theo ngày và điểm cân</h4>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Ngày</th><th>Điểm cân</th><th class="num">Số xe</th><th class="num">KL tính tiền</th><th class="num">Đơn giá</th><th class="num">Thành tiền</th></tr></thead>
+                    <tbody>
+                    @foreach (var day in v.Days)
+                    {
+                        <tr>
+                            <td class="nowrap">@Fmt.Date(day.Date)</td>
+                            <td><span class="@Fmt.StationClass(day.StationCode)">@day.StationName</span></td>
+                            <td class="num">@day.TruckCount@(day.UnfinishedCount > 0 ? $" ({day.UnfinishedCount} chưa tính)" : "")</td>
+                            <td class="num">@Fmt.Kg(day.BillableKg)</td>
+                            <td class="num">@(string.IsNullOrEmpty(day.PricesText) ? "—" : day.PricesText)</td>
+                            <td class="num">@Fmt.Vnd(day.Amount)</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <h4 class="small-head">Từng xe</h4>
             <div class="table-wrap">
                 <table>
                     <thead>
                     <tr>
                         <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Biển số</th><th>Loại hàng</th>
                         <th class="num">Tổng</th><th class="num">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
-                        <th class="num">Đơn giá</th><th class="num">Thành tiền</th><th>Tình trạng</th>
+                        <th class="num">Đơn giá</th><th class="num">Thành tiền</th><th>Tình trạng</th><th>Ghi chú</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -139,6 +160,7 @@
                                     default: <span class="badge paid stage">Đã tính tiền</span> break;
                                 }
                             </td>
+                            <td>@t.Notes</td>
                         </tr>
                     }
                     </tbody>
@@ -149,6 +171,7 @@
                         <th class="num">@Fmt.Kg(v.BillableKg)</th>
                         <th></th>
                         <th class="num">@Fmt.Vnd(v.TicketsTotal)</th>
+                        <th></th>
                         <th></th>
                     </tr>
                     </tfoot>

@@ -203,6 +203,7 @@ public sealed class ImportService(DebtDbContext db)
         ticket.TareWeightKg = source.TareWeightKg;
         ticket.NetWeightKg = source.NetWeightKg;
         ticket.BillableWeightKg = source.BillableWeightKg;
+        ticket.Notes = string.IsNullOrWhiteSpace(source.Notes) ? null : source.Notes.Trim();
         ticket.AwaitingSecondWeigh = source.AwaitingSecondWeigh;
         ticket.FirstWeightKg = source.FirstWeightKg;
         ticket.UnitPrice = source.UnitPrice;

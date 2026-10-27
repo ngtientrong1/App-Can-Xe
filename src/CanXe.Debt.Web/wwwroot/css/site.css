@@ -144,7 +144,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 }
 .field { display: flex; flex-direction: column; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; }
-.radio-row { display: flex; gap: 18px; padding: 9px 0; }
+.radio-row { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 9px 0; }
 .radio-row label { display: inline-flex; align-items: center; gap: 6px; font-size: 1rem; color: var(--ink); margin: 0; white-space: nowrap; }
 
 button, .btn {
@@ -199,6 +199,8 @@ details summary { cursor: pointer; color: var(--brand); }
 .outcome.ahead { background: var(--warn-soft); color: var(--warn); }
 .outcome.open { background: color-mix(in srgb, var(--surface) 90%, var(--ink)); }
 .stage { font-size: .8rem; }
+.small-head { margin: 14px 0 4px; font-size: .95rem; color: var(--muted); }
+.age { font-size: .85rem; color: var(--muted); white-space: nowrap; }
 tr.dim td { color: var(--muted); }
 
 .small { font-size: .85rem; }

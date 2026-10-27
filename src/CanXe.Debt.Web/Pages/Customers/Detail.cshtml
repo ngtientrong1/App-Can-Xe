@@ -5,6 +5,11 @@
 @inject PaymentService Payments
 @inject CustomerService Customers
 @functions {
+    private string? DateError(string field, string label) =>
+        ModelState.GetFieldValidationState(field) == Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Invalid
+            ? $"{label} không hợp lệ. Nhập dạng 27/10/2026."
+            : null;
+    public PaymentSuggestions Suggestions { get; set; } = new([], [], []);
     [BindProperty(SupportsGet = true)] public int Id { get; set; }
     [BindProperty(SupportsGet = true)] public int? SeasonId { get; set; }
     [BindProperty(SupportsGet = true)] public DateOnly? CloseTo { get; set; }
@@ -14,6 +19,7 @@
     [BindProperty] public PaymentMethod Method { get; set; } = PaymentMethod.Cash;
     [BindProperty] public int? PeriodId { get; set; }
     [BindProperty] public string? BankName { get; set; }
+    [BindProperty] public string? PaidBy { get; set; }
     [BindProperty] public string? ReceivedBy { get; set; }
     [BindProperty] public string? Note { get; set; }
     [BindProperty] public int VoidId { get; set; }
@@ -34,6 +40,7 @@
         if (!await LoadAsync())
             return NotFound();
 
+        CloseError = DateError(nameof(CloseTo), "Ngày chốt");
         if (CloseTo is { } to && Season is { IsClosed: false })
         {
             var preview = await Settlements.PreviewCloseAsync(Id, Season, to);
@@ -49,6 +56,12 @@
         if (!await LoadAsync())
             return NotFound();
 
+        if (DateError(nameof(PaidOn), "Ngày trả") is { } dateError)
+        {
+            Error = dateError;
+            return Page();
+        }
+
         if (!Fmt.TryParseVnd(AmountText, out var amount))
         {
             Error = "Số tiền không hợp lệ. Chỉ nhập chữ số, ví dụ 150.000.000.";
@@ -56,7 +69,7 @@
         }
 
         var result = await Payments.AddAsync(
-            Id, Season!.Id, PaidOn, amount, Method, Note, User.Identity!.Name!, ReceivedBy, BankName, PeriodId);
+            Id, Season!.Id, PaidOn, amount, Method, Note, User.Identity!.Name!, ReceivedBy, BankName, PeriodId, paidBy: PaidBy);
         if (!result.Ok)
         {
             Error = result.Error;
@@ -71,6 +84,12 @@
     {
         if (!await LoadAsync())
             return NotFound();
+
+        if (DateError(nameof(CloseTo), "Ngày chốt") is { } dateError)
+        {
+            Error = dateError;
+            return Page();
+        }
 
         var result = await Settlements.ClosePeriodAsync(Id, Season!.Id, closeTo, User.Identity!.Name!);
         if (!result.Ok)
@@ -124,6 +143,7 @@
 
         Settlement = await Settlements.GetAsync(Id, Season);
         Stations = await Ledger.GetStationNamesAsync();
+        Suggestions = await Payments.GetSuggestionsAsync();
         if (!Season.Contains(PaidOn))
             PaidOn = Season.EndDate ?? Season.StartDate;
         return Settlement is not null;
@@ -165,7 +185,10 @@
     <div class="stat good"><div class="label">Đã trả</div><div class="value">@Fmt.Vnd(s.TotalPaid)</div></div>
     @if (s.Balance >= 0)
     {
-        <div class="stat debt"><div class="label">Còn nợ chủ hàng</div><div class="value">@Fmt.Vnd(s.Balance)</div></div>
+        <div class="stat debt">
+            <div class="label">Còn nợ chủ hàng@(s.OldestUnpaidDate is { } since && s.Balance > 0 ? $" · nợ lâu nhất {Fmt.DaysSince(since)} ngày (từ {Fmt.Date(since)})" : "")</div>
+            <div class="value">@Fmt.Vnd(s.Balance)</div>
+        </div>
     }
     else
     {
@@ -189,7 +212,7 @@
                         <option value="" data-remaining="@openPeriod.Remaining" selected="@(defaultPeriod is null)">Kỳ đang mở (chưa chốt)@(openPeriod.Remaining > 0 ? $" · nợ tạm tính {Fmt.Vnd(openPeriod.Remaining)}" : "")</option>
                     </select>
                 </div>
-                <div class="field"><label for="PaidOn">Ngày trả</label><input id="PaidOn" name="PaidOn" type="date" value="@PaidOn.ToString("yyyy-MM-dd")" required /></div>
+                <div class="field"><label for="PaidOn">Ngày trả</label><input id="PaidOn" name="PaidOn" type="text" inputmode="numeric" data-date maxlength="10" placeholder="dd/MM/yyyy" autocomplete="off" value="@Fmt.Date(PaidOn)" required /></div>
                 <div class="field">
                     <label for="AmountText">Số tiền trả (đồng)</label>
                     <input id="AmountText" name="AmountText" type="text" inputmode="numeric" data-money data-pay-amount value="@AmountText" autocomplete="off" required />
@@ -199,17 +222,25 @@
                     <div class="radio-row">
                         <label><input type="radio" name="Method" value="Cash" checked="@(Method == PaymentMethod.Cash)" /> Tiền mặt</label>
                         <label><input type="radio" name="Method" value="Transfer" checked="@(Method == PaymentMethod.Transfer)" /> Chuyển khoản</label>
+                        <label><input type="radio" name="Method" value="Offset" checked="@(Method == PaymentMethod.Offset)" /> Bù trừ</label>
                     </div>
                 </div>
-                <div class="field"><label for="BankName">Ngân hàng (nếu chuyển khoản)</label><input id="BankName" name="BankName" type="text" value="@BankName" placeholder="Vietcombank…" /></div>
-                <div class="field"><label for="ReceivedBy">Người nhận tiền</label><input id="ReceivedBy" name="ReceivedBy" type="text" value="@ReceivedBy" placeholder="Ai nhận giùm…" /></div>
+                <div class="field"><label for="BankName">Ngân hàng / tài khoản (chuyển khoản, bù trừ)</label><input id="BankName" name="BankName" type="text" value="@BankName" list="banks" placeholder="Vietcombank, tk công ty…" /></div>
+                <div class="field"><label for="PaidBy">Người chi (bên mình)</label><input id="PaidBy" name="PaidBy" type="text" value="@PaidBy" list="payers" placeholder="Bố giao, tài xế ứng…" /></div>
+                <div class="field"><label for="ReceivedBy">Người nhận tiền</label><input id="ReceivedBy" name="ReceivedBy" type="text" value="@ReceivedBy" list="receivers" placeholder="Ai nhận giùm…" /></div>
                 <div class="field"><label for="Note">Ghi chú (không bắt buộc)</label><input id="Note" name="Note" type="text" value="@Note" /></div>
             </div>
+            <datalist id="banks">@foreach (var b in Suggestions.Banks) { <option value="@b"></option> }</datalist>
+            <datalist id="payers">@foreach (var b in Suggestions.Payers) { <option value="@b"></option> }</datalist>
+            <datalist id="receivers">@foreach (var b in Suggestions.Receivers) { <option value="@b"></option> }</datalist>
             <div class="outcome open" data-pay-result></div>
             <p class="toolbar">
                 <button type="submit">Ghi nhận trả tiền</button>
                 <button type="button" class="secondary" data-pay-all>Trả hết kỳ đã chọn</button>
+                <button type="button" class="secondary" data-pay-round="100000000">Tròn xuống 100 triệu</button>
+                <button type="button" class="secondary" data-pay-round="50000000">Tròn xuống 50 triệu</button>
             </p>
+            <p class="muted small">Trả trước khi chốt kỳ (chọn “Kỳ đang mở”) được tính là tiền ứng và trừ dần vào các xe sau.</p>
         </form>
     </div>
 }
@@ -225,7 +256,7 @@ else
         <p class="muted">Gom các xe từ @Fmt.Date(openPeriod.From) đến ngày bạn chọn thành một kỳ để trả tiền một lần. Số còn nợ sẽ tự chuyển sang kỳ sau.</p>
         <form method="get" class="toolbar">
             <input type="hidden" name="SeasonId" value="@season.Id" />
-            <div class="field"><label for="CloseTo">Chốt đến ngày</label><input id="CloseTo" name="CloseTo" type="date" value="@suggested.ToString("yyyy-MM-dd")" min="@openPeriod.From.ToString("yyyy-MM-dd")" max="@today.ToString("yyyy-MM-dd")" /></div>
+            <div class="field"><label for="CloseTo">Chốt đến ngày</label><input id="CloseTo" name="CloseTo" type="text" inputmode="numeric" data-date maxlength="10" placeholder="dd/MM/yyyy" autocomplete="off" value="@Fmt.Date(suggested)" /></div>
             <button type="submit" class="secondary">Xem trước</button>
         </form>
         @if (CloseError is not null)

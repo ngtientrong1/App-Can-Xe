@@ -5,6 +5,7 @@
 @functions {
     [BindProperty(SupportsGet = true)] public int? SeasonId { get; set; }
     [BindProperty(SupportsGet = true)] public string? Q { get; set; }
+    [BindProperty(SupportsGet = true)] public string? Sort { get; set; }
     public SeasonOverview? Overview { get; set; }
     public List<Season> AllSeasons { get; set; } = [];
     public List<CustomerBalance> Rows { get; set; } = [];
@@ -19,8 +20,12 @@
         SeasonId = season.Id;
         Overview = await Ledger.GetOverviewAsync(season);
         var needle = NameNormalizer.Normalize(Q);
-        Rows = Overview.Customers
-            .Where(c => needle.Length == 0 || NameNormalizer.Normalize(c.Name).Contains(needle))
+        var rows = Overview.Customers
+            .Where(c => needle.Length == 0 || NameNormalizer.Normalize(c.Name).Contains(needle));
+        // Default: biggest debt first. "age": the debt that has waited longest first, so it gets paid before it grows old.
+        Rows = (Sort == "age"
+                ? rows.OrderBy(c => c.Balance > 0 && c.OldestUnpaidDate is not null ? 0 : 1).ThenBy(c => c.OldestUnpaidDate).ThenByDescending(c => c.Balance)
+                : rows)
             .ToList();
     }
 }
@@ -56,6 +61,13 @@
         <div class="field">
             <label for="Q">Tìm chủ hàng</label>
             <input id="Q" name="Q" type="search" value="@Q" placeholder="Tên chủ hàng…" />
+        </div>
+        <div class="field">
+            <label for="Sort">Sắp xếp</label>
+            <select id="Sort" name="Sort" data-autosubmit>
+                <option value="" selected="@(Sort != "age")">Nợ nhiều nhất</option>
+                <option value="age" selected="@(Sort == "age")">Nợ lâu nhất</option>
+            </select>
         </div>
         <button type="submit">Tìm</button>
     </form>
@@ -106,6 +118,7 @@
                         <th class="num">Phải trả</th>
                         <th class="num">Đã trả</th>
                         <th class="num">Còn nợ</th>
+                        <th>Nợ từ ngày</th>
                         <th class="no-print"></th>
                     </tr>
                 </thead>
@@ -124,6 +137,12 @@
                             <td class="num">@Fmt.Vnd(row.Paid)</td>
                             <td class="num @(row.Balance > 0 ? "debt-pos" : row.Balance < 0 ? "debt-neg" : "debt-zero")">
                                 @(row.Balance < 0 ? $"{Fmt.Vnd(-row.Balance)} (ứng trước)" : Fmt.Vnd(row.Balance))
+                            </td>
+                            <td class="nowrap">
+                                @if (row.Balance > 0 && row.OldestUnpaidDate is { } since)
+                                {
+                                    @Fmt.Date(since) <span class="age">· @Fmt.DaysSince(since) ngày</span>
+                                }
                             </td>
                             <td class="no-print"><a class="btn secondary" asp-page="/Customers/Detail" asp-route-id="@row.CustomerId" asp-route-SeasonId="@season.Id" asp-fragment="thu">Trả tiền</a></td>
                         </tr>

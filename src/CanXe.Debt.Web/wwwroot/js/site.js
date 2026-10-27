@@ -13,6 +13,17 @@
     formatMoney(input);
   });
 
+  // Date boxes: digits only, slashes inserted as you type (27102026 becomes 27/10/2026).
+  document.querySelectorAll("input[data-date]").forEach(function (input) {
+    input.addEventListener("input", function () {
+      var d = input.value.replace(/\D/g, "").slice(0, 8);
+      var out = d.slice(0, 2);
+      if (d.length > 2) { out += "/" + d.slice(2, 4); }
+      if (d.length > 4) { out += "/" + d.slice(4); }
+      input.value = out;
+    });
+  });
+
   document.querySelectorAll("[data-autosubmit]").forEach(function (el) {
     el.addEventListener("change", function () { el.form && el.form.submit(); });
   });
@@ -65,6 +76,15 @@
     payForm.querySelectorAll("[data-pay-all]").forEach(function (button) {
       button.addEventListener("click", function () {
         if (remaining() > 0) { amount.value = String(remaining()); formatMoney(amount); }
+        update();
+        amount.focus();
+      });
+    });
+    payForm.querySelectorAll("[data-pay-round]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var step = parseInt(button.getAttribute("data-pay-round"), 10);
+        var rounded = Math.floor(remaining() / step) * step;
+        if (rounded > 0) { amount.value = String(rounded); formatMoney(amount); }
         update();
         amount.focus();
       });

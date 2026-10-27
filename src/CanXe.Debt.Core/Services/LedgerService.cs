@@ -10,7 +10,8 @@ public sealed record CustomerBalance(
     int PendingCount,
     long Billed,
     long Paid,
-    long Balance);
+    long Balance,
+    DateOnly? OldestUnpaidDate = null);
 
 public sealed record SeasonOverview(
     Season Season,
@@ -66,7 +67,8 @@ public sealed class LedgerService(DebtDbContext db)
                 names.GetValueOrDefault(id, "(đã xóa)"),
                 mapped[id].Count(),
                 mapped[id].Count(t => t.AmountVnd is null),
-                ledger.Billed, ledger.Paid, ledger.Balance));
+                ledger.Billed, ledger.Paid, ledger.Balance,
+                PeriodBuilder.OldestUnpaid(mapped[id].ToList(), paidBy[id].Sum(p => p.AmountVnd))));
         }
 
         rows = rows.OrderByDescending(r => r.Balance).ThenBy(r => r.Name).ToList();
@@ -127,12 +129,14 @@ public sealed class LedgerService(DebtDbContext db)
     }
 }
 
+public sealed record PaymentSuggestions(IReadOnlyList<string> Receivers, IReadOnlyList<string> Payers, IReadOnlyList<string> Banks);
+
 public sealed class PaymentService(DebtDbContext db)
 {
     public async Task<OperationResult<Payment>> AddAsync(
         int customerId, int seasonId, DateOnly paidOn, long amountVnd, PaymentMethod method,
         string? note, string user, string? receivedBy = null, string? bankName = null, int? periodId = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default, string? paidBy = null)
     {
         if (amountVnd <= 0)
             return OperationResult<Payment>.Fail("Số tiền trả phải lớn hơn 0.");
@@ -158,7 +162,8 @@ public sealed class PaymentService(DebtDbContext db)
             PaidOn = paidOn,
             AmountVnd = amountVnd,
             Method = method,
-            BankName = method == PaymentMethod.Transfer && !string.IsNullOrWhiteSpace(bankName) ? bankName.Trim() : null,
+            BankName = method != PaymentMethod.Cash && !string.IsNullOrWhiteSpace(bankName) ? bankName.Trim() : null,
+            PaidBy = string.IsNullOrWhiteSpace(paidBy) ? null : paidBy.Trim(),
             ReceivedBy = string.IsNullOrWhiteSpace(receivedBy) ? null : receivedBy.Trim(),
             Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
             CreatedBy = user,
@@ -188,6 +193,18 @@ public sealed class PaymentService(DebtDbContext db)
         payment.VoidReason = reason.Trim();
         await db.SaveChangesAsync(ct);
         return OperationResult.Success;
+    }
+
+    /// <summary>Names typed on earlier payments, most used first, to pick from instead of retyping.</summary>
+    public async Task<PaymentSuggestions> GetSuggestionsAsync(CancellationToken ct = default)
+    {
+        var rows = await db.Payments.AsNoTracking().Where(p => p.VoidedAt == null)
+            .Select(p => new { p.ReceivedBy, p.PaidBy, p.BankName }).ToListAsync(ct);
+        static List<string> Top(IEnumerable<string?> values) => values
+            .Where(v => !string.IsNullOrWhiteSpace(v)).Select(v => v!.Trim())
+            .GroupBy(v => v, StringComparer.OrdinalIgnoreCase).OrderByDescending(g => g.Count()).ThenBy(g => g.Key)
+            .Select(g => g.Key).Take(20).ToList();
+        return new PaymentSuggestions(Top(rows.Select(r => r.ReceivedBy)), Top(rows.Select(r => r.PaidBy)), Top(rows.Select(r => r.BankName)));
     }
 
     public async Task<List<Payment>> GetRecentAsync(int seasonId, int take = 100, CancellationToken ct = default) =>

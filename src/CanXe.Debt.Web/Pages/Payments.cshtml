@@ -37,6 +37,7 @@
     <div class="stat good"><div class="label">Tổng đã trả</div><div class="value">@Fmt.Vnd(live.Sum(p => p.AmountVnd))</div></div>
     <div class="stat"><div class="label">Tiền mặt</div><div class="value">@Fmt.Vnd(live.Where(p => p.Method == PaymentMethod.Cash).Sum(p => p.AmountVnd))</div></div>
     <div class="stat"><div class="label">Chuyển khoản</div><div class="value">@Fmt.Vnd(live.Where(p => p.Method == PaymentMethod.Transfer).Sum(p => p.AmountVnd))</div></div>
+    <div class="stat"><div class="label">Bù trừ</div><div class="value">@Fmt.Vnd(live.Where(p => p.Method == PaymentMethod.Offset).Sum(p => p.AmountVnd))</div></div>
 </section>
 
 <div class="card">

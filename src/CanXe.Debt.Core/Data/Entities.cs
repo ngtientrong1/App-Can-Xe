@@ -3,7 +3,10 @@ namespace CanXe.Debt.Data;
 public enum PaymentMethod
 {
     Cash = 0,
-    Transfer = 1
+    Transfer = 1,
+
+    /// <summary>Settled against something else the seller owes (for example green beans sold to them), no money moves.</summary>
+    Offset = 2
 }
 
 public enum UserRole
@@ -74,6 +77,9 @@ public sealed class TicketRecord
     /// <summary>The only weight known while <see cref="AwaitingSecondWeigh"/>.</summary>
     public decimal? FirstWeightKg { get; set; }
 
+    /// <summary>The note typed at the scale (for example a deposit tag or a lot name).</summary>
+    public string? Notes { get; set; }
+
     public bool IsDeleted { get; set; }
     public required string ContentHash { get; set; }
     public int ImportBatchId { get; set; }
@@ -126,6 +132,9 @@ public sealed class Payment
 
     /// <summary>Bank the money went to, for transfers.</summary>
     public string? BankName { get; set; }
+
+    /// <summary>Who handed the money over on our side ("Bố giao").</summary>
+    public string? PaidBy { get; set; }
 
     /// <summary>Who collected the money ("A Thắng nhận giùm").</summary>
     public string? ReceivedBy { get; set; }

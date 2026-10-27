@@ -16,6 +16,11 @@ public enum PeriodStatus
 /// <summary>Where the cassava of a period came from: one line per scale station.</summary>
 public sealed record StationSubtotal(string StationCode, string StationName, int TruckCount, decimal BillableKg, long Amount);
 
+/// <summary>One day at one station, like a line of the hand-kept sheet ("3 xe ngày 24/11 Đắk Hà", with its price).</summary>
+public sealed record DayLine(
+    DateOnly Date, string StationCode, string StationName, int TruckCount, decimal BillableKg,
+    string PricesText, long Amount, int UnfinishedCount);
+
 public sealed record PeriodView(
     SettlementPeriod? Period,
     DateOnly From,
@@ -32,7 +37,8 @@ public sealed record PeriodView(
     long Paid,
     IReadOnlyList<Payment> Payments,
     int ChangedAfterCloseCount,
-    long ChangedAfterCloseAmount)
+    long ChangedAfterCloseAmount,
+    IReadOnlyList<DayLine> Days)
 {
     public bool IsOpen => Period is null;
 
@@ -55,7 +61,8 @@ public sealed record PeriodView(
         : PeriodStatus.Settled;
 }
 
-public sealed record CustomerSettlement(IReadOnlyList<PeriodView> Periods, long TotalBilled, long TotalPaid)
+/// <param name="OldestUnpaidDate">Date of the oldest truck not yet covered by payments (payments counted oldest first); null when nothing is owed.</param>
+public sealed record CustomerSettlement(IReadOnlyList<PeriodView> Periods, long TotalBilled, long TotalPaid, DateOnly? OldestUnpaidDate = null)
 {
     /// <summary>The still-open period; always the last one.</summary>
     public PeriodView Open => Periods[^1];
@@ -108,8 +115,29 @@ public static class PeriodBuilder
         return new CustomerSettlement(
             views,
             views.Sum(v => v.TicketsTotal),
-            views.Sum(v => v.Paid));
+            views.Sum(v => v.Paid),
+            OldestUnpaid(allTickets, livePayments.Sum(p => p.AmountVnd)));
     }
+
+    /// <summary>
+    /// How far back the debt reaches: lump payments settle the oldest trucks first, and the first truck still not fully
+    /// covered marks the start of the debt.
+    /// </summary>
+    public static DateOnly? OldestUnpaid(IReadOnlyList<TicketRecord> tickets, long totalPaid)
+    {
+        var ledger = LedgerCalculator.Compute(
+            tickets.Select((t, i) => new LedgerTicket(i, t.TicketDateTime, t.Stage == TicketStage.Priced ? t.AmountVnd : null)),
+            totalPaid);
+        var first = ledger.Tickets.FirstOrDefault(s => s.Status is SettlementStatus.Unpaid or SettlementStatus.Partial);
+        return first is null ? null : tickets[first.TicketId].TicketDate;
+    }
+
+    private static string PriceText(IEnumerable<TicketRecord> priced) =>
+        string.Join(" · ", priced
+            .Select(t => t.HasPriceSplit && t.SecondUnitPrice is { } second ? $"{Money(t.UnitPrice)}/{Money(second)}" : Money(t.UnitPrice))
+            .Distinct());
+
+    private static string Money(decimal? value) => value is { } v ? v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture).Replace(',', '.') : "—";
 
     private static PeriodView BuildView(
         SettlementPeriod? period, DateOnly from, DateOnly? to,
@@ -129,6 +157,19 @@ public static class PeriodBuilder
                 g.Where(t => t.Stage == TicketStage.Priced).Sum(t => t.AmountVnd ?? 0)))
             .ToList();
 
+        var days = sorted
+            .GroupBy(t => (t.TicketDate, t.StationCode))
+            .OrderBy(g => g.Key.TicketDate).ThenBy(g => g.Key.StationCode)
+            .Select(g =>
+            {
+                var pricedInDay = g.Where(t => t.Stage == TicketStage.Priced).ToList();
+                return new DayLine(
+                    g.Key.TicketDate, g.Key.StationCode, stationNames.GetValueOrDefault(g.Key.StationCode, g.Key.StationCode),
+                    g.Count(), pricedInDay.Sum(t => t.BillableWeightKg ?? 0), PriceText(pricedInDay),
+                    pricedInDay.Sum(t => t.AmountVnd ?? 0), g.Count(t => t.Stage != TicketStage.Priced));
+            })
+            .ToList();
+
         var changed = period is null
             ? []
             : sorted.Where(t => t.UpdatedAt > period.ClosedAt).ToList();
@@ -145,6 +186,7 @@ public static class PeriodBuilder
             payments.Sum(p => p.AmountVnd),
             payments.OrderBy(p => p.PaidOn).ThenBy(p => p.Id).ToList(),
             changed.Count,
-            changed.Sum(t => t.AmountVnd ?? 0));
+            changed.Sum(t => t.AmountVnd ?? 0),
+            days);
     }
 }

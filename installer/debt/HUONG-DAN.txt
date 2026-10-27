@@ -62,6 +62,17 @@ Trả tiền theo kỳ (gom nhiều ngày, trả một cục)
 - Mỗi xe và mỗi kỳ đều ghi rõ điểm cân (Đắk Hà / Đắk Tô) bằng nhãn màu.
 
 
+Các trường hợp trả tiền thường gặp (theo bảng Excel cũ)
+-------------------------------------------------------
+- Trả một cục cho nhiều ngày: chốt kỳ rồi trả; nút "Tròn xuống 100 triệu / 50 triệu" điền nhanh số tròn,
+  phần lẻ còn nợ tự chuyển sang kỳ sau.
+- Ứng tiền trước khi có xe ("Bố đưa", "tài xế ứng"): ghi ở "Kỳ đang mở"; tiền ứng trừ dần vào các xe sau.
+- Bù trừ với tiền chủ hàng nợ mình (ví dụ bán cà nhân cho chủ hàng): chọn hình thức "Bù trừ", ghi ghi chú.
+- Mỗi khoản trả ghi được người chi (bên mình: Bố, Mẹ, tài xế...) và người nhận (bên chủ hàng); tên đã dùng được gợi ý lần sau.
+- "Nợ lâu nhất": Tổng quan cho biết khoản nợ của từng chủ hàng đã tồn bao nhiêu ngày; chọn "Sắp xếp: Nợ lâu nhất" để trả trước.
+- Ghi chú nhập ở app cân (ví dụ CÀ GỬI, Lô Ngọc Hồi) hiện cạnh từng xe.
+- Ngày luôn nhập và hiển thị dạng ngày/tháng/năm, ví dụ 27/10/2026.
+
 Sao lưu
 -------
 - Tự động mỗi ngày một bản vào C:\ProgramData\CanXeDebt\backup (giữ 30 bản). Quản trị xem ở mục "Sao lưu".

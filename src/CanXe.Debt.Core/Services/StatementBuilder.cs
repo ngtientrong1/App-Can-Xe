@@ -80,10 +80,15 @@ public static class StatementBuilder
     {
         var parts = new List<string>
         {
-            payment.Method == PaymentMethod.Cash
-                ? "Trả tiền mặt"
-                : string.IsNullOrWhiteSpace(payment.BankName) ? "Trả chuyển khoản" : $"Trả chuyển khoản ({payment.BankName})"
+            payment.Method switch
+            {
+                PaymentMethod.Cash => "Trả tiền mặt",
+                PaymentMethod.Offset => string.IsNullOrWhiteSpace(payment.BankName) ? "Bù trừ công nợ" : $"Bù trừ ({payment.BankName})",
+                _ => string.IsNullOrWhiteSpace(payment.BankName) ? "Trả chuyển khoản" : $"Trả chuyển khoản ({payment.BankName})"
+            }
         };
+        if (!string.IsNullOrWhiteSpace(payment.PaidBy))
+            parts.Add($"{payment.PaidBy} chi");
         if (!string.IsNullOrWhiteSpace(payment.ReceivedBy))
             parts.Add($"{payment.ReceivedBy} nhận");
         if (!string.IsNullOrWhiteSpace(payment.Note))

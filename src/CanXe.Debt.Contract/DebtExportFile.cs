@@ -26,7 +26,8 @@ public sealed record ExportedTicket(
     long? AmountVnd,
     bool IsDeleted,
     bool AwaitingSecondWeigh = false,
-    decimal? FirstWeightKg = null);
+    decimal? FirstWeightKg = null,
+    string? Notes = null);
 
 public sealed record DebtExportFile(
     string Format,

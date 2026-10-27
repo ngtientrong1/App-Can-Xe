@@ -74,7 +74,7 @@ builder.Services.AddRazorPages(o =>
     o.Conventions.AllowAnonymousToPage("/Denied");
     o.Conventions.AllowAnonymousToPage("/Error");
     o.Conventions.AuthorizeFolder("/Admin", "Admin");
-});
+}).AddMvcOptions(o => o.ModelBinderProviders.Insert(0, new DateOnlyModelBinderProvider()));
 
 builder.Services.Configure<ForwardedHeadersOptions>(o =>
     o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto);

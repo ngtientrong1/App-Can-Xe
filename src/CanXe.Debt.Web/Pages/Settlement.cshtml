@@ -55,7 +55,7 @@
 <div class="card">
     <p>Chốt một lần cho tất cả chủ hàng có xe đến ngày bạn chọn. Mỗi chủ hàng bắt đầu kỳ từ ngày sau kỳ trước của họ. Chốt xong, mở từng chủ hàng để ghi nhận trả tiền.</p>
     <form method="get" class="toolbar">
-        <div class="field"><label for="To">Chốt đến ngày</label><input id="To" name="To" type="date" value="@To!.Value.ToString("yyyy-MM-dd")" max="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")" /></div>
+        <div class="field"><label for="To">Chốt đến ngày</label><input id="To" name="To" type="text" inputmode="numeric" data-date maxlength="10" placeholder="dd/MM/yyyy" autocomplete="off" value="@Fmt.Date(To!.Value)" /></div>
         <button type="submit" class="secondary">Xem trước</button>
     </form>
 </div>

@@ -79,7 +79,7 @@
             </div>
             <div class="field">
                 <label for="SeasonStart">Bắt đầu từ ngày</label>
-                <input id="SeasonStart" name="SeasonStart" type="date" value="@SeasonStart.ToString("yyyy-MM-dd")" required />
+                <input id="SeasonStart" name="SeasonStart" type="text" inputmode="numeric" data-date maxlength="10" placeholder="dd/MM/yyyy" autocomplete="off" value="@Fmt.Date(SeasonStart)" required />
             </div>
             <p><button type="submit">Hoàn tất</button></p>
         </form>

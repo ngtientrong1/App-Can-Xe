@@ -83,7 +83,7 @@
                                 <summary>Chốt mùa</summary>
                                 <form method="post" asp-page-handler="Close" class="inline-form" data-confirm="Chốt mùa này? Sau khi chốt không nhập thêm phiếu hay khoản trả vào mùa.">
                                     <input type="hidden" name="SeasonId" value="@s.Id" />
-                                    <div class="field"><label for="End-@s.Id">Ngày kết thúc</label><input id="End-@s.Id" name="End" type="date" value="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")" required /></div>
+                                    <div class="field"><label for="End-@s.Id">Ngày kết thúc</label><input id="End-@s.Id" name="End" type="text" inputmode="numeric" data-date maxlength="10" placeholder="dd/MM/yyyy" autocomplete="off" value="@Fmt.Date(DateOnly.FromDateTime(DateTime.Today))" required /></div>
                                     <button type="submit" class="danger">Chốt mùa</button>
                                 </form>
                             </details>
@@ -110,7 +110,7 @@
         <form method="post" asp-page-handler="Create">
             <div class="form-grid">
                 <div class="field"><label for="Name">Tên mùa</label><input id="Name" name="Name" type="text" placeholder="Mùa cà 2027" required /></div>
-                <div class="field"><label for="Start">Bắt đầu từ ngày</label><input id="Start" name="Start" type="date" value="@Start.ToString("yyyy-MM-dd")" required /></div>
+                <div class="field"><label for="Start">Bắt đầu từ ngày</label><input id="Start" name="Start" type="text" inputmode="numeric" data-date maxlength="10" placeholder="dd/MM/yyyy" autocomplete="off" value="@Fmt.Date(Start)" required /></div>
                 <div><button type="submit">Mở mùa</button></div>
             </div>
         </form>

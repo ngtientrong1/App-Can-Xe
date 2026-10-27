@@ -96,6 +96,41 @@ public sealed class DailyBackupService(BackupManager backups, IServiceScopeFacto
     }
 }
 
+/// <summary>Binds dates typed day/month/year, so every date box reads the same whatever the browser's language is.</summary>
+public sealed class DateOnlyModelBinderProvider : Microsoft.AspNetCore.Mvc.ModelBinding.IModelBinderProvider
+{
+    public Microsoft.AspNetCore.Mvc.ModelBinding.IModelBinder? GetBinder(Microsoft.AspNetCore.Mvc.ModelBinding.ModelBinderProviderContext context) =>
+        context.Metadata.UnderlyingOrModelType == typeof(DateOnly) ? new DateOnlyModelBinder(context.Metadata.IsNullableValueType) : null;
+}
+
+public sealed class DateOnlyModelBinder(bool nullable) : Microsoft.AspNetCore.Mvc.ModelBinding.IModelBinder
+{
+    public Task BindModelAsync(Microsoft.AspNetCore.Mvc.ModelBinding.ModelBindingContext context)
+    {
+        var value = context.ValueProvider.GetValue(context.ModelName);
+        if (value == Microsoft.AspNetCore.Mvc.ModelBinding.ValueProviderResult.None)
+            return Task.CompletedTask;
+
+        context.ModelState.SetModelValue(context.ModelName, value);
+        var text = value.FirstValue?.Trim();
+        if (string.IsNullOrEmpty(text))
+        {
+            if (nullable)
+                context.Result = Microsoft.AspNetCore.Mvc.ModelBinding.ModelBindingResult.Success(null);
+        }
+        else if (Fmt.TryParseDate(text, out var date))
+        {
+            context.Result = Microsoft.AspNetCore.Mvc.ModelBinding.ModelBindingResult.Success(date);
+        }
+        else
+        {
+            context.ModelState.TryAddModelError(context.ModelName, "Ngày không hợp lệ. Nhập dạng 27/10/2026.");
+        }
+
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>What the period card needs besides the period itself.</summary>
 public sealed record PeriodCardModel(
     PeriodView View,
@@ -165,5 +200,20 @@ public static class Fmt
         _ => "Đã tính tiền"
     };
 
-    public static string Method(PaymentMethod method) => method == PaymentMethod.Cash ? "Tiền mặt" : "Chuyển khoản";
+    public static string Method(PaymentMethod method) => method switch
+    {
+        PaymentMethod.Cash => "Tiền mặt",
+        PaymentMethod.Offset => "Bù trừ",
+        _ => "Chuyển khoản"
+    };
+
+    private static readonly string[] DateFormats =
+        ["dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy", "d-M-yyyy", "dd.MM.yyyy", "d.M.yyyy", "ddMMyyyy", "yyyy-MM-dd"];
+
+    /// <summary>Reads a date typed as day/month/year (27/10/2026, 27-10-2026, 27102026) or ISO yyyy-MM-dd.</summary>
+    public static bool TryParseDate(string? text, out DateOnly date) =>
+        DateOnly.TryParseExact(text?.Trim(), DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
+
+    /// <summary>Whole days from <paramref name="from"/> to today, never negative.</summary>
+    public static int DaysSince(DateOnly from) => Math.Max(0, DateOnly.FromDateTime(System.DateTime.Today).DayNumber - from.DayNumber);
 }
