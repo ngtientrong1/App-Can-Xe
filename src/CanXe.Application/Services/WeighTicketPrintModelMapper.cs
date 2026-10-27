@@ -61,14 +61,15 @@ public static class WeighTicketPrintFormatter
 
     public static string FormatWeighCardTimestamp(DateTimeOffset? at) =>
         at.HasValue
-            ? $"{at.Value.ToString("HH:mm:ss", System.Globalization.CultureInfo.CurrentCulture)} • {at.Value.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.CurrentCulture)}"
+            ? $"{FormatTime(at)} • {FormatDate(at)}"
             : "—";
 
+    // Fixed separators: with the culture's own, a Windows short-date such as dd-MM-yy prints "29-06-2026" on the ticket.
     public static string FormatTime(DateTimeOffset? at) =>
-        at?.ToString("HH:mm:ss", System.Globalization.CultureInfo.CurrentCulture) ?? "—";
+        at?.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) ?? "—";
 
     public static string FormatDate(DateTimeOffset? at) =>
-        at?.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.CurrentCulture) ?? "—";
+        at?.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture) ?? "—";
 
     public static string? FormatUnitPricePerKg(decimal? vndPerKg, bool showPrice)
     {

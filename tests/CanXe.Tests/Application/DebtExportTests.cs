@@ -10,9 +10,11 @@ public sealed class DebtExportTests
     private static readonly StationInfo Station = new("DAKHA", "Đắk Hà");
 
     private static WeighTicket Ticket(
-        string code, string number, int? billableGrams = 16_022_000, int? price = 19_800, int? total = 317_031_200,
-        bool deleted = false, int? splitFirstGrams = null, int? secondPrice = null) =>
-        new()
+        string code, string number, int weighings = 2, int? billableGrams = 16_022_000, int? price = 19_800,
+        int? total = 317_031_200, bool deleted = false, int? splitFirstGrams = null, int? secondPrice = null)
+    {
+        var complete = weighings >= 2;
+        var ticket = new WeighTicket
         {
             InternalCode = code,
             DisplayNumber = number,
@@ -20,9 +22,9 @@ public sealed class DebtExportTests
             CustomerNameSnapshot = "Công Ty Đại Lợi",
             LicensePlateSnapshot = "82C-072.19",
             CargoTypeNameSnapshot = "Rô Tươi",
-            GrossWeightGrams = 21_070_000,
-            TareWeightGrams = 5_000_000,
-            NetWeightGrams = 16_070_000,
+            GrossWeightGrams = complete ? 21_070_000 : 21_070_000,
+            TareWeightGrams = complete ? 5_000_000 : 0,
+            NetWeightGrams = complete ? 16_070_000 : 21_070_000,
             BillableWeightGrams = billableGrams,
             UnitPriceVndPerKg = price,
             SplitFirstWeightGrams = splitFirstGrams,
@@ -30,6 +32,10 @@ public sealed class DebtExportTests
             TotalAmountVnd = total,
             IsDeleted = deleted
         };
+        for (var i = 1; i <= weighings; i++)
+            ticket.Events.Add(new WeighEvent { Sequence = i, OriginalWeightGrams = i == 1 ? 21_070_000 : 5_000_000 });
+        return ticket;
+    }
 
     [Fact]
     public void CompletedTicket_IsExportedWithWeightsPriceAndAmount()
@@ -46,14 +52,52 @@ public sealed class DebtExportTests
         Assert.Equal(19_800m, row.UnitPrice);
         Assert.Equal(317_031_200L, row.AmountVnd);
         Assert.False(row.IsDeleted);
+        Assert.False(row.AwaitingSecondWeigh);
         Assert.True(file.IsChecksumValid);
     }
 
     [Fact]
-    public void TicketAwaitingItsSecondWeighing_IsNotExported()
+    public void TicketAwaitingItsSecondWeighing_IsExportedWithOnlyTheFirstWeight()
+    {
+        var file = DebtExportService.BuildFile(
+            Station, [Ticket("a", "1/10", weighings: 1, billableGrams: null, price: null, total: null)], DateTimeOffset.Now);
+
+        var row = Assert.Single(file.Tickets);
+        Assert.True(row.AwaitingSecondWeigh);
+        Assert.Equal(21_070m, row.FirstWeightKg);
+        Assert.Null(row.NetWeightKg);
+        Assert.Null(row.GrossWeightKg);
+        Assert.Null(row.AmountVnd);
+    }
+
+    [Fact]
+    public void AwaitingTicketNeverCarriesAMoneyAmountEvenWithAPrice()
+    {
+        var file = DebtExportService.BuildFile(
+            Station, [Ticket("a", "1/10", weighings: 1, billableGrams: 21_000_000, price: 19_800, total: 415_800_000)], DateTimeOffset.Now);
+
+        Assert.Null(Assert.Single(file.Tickets).AmountVnd);
+    }
+
+    [Fact]
+    public void WeighedButUnpricedTicket_IsExportedWithItsNetWeightAndNoAmount()
     {
         var file = DebtExportService.BuildFile(
             Station, [Ticket("a", "1/10", billableGrams: null, price: null, total: null)], DateTimeOffset.Now);
+
+        var row = Assert.Single(file.Tickets);
+        Assert.Equal(16_070m, row.NetWeightKg);
+        Assert.Null(row.BillableWeightKg);
+        Assert.Null(row.UnitPrice);
+        Assert.Null(row.AmountVnd);
+        Assert.False(row.AwaitingSecondWeigh);
+    }
+
+    [Fact]
+    public void TicketWithNoWeighingAtAll_IsADraftAndIsLeftOut()
+    {
+        var file = DebtExportService.BuildFile(
+            Station, [Ticket("a", "1/10", weighings: 0, billableGrams: null, price: null, total: null)], DateTimeOffset.Now);
 
         Assert.Empty(file.Tickets);
     }
@@ -68,14 +112,12 @@ public sealed class DebtExportTests
     }
 
     [Fact]
-    public void TicketWithoutPrice_HasNoAmount()
+    public void ZeroPriceServiceWeighing_KeepsItsZeroAmount()
     {
         var file = DebtExportService.BuildFile(
-            Station, [Ticket("a", "1/10", price: null, total: 0)], DateTimeOffset.Now);
+            Station, [Ticket("a", "1/10", price: 0, total: 0)], DateTimeOffset.Now);
 
-        var row = Assert.Single(file.Tickets);
-        Assert.Null(row.UnitPrice);
-        Assert.Null(row.AmountVnd);
+        Assert.Equal(0L, Assert.Single(file.Tickets).AmountVnd);
     }
 
     [Fact]

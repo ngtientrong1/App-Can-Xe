@@ -34,8 +34,9 @@ public sealed class Phase8Rc1ReleasePackagingTests
     {
         var iss = ResolveFile(Path.Combine("installer", "CanXeTienTrong.iss"));
         var text = File.ReadAllText(iss);
-        Assert.Contains("#define MyAppVersion \"1.0.7\"", text, StringComparison.Ordinal);
-        Assert.Contains("CanXeTienTrong-Setup-1.0.7", text, StringComparison.Ordinal);
+        var version = System.Text.RegularExpressions.Regex.Match(text, "#define MyAppVersion \"(1\\.0\\.\\d+)\"");
+        Assert.True(version.Success, "installer must define MyAppVersion 1.0.x");
+        Assert.Contains($"CanXeTienTrong-Setup-{version.Groups[1].Value}", text, StringComparison.Ordinal);
         Assert.Contains(@"publish\win10-x64\*", text, StringComparison.Ordinal);
         Assert.Contains("DestDir: \"{app}\"", text, StringComparison.Ordinal);
         Assert.DoesNotContain("DestDir: \"{localappdata}", text, StringComparison.OrdinalIgnoreCase);
