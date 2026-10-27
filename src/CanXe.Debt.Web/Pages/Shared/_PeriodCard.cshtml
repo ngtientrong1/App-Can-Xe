@@ -5,12 +5,12 @@
 }
 <section class="period @(open ? "open" : "")" id="@(open ? "ky-mo" : "ky-" + v.Id)">
     <div class="period-head">
-        <h3>@(open ? $"Xe chờ chốt lô · {v.TruckCount} xe" : $"Lô {v.Number} · {Fmt.PeriodRange(v)}")</h3>
+        <h3>@(open ? $"Xe chưa gom lô · {v.TruckCount} xe" : $"Lô {v.Number} · {Fmt.PeriodRange(v)}")</h3>
         @switch (v.Status)
         {
             case PeriodStatus.Open: <span class="badge pending">Chưa chốt</span> break;
             case PeriodStatus.Owing: <span class="badge unpaid">Còn nợ @Fmt.Vnd(v.Remaining)</span> break;
-            case PeriodStatus.Settled: <span class="badge paid">Đã tất toán</span> break;
+            case PeriodStatus.Settled: <span class="badge paid">Đã trả đủ</span> break;
             default: <span class="badge partial">Đã ứng trước @Fmt.Vnd(-v.Remaining)</span> break;
         }
     </div>
@@ -81,26 +81,26 @@
 
     @if (open)
     {
-        <div class="outcome open">Tạm tính nếu chốt tất cả các xe đang chờ: @(v.Remaining > 0 ? $"còn nợ {Fmt.Vnd(v.Remaining)}" : v.Remaining < 0 ? $"đã ứng trước {Fmt.Vnd(-v.Remaining)}" : "không còn nợ")</div>
+        <div class="outcome open">Tổng nợ chủ hàng hiện tại: @(v.Remaining > 0 ? Fmt.Vnd(v.Remaining) : v.Remaining < 0 ? $"đã trả trước {Fmt.Vnd(-v.Remaining)}" : "không còn nợ")</div>
     }
     else if (v.Status == PeriodStatus.Owing)
     {
-        <div class="outcome owe">Còn nợ @Fmt.Vnd(v.Remaining) → chuyển sang lô sau</div>
+        <div class="outcome owe">Còn nợ @Fmt.Vnd(v.Remaining) (trả sau)</div>
     }
     else if (v.Status == PeriodStatus.PaidAhead)
     {
-        <div class="outcome ahead">Đã ứng trước @Fmt.Vnd(-v.Remaining) → trừ vào lô sau</div>
+        <div class="outcome ahead">Trả dư @Fmt.Vnd(-v.Remaining) → trừ vào lô sau</div>
     }
     else
     {
-        <div class="outcome done">Đã tất toán lô này</div>
+        <div class="outcome done">Đã trả đủ lô này</div>
     }
 
     @if (v.Tickets.Count > 0 && open && Model.SeasonOpen)
     {
         <form method="post" asp-page="/Customers/Detail" asp-page-handler="Close" asp-route-id="@Model.CustomerId" asp-route-SeasonId="@Model.SeasonId" data-close-form>
             <div class="select-bar no-print">
-                <strong>Chọn xe để chốt lô</strong>
+                <strong>Chọn xe để gom thành lô</strong>
                 <button type="button" class="secondary" data-select="all">Chọn tất cả</button>
                 <button type="button" class="secondary" data-select="none">Bỏ chọn</button>
                 <span class="select-range">
@@ -140,8 +140,10 @@
                     </tr>
                     </thead>
                     <tbody>
-                    @foreach (var t in v.Tickets)
+                    @for (var ti = 0; ti < v.Tickets.Count; ti++)
                     {
+                        var t = v.Tickets[ti];
+                        var st = v.TruckStatuses[ti];
                         <tr class="@(t.Stage == TicketStage.Priced ? "" : "dim")">
                             <td class="no-print"><input type="checkbox" name="TicketIds" value="@t.Id" aria-label="Chọn phiếu @t.DisplayNumber"
                                        data-pick data-day="@t.TicketDate.ToString("yyyy-MM-dd")" data-amount="@(t.Stage == TicketStage.Priced ? t.AmountVnd ?? 0 : 0)"
@@ -171,11 +173,15 @@
                                 {
                                     case TicketStage.AwaitingSecondWeigh: <span class="badge partial stage">Chờ cân lần 2</span> break;
                                     case TicketStage.NoPrice: <span class="badge pending stage">Chưa có giá</span> break;
-                                    default: <span class="badge paid stage">Đã tính tiền</span> break;
+                                    default:
+                                        if (st.Status == SettlementStatus.Paid) { <span class="badge paid stage">Đã trả đủ</span> }
+                                        else if (st.Status == SettlementStatus.Partial) { <span class="badge partial stage">Đã trả @Fmt.Vnd(st.Allocated)</span> }
+                                        else { <span class="badge unpaid stage">Chưa trả</span> }
+                                        break;
                                 }
                             </td>
                             <td>@t.Notes</td>
-                            <td class="no-print"><button type="submit" name="PayOne" value="@t.Id" class="secondary pay-one" title="Chốt riêng xe này thành một lô rồi trả">Trả riêng</button></td>
+                            <td class="no-print"><button type="submit" name="PayOne" value="@t.Id" class="secondary pay-one" title="Gom riêng xe này thành một lô rồi trả">Trả riêng</button></td>
                         </tr>
                     }
                     </tbody>
@@ -184,8 +190,8 @@
 
             <div class="select-foot no-print">
                 <div class="outcome open" data-sel-summary data-carry="@v.CarryIn">Chưa chọn xe nào.</div>
-                <button type="submit" name="PayNow" value="false">Chốt lô với các xe đã chọn</button>
-                <button type="submit" name="PayNow" value="true" class="secondary">Chốt rồi trả luôn</button>
+                <button type="submit" name="PayNow" value="false">Gom thành lô</button>
+                <button type="submit" name="PayNow" value="true" class="secondary">Gom lô rồi trả luôn</button>
             </div>
         </form>
     }
@@ -223,8 +229,10 @@
                     </tr>
                     </thead>
                     <tbody>
-                    @foreach (var t in v.Tickets)
+                    @for (var ti = 0; ti < v.Tickets.Count; ti++)
                     {
+                        var t = v.Tickets[ti];
+                        var st = v.TruckStatuses[ti];
                         <tr class="@(t.Stage == TicketStage.Priced ? "" : "dim")">
                             <td class="nowrap">@Fmt.DateTime(t.TicketDateTime)</td>
                             <td>@t.DisplayNumber</td>
@@ -251,7 +259,11 @@
                                 {
                                     case TicketStage.AwaitingSecondWeigh: <span class="badge partial stage">Chờ cân lần 2</span> break;
                                     case TicketStage.NoPrice: <span class="badge pending stage">Chưa có giá</span> break;
-                                    default: <span class="badge paid stage">Đã tính tiền</span> break;
+                                    default:
+                                        if (st.Status == SettlementStatus.Paid) { <span class="badge paid stage">Đã trả đủ</span> }
+                                        else if (st.Status == SettlementStatus.Partial) { <span class="badge partial stage">Đã trả @Fmt.Vnd(st.Allocated)</span> }
+                                        else { <span class="badge unpaid stage">Chưa trả</span> }
+                                        break;
                                 }
                             </td>
                             <td>@t.Notes</td>

@@ -92,7 +92,7 @@
     });
   });
 
-  // Pay form: shows what is left after the typed amount, for the period picked in the list.
+  // Pay form: type an amount (or tap 50/100/200/500 triệu) and see at once what is left to owe.
   var payForm = document.querySelector("form[data-pay-form]");
   if (payForm) {
     var amount = payForm.querySelector("[data-pay-amount]");
@@ -103,6 +103,9 @@
       var option = period.options[period.selectedIndex];
       return parseInt(option.getAttribute("data-remaining"), 10) || 0;
     };
+    var label = function () {
+      return period.options[period.selectedIndex].getAttribute("data-label") || "Đang nợ";
+    };
 
     var update = function () {
       var paid = parseInt(amount.value.replace(/\D/g, ""), 10) || 0;
@@ -111,17 +114,17 @@
       if (!paid) {
         result.className += " open";
         result.textContent = remaining() > 0
-          ? "Lô này còn nợ " + fmt(remaining()) + ". Nhập số tiền trả để xem còn lại bao nhiêu."
-          : "Nhập số tiền trả.";
+          ? label() + " " + fmt(remaining()) + ". Nhập số tiền hoặc bấm số tiền nhanh."
+          : "Nhập số tiền cần ghi nhận.";
       } else if (left > 0) {
         result.className += " owe";
-        result.textContent = "Trả " + fmt(paid) + " → còn nợ " + fmt(left) + ", tự chuyển sang lô sau.";
+        result.textContent = "Trả " + fmt(paid) + " → còn nợ " + fmt(left) + " (trả sau).";
       } else if (left === 0) {
         result.className += " done";
-        result.textContent = "Trả " + fmt(paid) + " → tất toán lô này.";
+        result.textContent = "Trả " + fmt(paid) + " → đã trả đủ.";
       } else {
         result.className += " ahead";
-        result.textContent = "Trả " + fmt(paid) + " → đã ứng trước " + fmt(left) + ", trừ vào lô sau.";
+        result.textContent = "Trả " + fmt(paid) + " → nhiều hơn số đang nợ " + fmt(left) + ". Phần dư tính là trả trước, trừ vào các xe sau.";
       }
     };
 
@@ -134,14 +137,35 @@
         amount.focus();
       });
     });
-    payForm.querySelectorAll("[data-pay-round]").forEach(function (button) {
+    payForm.querySelectorAll("[data-pay-set]").forEach(function (button) {
       button.addEventListener("click", function () {
-        var step = parseInt(button.getAttribute("data-pay-round"), 10);
-        var rounded = Math.floor(remaining() / step) * step;
-        if (rounded > 0) { amount.value = String(rounded); formatMoney(amount); }
+        amount.value = button.getAttribute("data-pay-set");
+        formatMoney(amount);
         update();
         amount.focus();
       });
+    });
+
+    // Remember how this person paid last time (method, bank, who gave, who received) so the next entry starts filled in.
+    var memoryKey = "canxe-debt-last-payment";
+    var fields = ["BankName", "PaidBy", "ReceivedBy"];
+    try {
+      var saved = JSON.parse(window.localStorage.getItem(memoryKey) || "null");
+      if (saved && !payForm.querySelector("input[name=BankName]").value && !payForm.querySelector("input[name=ReceivedBy]").value) {
+        fields.forEach(function (name) {
+          var input = payForm.querySelector("input[name=" + name + "]");
+          if (input && saved[name]) { input.value = saved[name]; }
+        });
+        var radio = payForm.querySelector("input[name=Method][value=" + saved.Method + "]");
+        if (radio) { radio.checked = true; }
+      }
+    } catch (e) { /* storage not available: nothing to remember */ }
+    payForm.addEventListener("submit", function () {
+      try {
+        var data = { Method: (payForm.querySelector("input[name=Method]:checked") || {}).value || "Cash" };
+        fields.forEach(function (name) { data[name] = payForm.querySelector("input[name=" + name + "]").value; });
+        window.localStorage.setItem(memoryKey, JSON.stringify(data));
+      } catch (e) { /* ignore */ }
     });
     update();
   }

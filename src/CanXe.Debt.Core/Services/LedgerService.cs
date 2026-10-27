@@ -174,6 +174,25 @@ public sealed class PaymentService(DebtDbContext db)
         return OperationResult<Payment>.Success(payment);
     }
 
+    public static readonly TimeSpan UndoWindow = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// One-click undo of a payment you just entered: only by the person who entered it, within a few minutes. The payment
+    /// is voided like any other (kept on record), with a standard reason.
+    /// </summary>
+    public async Task<OperationResult> UndoRecentAsync(int paymentId, string user, DateTimeOffset? now = null, CancellationToken ct = default)
+    {
+        var payment = await db.Payments.FirstOrDefaultAsync(p => p.Id == paymentId, ct);
+        if (payment is null || payment.IsVoided)
+            return OperationResult.Fail("Khoản trả này không còn để hoàn tác.");
+        if (!string.Equals(payment.CreatedBy, user, StringComparison.OrdinalIgnoreCase))
+            return OperationResult.Fail("Chỉ người vừa nhập khoản trả mới hoàn tác nhanh được.");
+        if ((now ?? DateTimeOffset.Now) - payment.CreatedAt > UndoWindow)
+            return OperationResult.Fail("Đã quá 15 phút. Hãy hủy khoản trả trong sổ và ghi rõ lý do.");
+
+        return await VoidAsync(paymentId, "Hoàn tác ngay sau khi nhập", user, ct);
+    }
+
     /// <summary>A payment is never deleted: voiding keeps it on record with who, when and why.</summary>
     public async Task<OperationResult> VoidAsync(int paymentId, string reason, string user, CancellationToken ct = default)
     {

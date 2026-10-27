@@ -28,6 +28,9 @@
     [BindProperty] public int VoidId { get; set; }
     [BindProperty] public string? VoidReason { get; set; }
 
+    [BindProperty] public int UndoPaymentId { get; set; }
+    public int? JustPaidId { get; set; }
+
     public Customer? Customer { get; set; }
     public Season? Season { get; set; }
     public CustomerSettlement? Settlement { get; set; }
@@ -38,6 +41,8 @@
     public async Task<IActionResult> OnGetAsync()
     {
         Message = TempData["Message"] as string;
+        JustPaidId = TempData["UndoPaymentId"] as int?;
+        Error ??= TempData["Error"] as string;
         if (!await LoadAsync())
             return NotFound();
 
@@ -77,7 +82,15 @@
         }
 
         TempData["Message"] = $"Đã ghi nhận trả {Fmt.Vnd(amount)} đ ({Fmt.Method(Method).ToLowerInvariant()}).";
+        TempData["UndoPaymentId"] = result.Value!.Id;
         return RedirectToPage(new { id = Id, seasonId = Season.Id });
+    }
+
+    public async Task<IActionResult> OnPostUndoPaymentAsync()
+    {
+        var result = await Payments.UndoRecentAsync(UndoPaymentId, User.Identity!.Name!);
+        TempData[result.Ok ? "Message" : "Error"] = result.Ok ? "Đã hoàn tác khoản trả vừa nhập (vẫn lưu lại trong lịch sử)." : result.Error;
+        return RedirectToPage(new { id = Id, seasonId = SeasonId });
     }
 
     public async Task<IActionResult> OnPostCloseAsync()
@@ -159,7 +172,7 @@
     var openPeriod = s.Open;
     var lastClosed = s.Closed.LastOrDefault();
     var payable = s.Closed.Where(p => p.Remaining > 0).OrderBy(p => p.Number).ToList();
-    var defaultPeriod = PeriodId ?? payable.FirstOrDefault()?.Id;
+    var defaultPeriod = PeriodId;
 }
 <div class="page-head">
     <div>
@@ -172,7 +185,19 @@
     </div>
 </div>
 
-@if (Message is not null) { <div class="alert ok" role="status">@Message</div> }
+@if (Message is not null)
+{
+    <div class="alert ok undo-row" role="status">
+        <span>@Message</span>
+        @if (JustPaidId is { } justPaid)
+        {
+            <form method="post" asp-page-handler="UndoPayment" asp-route-id="@customer.Id" asp-route-SeasonId="@season.Id" class="inline-form">
+                <input type="hidden" name="UndoPaymentId" value="@justPaid" />
+                <button type="submit" class="secondary">Nhập nhầm? Hoàn tác</button>
+            </form>
+        }
+    </div>
+}
 @if (Error is not null) { <div class="alert error" role="alert">@Error</div> }
 
 <div class="split">
@@ -196,48 +221,55 @@
 @if (open)
 {
     <div class="card" id="thu">
-        <h2>Ghi nhận trả tiền</h2>
+        <h2>Trả tiền / ứng tiền</h2>
         <form method="post" asp-page-handler="Pay" asp-route-id="@customer.Id" asp-route-SeasonId="@season.Id" data-pay-form>
+            <div class="field full">
+                <label for="AmountText">Số tiền (đồng)</label>
+                <input id="AmountText" name="AmountText" class="big-input" type="text" inputmode="numeric" data-money data-pay-amount value="@AmountText" autocomplete="off" placeholder="Ví dụ 100.000.000" required />
+            </div>
+            <div class="chips-row" aria-label="Số tiền nhanh">
+                <button type="button" class="secondary" data-pay-set="50000000">50 triệu</button>
+                <button type="button" class="secondary" data-pay-set="100000000">100 triệu</button>
+                <button type="button" class="secondary" data-pay-set="200000000">200 triệu</button>
+                <button type="button" class="secondary" data-pay-set="500000000">500 triệu</button>
+                <button type="button" class="secondary" data-pay-all>Trả hết nợ</button>
+            </div>
+            <div class="outcome open" data-pay-result></div>
             <div class="form-grid">
                 <div class="field full">
-                    <label for="PeriodId">Trả cho lô</label>
+                    <label for="PeriodId">Trả cho</label>
                     <select id="PeriodId" name="PeriodId" data-pay-period>
+                        <option value="" data-remaining="@openPeriod.Remaining" data-label="Đang nợ" selected="@(defaultPeriod is null)">Chung: trừ vào tổng nợ (ứng trước hoặc trả theo số tiền)</option>
                         @foreach (var p in payable)
                         {
-                            <option value="@p.Id" data-remaining="@p.Remaining" selected="@(p.Id == defaultPeriod)">Lô @p.Number · @p.TruckCount xe · còn nợ @Fmt.Vnd(p.Remaining)</option>
+                            <option value="@p.Id" data-remaining="@p.Remaining" data-label="Lô @p.Number còn nợ" selected="@(p.Id == defaultPeriod)">Lô @p.Number · @p.TruckCount xe · còn nợ @Fmt.Vnd(p.Remaining)</option>
                         }
-                        <option value="" data-remaining="@openPeriod.Remaining" selected="@(defaultPeriod is null)">Ứng trước (chưa chốt lô)@(openPeriod.Remaining > 0 ? $" · nợ tạm tính {Fmt.Vnd(openPeriod.Remaining)}" : "")</option>
                     </select>
                 </div>
                 <div class="field"><label for="PaidOn">Ngày trả</label><input id="PaidOn" name="PaidOn" type="text" inputmode="numeric" data-date maxlength="10" placeholder="dd/MM/yyyy" autocomplete="off" value="@Fmt.Date(PaidOn)" required /></div>
-                <div class="field">
-                    <label for="AmountText">Số tiền trả (đồng)</label>
-                    <input id="AmountText" name="AmountText" type="text" inputmode="numeric" data-money data-pay-amount value="@AmountText" autocomplete="off" required />
-                </div>
                 <div class="field full">
                     <label>Hình thức</label>
                     <div class="radio-row">
                         <label><input type="radio" name="Method" value="Cash" checked="@(Method == PaymentMethod.Cash)" /> Tiền mặt</label>
                         <label><input type="radio" name="Method" value="Transfer" checked="@(Method == PaymentMethod.Transfer)" /> Chuyển khoản</label>
-                        <label><input type="radio" name="Method" value="Offset" checked="@(Method == PaymentMethod.Offset)" /> Bù trừ</label>
+                        <label><input type="radio" name="Method" value="Offset" checked="@(Method == PaymentMethod.Offset)" /> Trừ vào công nợ khác</label>
                     </div>
                 </div>
-                <div class="field full"><label for="BankName">Ngân hàng / tài khoản (chuyển khoản, bù trừ)</label><input id="BankName" name="BankName" type="text" value="@BankName" list="banks" placeholder="Vietcombank, tk công ty…" /></div>
-                <div class="field"><label for="PaidBy">Người chi (bên mình)</label><input id="PaidBy" name="PaidBy" type="text" value="@PaidBy" list="payers" placeholder="Bố giao, tài xế ứng…" /></div>
-                <div class="field"><label for="ReceivedBy">Người nhận tiền</label><input id="ReceivedBy" name="ReceivedBy" type="text" value="@ReceivedBy" list="receivers" placeholder="Ai nhận giùm…" /></div>
-                <div class="field full"><label for="Note">Ghi chú (không bắt buộc)</label><input id="Note" name="Note" type="text" value="@Note" /></div>
             </div>
+            <details class="more" open="@(!string.IsNullOrWhiteSpace(BankName) || !string.IsNullOrWhiteSpace(PaidBy) || !string.IsNullOrWhiteSpace(ReceivedBy) || !string.IsNullOrWhiteSpace(Note))">
+                <summary>Thêm chi tiết (không bắt buộc): ngân hàng, người chi, người nhận, ghi chú</summary>
+                <div class="form-grid">
+                    <div class="field full"><label for="BankName">Ngân hàng / tài khoản</label><input id="BankName" name="BankName" type="text" value="@BankName" list="banks" placeholder="Vietcombank, tk công ty…" /></div>
+                    <div class="field"><label for="PaidBy">Người chi (bên mình)</label><input id="PaidBy" name="PaidBy" type="text" value="@PaidBy" list="payers" placeholder="Bố giao, tài xế ứng…" /></div>
+                    <div class="field"><label for="ReceivedBy">Người nhận tiền</label><input id="ReceivedBy" name="ReceivedBy" type="text" value="@ReceivedBy" list="receivers" placeholder="Ai nhận giùm…" /></div>
+                    <div class="field full"><label for="Note">Ghi chú</label><input id="Note" name="Note" type="text" value="@Note" placeholder="Ví dụ: ứng để nhập hàng tiếp" /></div>
+                </div>
+            </details>
             <datalist id="banks">@foreach (var b in Suggestions.Banks) { <option value="@b"></option> }</datalist>
             <datalist id="payers">@foreach (var b in Suggestions.Payers) { <option value="@b"></option> }</datalist>
             <datalist id="receivers">@foreach (var b in Suggestions.Receivers) { <option value="@b"></option> }</datalist>
-            <div class="outcome open" data-pay-result></div>
-            <p class="toolbar">
-                <button type="submit">Ghi nhận trả tiền</button>
-                <button type="button" class="secondary" data-pay-all>Trả hết lô đã chọn</button>
-                <button type="button" class="secondary" data-pay-round="100000000">Tròn xuống 100 triệu</button>
-                <button type="button" class="secondary" data-pay-round="50000000">Tròn xuống 50 triệu</button>
-            </p>
-            <p class="muted small">Muốn trả cho một vài xe: ở bảng “Xe chờ chốt lô” bên phải, tick các xe rồi bấm “Chốt rồi trả luôn”, hoặc bấm “Trả riêng” ở dòng của xe đó. “Ứng trước” là tiền trả khi chưa chốt lô, trừ dần vào các xe sau.</p>
+            <p class="toolbar"><button type="submit" class="big-btn">Ghi nhận</button></p>
+            <p class="muted small">Mọi khoản trả đều trừ vào tổng nợ. Muốn trả riêng cho vài xe, tick xe ở bảng bên phải rồi bấm “Gom lô rồi trả luôn” hoặc “Trả riêng”.</p>
         </form>
     </div>
 }

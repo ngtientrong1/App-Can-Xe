@@ -40,7 +40,8 @@ public sealed record PeriodView(
     IReadOnlyList<Payment> Payments,
     int ChangedAfterCloseCount,
     long ChangedAfterCloseAmount,
-    IReadOnlyList<DayLine> Days)
+    IReadOnlyList<DayLine> Days,
+    IReadOnlyList<TicketSettlement> TruckStatuses)
 {
     public bool IsOpen => Period is null;
 
@@ -142,6 +143,18 @@ public static class PeriodBuilder
         return first is null ? null : tickets[first.TicketId].TicketDate;
     }
 
+    /// <summary>
+    /// Which trucks the payments cover, oldest first: a payment of any amount settles the oldest trucks of its group first.
+    /// Aligned with the period's trucks (same order).
+    /// </summary>
+    private static IReadOnlyList<TicketSettlement> TruckStatuses(IReadOnlyList<TicketRecord> sorted, long paid)
+    {
+        var ledger = LedgerCalculator.Compute(
+            sorted.Select((t, i) => new LedgerTicket(i, t.TicketDateTime, t.Stage == TicketStage.Priced ? t.AmountVnd : null)),
+            paid);
+        return sorted.Select((_, i) => ledger.Tickets.First(s => s.TicketId == i)).ToList();
+    }
+
     private static string PriceText(IEnumerable<TicketRecord> priced) =>
         string.Join(" · ", priced
             .Select(t => t.HasPriceSplit && t.SecondUnitPrice is { } second ? $"{Money(t.UnitPrice)}/{Money(second)}" : Money(t.UnitPrice))
@@ -199,6 +212,7 @@ public static class PeriodBuilder
             payments.OrderBy(p => p.PaidOn).ThenBy(p => p.Id).ToList(),
             changed.Count,
             changed.Sum(t => t.AmountVnd ?? 0),
-            days);
+            days,
+            TruckStatuses(sorted, payments.Sum(p => p.AmountVnd)));
     }
 }

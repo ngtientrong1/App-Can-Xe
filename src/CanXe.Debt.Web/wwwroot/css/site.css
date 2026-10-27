@@ -307,3 +307,13 @@ tfoot th { border-top: 2px solid var(--line); }
 table.pick .col-opt { display: none; }
 table.pick th, table.pick td { padding: 5px 8px; }
 table.pick td:nth-last-child(2) { white-space: nowrap; }
+/* Simple payment entry: the amount is the big thing; the rest is optional. */
+.big-input { font-size: 1.5rem !important; font-weight: 700; padding: 12px 14px !important; width: 100%; font-variant-numeric: tabular-nums; }
+.chips-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.chips-row button { padding: 6px 14px; }
+details.more { margin: 10px 0 4px; }
+details.more > summary { cursor: pointer; color: var(--brand); font-size: .92rem; padding: 4px 0; }
+details.more .form-grid { margin-top: 8px; }
+button.big-btn { font-size: 1.05rem; padding: 11px 26px; }
+.alert.undo-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; font-size: 1.05rem; }
+.alert.undo-row form { margin: 0; }

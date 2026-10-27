@@ -163,3 +163,66 @@ public sealed class SheetCaseServiceTests
         Assert.Equal(["VCB"], suggestions.Banks);
     }
 }
+
+public sealed class FreeAmountPaymentTests
+{
+    private static readonly Dictionary<string, string> Stations = new() { ["DAKHA"] = "Đắk Hà" };
+    private static readonly Season Season = new() { Id = 1, Name = "Mùa", StartDate = new DateOnly(2025, 11, 1) };
+
+    private static TicketRecord Ticket(string code, string date, long amount) =>
+        new()
+        {
+            StationCode = "DAKHA", Code = code, DisplayNumber = code, TicketDate = DateOnly.Parse(date),
+            TicketDateTime = DateTimeOffset.Parse($"{date}T08:00:00+07:00"), BillableWeightKg = 1000, AmountVnd = amount,
+            UnitPrice = 1, ContentHash = "x", UpdatedAt = DateTimeOffset.Now
+        };
+
+    [Fact]
+    public void AdvanceOfAnyAmount_CoversTheOldestTrucksFirst_AndShowsWhichAreSettled()
+    {
+        var tickets = new[] { Ticket("a", "2025-11-03", 100), Ticket("b", "2025-11-04", 100), Ticket("c", "2025-11-05", 100) };
+        var advance = new Payment { CustomerId = 1, SeasonId = 1, PaidOn = new DateOnly(2025, 11, 6), AmountVnd = 150, CreatedBy = "kt" };
+
+        var open = PeriodBuilder.Build(Season, tickets, [], [advance], Stations).Open;
+
+        Assert.Equal(
+            [SettlementStatus.Paid, SettlementStatus.Partial, SettlementStatus.Unpaid],
+            open.TruckStatuses.Select(s => s.Status));
+        Assert.Equal(50, open.TruckStatuses[1].Allocated);
+        Assert.Equal(150, open.Payable - open.Remaining);
+    }
+
+    [Fact]
+    public void AdvanceGivenBeforeTheTrucksArrive_SettlesThemAsTheyCome()
+    {
+        var advance = new Payment { CustomerId = 1, SeasonId = 1, PaidOn = new DateOnly(2025, 11, 1), AmountVnd = 100, CreatedBy = "kt" };
+
+        var none = PeriodBuilder.Build(Season, [], [], [advance], Stations).Open;
+        var later = PeriodBuilder.Build(Season, [Ticket("a", "2025-11-03", 60), Ticket("b", "2025-11-04", 80)], [], [advance], Stations).Open;
+
+        Assert.Equal(-100, none.Remaining);
+        Assert.Equal(40, later.Remaining);
+        Assert.Equal([SettlementStatus.Paid, SettlementStatus.Partial], later.TruckStatuses.Select(s => s.Status));
+    }
+
+    [Fact]
+    public async Task UndoRightAfterEntering_VoidsThePayment_ButOnlyForItsAuthorAndOnlyBrieflyAfter()
+    {
+        using var t = new TestDb();
+        var season = t.AddSeason();
+        var customer = t.AddCustomer("A");
+        var payments = new PaymentService(t.Db);
+        var mine = (await payments.AddAsync(customer.Id, season.Id, new DateOnly(2026, 10, 10), 100, PaymentMethod.Cash, null, "ketoan")).Value!;
+        var old = (await payments.AddAsync(customer.Id, season.Id, new DateOnly(2026, 10, 10), 200, PaymentMethod.Cash, null, "ketoan")).Value!;
+
+        Assert.False((await payments.UndoRecentAsync(mine.Id, "admin")).Ok);
+        Assert.False((await payments.UndoRecentAsync(old.Id, "ketoan", DateTimeOffset.Now.AddMinutes(16))).Ok);
+        Assert.True((await payments.UndoRecentAsync(mine.Id, "KeToan")).Ok);
+        Assert.False((await payments.UndoRecentAsync(mine.Id, "ketoan")).Ok);
+
+        var voided = await t.Db.Payments.SingleAsync(p => p.Id == mine.Id);
+        Assert.True(voided.IsVoided);
+        Assert.Equal("Hoàn tác ngay sau khi nhập", voided.VoidReason);
+        Assert.False((await t.Db.Payments.SingleAsync(p => p.Id == old.Id)).IsVoided);
+    }
+}
