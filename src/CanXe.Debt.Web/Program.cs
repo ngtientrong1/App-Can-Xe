@@ -25,8 +25,8 @@ builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddSingleton<LoginThrottle>();
 builder.Services.AddSingleton(new SetupCodeStore(dataDir));
-builder.Services.AddSingleton(new DatabaseBackupOptions(dbPath, Path.Combine(dataDir, "backup")));
-builder.Services.AddHostedService<DatabaseBackupService>();
+builder.Services.AddSingleton(new BackupManager(dbPath, Path.Combine(dataDir, "backup")));
+builder.Services.AddHostedService<DailyBackupService>();
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

@@ -1,5 +1,7 @@
 @page
 @inject SeasonService Seasons
+@inject BackupManager Backups
+@inject SettingsService Settings
 @functions {
     [BindProperty] public string Name { get; set; } = "";
     [BindProperty] public DateOnly Start { get; set; } = DateOnly.FromDateTime(DateTime.Today);
@@ -24,6 +26,11 @@
 
     public async Task<IActionResult> OnPostCloseAsync()
     {
+        // Closing freezes the season's numbers, so keep a copy of the data as it was just before.
+        var backup = Backups.Create(BackupManager.BeforeSeasonClose, await Settings.GetBackupCopyDirectoryAsync());
+        if (!backup.Ok)
+            return await Finish(false, $"Chưa chốt mùa vì không sao lưu được dữ liệu trước đó: {backup.Error}", "");
+
         var result = await Seasons.CloseAsync(SeasonId, End);
         return await Finish(result.Ok, result.Error, "Đã chốt mùa. Phiếu và khoản trả của mùa này không sửa được nữa.");
     }

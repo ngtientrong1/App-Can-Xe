@@ -1,6 +1,7 @@
 @page
 @inject SeasonService Seasons
 @inject LedgerService Ledger
+@inject BackupManager Backups
 @functions {
     [BindProperty(SupportsGet = true)] public int? SeasonId { get; set; }
     [BindProperty(SupportsGet = true)] public string? Q { get; set; }
@@ -60,6 +61,12 @@
     </form>
 </div>
 
+@if (User.IsInRole("Admin") && Backups.IsStale())
+{
+    <div class="alert error" role="alert">
+        Chưa có bản sao lưu dữ liệu nào trong hơn một ngày rưỡi. <a asp-page="/Admin/Backup">Mở trang sao lưu</a>
+    </div>
+}
 @if (Overview.UnmappedTickets > 0)
 {
     <div class="alert warn" role="status">

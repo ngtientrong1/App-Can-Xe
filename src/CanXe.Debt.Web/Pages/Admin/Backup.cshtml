@@ -1,0 +1,150 @@
+@page
+@inject BackupManager Backups
+@inject SettingsService Settings
+@functions {
+    [BindProperty] public string? CopyDirectory { get; set; }
+
+    public IReadOnlyList<BackupInfo> Items { get; set; } = [];
+    public string? Message { get; set; }
+    public string? Error { get; set; }
+
+    public async Task OnGetAsync() => await LoadAsync();
+
+    public async Task<IActionResult> OnPostNowAsync()
+    {
+        var result = Backups.Create(BackupManager.Manual, await Settings.GetBackupCopyDirectoryAsync());
+        if (!result.Ok)
+        {
+            Error = $"Sao lưu thất bại: {result.Error}";
+            await LoadAsync();
+            return Page();
+        }
+
+        TempData["Message"] = result.CopyError is null
+            ? $"Đã sao lưu: {result.Info!.FileName}"
+            : $"Đã sao lưu {result.Info!.FileName}, nhưng không chép được sang thư mục phụ: {result.CopyError}";
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostSaveFolderAsync()
+    {
+        var problem = BackupManager.ValidateCopyDirectory(CopyDirectory);
+        if (problem is not null)
+        {
+            Error = problem;
+            await LoadAsync();
+            return Page();
+        }
+
+        await Settings.SaveBackupCopyDirectoryAsync(CopyDirectory);
+        TempData["Message"] = string.IsNullOrWhiteSpace(CopyDirectory)
+            ? "Đã tắt chép bản sao lưu sang thư mục phụ."
+            : "Đã lưu thư mục phụ. Từ lần sao lưu sau, mỗi bản sẽ được chép sang đó.";
+        return RedirectToPage();
+    }
+
+    public IActionResult OnGetDownload(string file)
+    {
+        var info = Backups.Find(file ?? "");
+        return info is null ? NotFound() : PhysicalFile(info.FullPath, "application/octet-stream", info.FileName);
+    }
+
+    private async Task LoadAsync()
+    {
+        Message ??= TempData["Message"] as string;
+        Items = Backups.List();
+        CopyDirectory ??= await Settings.GetBackupCopyDirectoryAsync();
+    }
+
+    private static string Kind(string kind) => kind switch
+    {
+        BackupManager.Daily => "Tự động hằng ngày",
+        BackupManager.Manual => "Sao lưu tay",
+        BackupManager.BeforeSeasonClose => "Trước khi chốt mùa",
+        _ => kind
+    };
+
+    private static string Size(long bytes) => bytes < 1024 * 1024 ? $"{Math.Max(1, bytes / 1024)} KB" : $"{bytes / 1024.0 / 1024.0:0.0} MB";
+}
+@{
+    ViewData["Title"] = "Sao lưu";
+    var latest = Items.FirstOrDefault();
+    var stale = Backups.IsStale();
+}
+<div class="page-head"><h1>Sao lưu dữ liệu</h1></div>
+@if (Message is not null) { <div class="alert ok" role="status">@Message</div> }
+@if (Error is not null) { <div class="alert error" role="alert">@Error</div> }
+@if (Backups.LastError is not null) { <div class="alert error" role="alert">Lần sao lưu tự động gần nhất thất bại: @Backups.LastError</div> }
+
+<section class="stats">
+    <div class="stat @(stale ? "debt" : "good")">
+        <div class="label">Bản sao lưu gần nhất</div>
+        <div class="value">@(latest is null ? "Chưa có" : Fmt.DateTime(latest.CreatedAt))</div>
+    </div>
+    <div class="stat"><div class="label">Số bản đang giữ</div><div class="value">@Items.Count</div></div>
+</section>
+@if (stale)
+{
+    <div class="alert warn" role="status">Đã hơn một ngày rưỡi chưa có bản sao lưu mới. Hãy bấm “Sao lưu ngay” và kiểm tra dịch vụ còn chạy.</div>
+}
+
+<div class="card">
+    <h2>Tự động mỗi ngày</h2>
+    <p>App tự sao lưu <strong>mỗi ngày một bản</strong> (kiểm tra mỗi giờ, nên máy tắt đêm thì sáng bật lên vẫn có). Mỗi bản được kiểm tra toàn vẹn trước khi tính. Giữ @BackupManager.KeepDaily bản hằng ngày và @BackupManager.KeepManual bản sao lưu tay mới nhất. Bản “trước khi chốt mùa” được giữ mãi.</p>
+    <form method="post" asp-page-handler="Now">
+        <button type="submit">Sao lưu ngay</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Chép thêm sang ổ khác</h2>
+    <p>Bản sao lưu nằm cùng ổ đĩa với dữ liệu thì ổ hỏng là mất cả hai. Nên chọn thêm một thư mục trên ổ khác: USB, ổ ngoài, hoặc thư mục đồng bộ OneDrive/Google Drive. Mỗi bản sao lưu sẽ được chép tự động sang đó.</p>
+    <form method="post" asp-page-handler="SaveFolder">
+        <div class="form-grid">
+            <div class="field">
+                <label for="CopyDirectory">Thư mục phụ (để trống nếu không dùng)</label>
+                <input id="CopyDirectory" name="CopyDirectory" type="text" value="@CopyDirectory" placeholder="D:\SaoLuuCongNo" />
+            </div>
+            <div><button type="submit">Lưu thư mục</button></div>
+        </div>
+    </form>
+    <p class="muted small">Dịch vụ chạy bằng tài khoản riêng nên chỉ ghi được vào thư mục nó có quyền. Nếu báo lỗi, hãy thử thư mục khác hoặc cấp quyền ghi cho “LOCAL SERVICE”.</p>
+</div>
+
+<div class="card">
+    <h2>Các bản sao lưu</h2>
+    @if (Items.Count == 0)
+    {
+        <p class="muted">Chưa có bản nào. Bản đầu tiên được tạo sau khi dịch vụ chạy khoảng một phút.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Thời điểm</th><th>Loại</th><th class="num">Dung lượng</th><th>File</th><th class="no-print"></th></tr></thead>
+                <tbody>
+                @foreach (var b in Items)
+                {
+                    <tr>
+                        <td class="nowrap">@Fmt.DateTime(b.CreatedAt)</td>
+                        <td>@Kind(b.Kind)</td>
+                        <td class="num">@Size(b.SizeBytes)</td>
+                        <td class="small">@b.FileName</td>
+                        <td class="no-print"><a class="btn secondary" asp-page-handler="Download" asp-route-file="@b.FileName">Tải về</a></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="card">
+    <h2>Khôi phục khi cần</h2>
+    <ol>
+        <li>Mở Services (Win+R, gõ <code>services.msc</code>), dừng dịch vụ <strong>Cong no ca Tien Trong</strong>.</li>
+        <li>Chép bản sao lưu muốn dùng vào <code>C:\ProgramData\CanXeDebt</code>, đổi tên thành <code>debt.db</code> (giữ lại file cũ bằng cách đổi tên nó trước).</li>
+        <li>Xóa hai file <code>debt.db-wal</code> và <code>debt.db-shm</code> nếu có, rồi khởi động lại dịch vụ.</li>
+    </ol>
+    <p class="muted small">Dữ liệu từ sau thời điểm của bản sao lưu sẽ mất; nhập lại các file xuất từ app cân là lấy lại được phiếu, còn các khoản trả phải ghi lại tay.</p>
+</div>

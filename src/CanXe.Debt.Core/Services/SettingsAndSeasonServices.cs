@@ -39,6 +39,26 @@ public sealed class SettingsService(DebtDbContext db)
         await db.SaveChangesAsync(ct);
     }
 
+    public const string BackupCopyDirectoryKey = "backupCopyDirectory";
+
+    /// <summary>Second folder (USB drive, synced cloud folder…) that every backup is also copied to; null when unset.</summary>
+    public async Task<string?> GetBackupCopyDirectoryAsync(CancellationToken ct = default)
+    {
+        var value = await db.Settings.AsNoTracking().Where(s => s.Key == BackupCopyDirectoryKey).Select(s => s.Value).FirstOrDefaultAsync(ct);
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    public async Task SaveBackupCopyDirectoryAsync(string? directory, CancellationToken ct = default)
+    {
+        var value = directory?.Trim() ?? "";
+        var setting = await db.Settings.FirstOrDefaultAsync(s => s.Key == BackupCopyDirectoryKey, ct);
+        if (setting is null)
+            db.Settings.Add(new AppSetting { Key = BackupCopyDirectoryKey, Value = value });
+        else
+            setting.Value = value;
+        await db.SaveChangesAsync(ct);
+    }
+
     public Task<List<string>> GetKnownCargoNamesAsync(CancellationToken ct = default) =>
         db.Tickets.AsNoTracking().Where(t => t.Cargo != null).Select(t => t.Cargo!).Distinct().OrderBy(c => c).ToListAsync(ct);
 }

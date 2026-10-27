@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using CanXe.Debt.Data;
+using CanXe.Debt.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace CanXe.Debt.Web;
@@ -57,13 +58,8 @@ public sealed class SetupCodeStore(string dataDirectory)
     }
 }
 
-public sealed record DatabaseBackupOptions(string DatabasePath, string BackupDirectory)
-{
-    public int KeepCount { get; init; } = 30;
-}
-
-/// <summary>Writes a consistent copy of the database once a day and keeps the newest 30.</summary>
-public sealed class DatabaseBackupService(DatabaseBackupOptions options, ILogger<DatabaseBackupService> logger) : BackgroundService
+/// <summary>Makes sure there is one automatic backup per day, checking every hour (the PC may be off at night).</summary>
+public sealed class DailyBackupService(BackupManager backups, IServiceScopeFactory scopes, ILogger<DailyBackupService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -72,8 +68,8 @@ public sealed class DatabaseBackupService(DatabaseBackupOptions options, ILogger
             await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
             while (!stoppingToken.IsCancellationRequested)
             {
-                BackupIfDue();
-                await Task.Delay(TimeSpan.FromHours(6), stoppingToken);
+                await BackupIfDueAsync(stoppingToken);
+                await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
             }
         }
         catch (OperationCanceledException)
@@ -81,32 +77,22 @@ public sealed class DatabaseBackupService(DatabaseBackupOptions options, ILogger
         }
     }
 
-    public void BackupIfDue()
+    public async Task BackupIfDueAsync(CancellationToken ct)
     {
-        try
-        {
-            Directory.CreateDirectory(options.BackupDirectory);
-            var today = Path.Combine(options.BackupDirectory, $"debt-{DateTime.Now:yyyyMMdd}.db");
-            if (File.Exists(today) || !File.Exists(options.DatabasePath))
-                return;
+        if (backups.DailyExists(DateOnly.FromDateTime(DateTime.Now)))
+            return;
 
-            using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={options.DatabasePath}"))
-            {
-                connection.Open();
-                using var command = connection.CreateCommand();
-                command.CommandText = $"VACUUM INTO '{today.Replace("'", "''")}'";
-                command.ExecuteNonQuery();
-            }
+        string? copyDirectory;
+        using (var scope = scopes.CreateScope())
+            copyDirectory = await scope.ServiceProvider.GetRequiredService<SettingsService>().GetBackupCopyDirectoryAsync(ct);
 
-            foreach (var old in Directory.GetFiles(options.BackupDirectory, "debt-*.db")
-                         .OrderByDescending(f => f).Skip(options.KeepCount))
-                File.Delete(old);
-            logger.LogInformation("Đã sao lưu dữ liệu: {File}", today);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Sao lưu dữ liệu thất bại");
-        }
+        var result = backups.Create(BackupManager.Daily, copyDirectory);
+        if (!result.Ok)
+            logger.LogError("Sao lưu tự động thất bại: {Error}", result.Error);
+        else if (result.CopyError is not null)
+            logger.LogWarning("Đã sao lưu nhưng không chép được sang thư mục phụ: {Error}", result.CopyError);
+        else
+            logger.LogInformation("Đã sao lưu dữ liệu: {File}", result.Info!.FileName);
     }
 }
 
