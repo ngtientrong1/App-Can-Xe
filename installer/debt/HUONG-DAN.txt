@@ -88,6 +88,16 @@ Các trường hợp trả tiền thường gặp (theo bảng Excel cũ)
 - Ghi chú nhập ở app cân (ví dụ CÀ GỬI, Lô Ngọc Hồi) hiện cạnh từng xe.
 - Ngày luôn nhập và hiển thị dạng ngày/tháng/năm, ví dụ 27/10/2026.
 
+Chỉnh phiếu cân (chỉ tài khoản Quản trị)
+----------------------------------------
+- Dùng khi tiền trả theo số cân khác số cân nhà, ví dụ kho khách cân 12.050 kg, về cân nhà 12.000 kg (hao 50 kg) nhưng vẫn trả theo 12.050.
+- Ở bảng xe của chủ hàng (hoặc mục Phiếu cân), bấm "Sửa phiếu" cạnh xe cần chỉnh. Nhập khối lượng hàng để tính tiền (và đơn giá nếu cần)
+  cùng lý do, xem ngay KL tính tiền và thành tiền mới rồi bấm "Lưu chỉnh". App tính trừ 3‰ giống app cân.
+- Xe đã chỉnh có nhãn "đã chỉnh"; rê chuột để xem số cân gốc và lý do. Số gốc của app cân vẫn được lưu, bấm "Khôi phục theo số của app cân" để quay lại.
+- Nhập lại file từ app cân không làm mất chỉnh sửa; nếu app cân đổi giá hoặc số khác, app công nợ lấy số mới rồi áp lại chỉnh sửa.
+- Bảng kê in có thêm dòng "Tính tiền theo ... kg (cân nhà ... kg)" dưới xe đã chỉnh. Mọi lần chỉnh đều ghi lại ai, lúc nào, vì sao.
+- Xe đang chờ cân lần 2 hoặc thuộc mùa đã chốt thì không chỉnh được.
+
 In báo cáo gửi chủ hàng (2 tờ A4 ngang)
 ---------------------------------------
 - Mở chủ hàng > "In báo cáo (2 tờ)". Chọn "Từ ngày" - "Đến ngày" (hoặc bấm "7 ngày gần đây", "Tháng này", "Cả mùa") rồi bấm "Xem".

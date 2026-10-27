@@ -248,6 +248,10 @@ public static class Fmt
             : $"Lô {first:dd/MM} – {last:dd/MM}";
     }
 
+    public static string AdjustTitle(TicketRecord t) =>
+        $"Phiếu cân gốc: {Kg(t.OriginalNetKg)} kg" + (string.IsNullOrWhiteSpace(t.AdjustReason) ? "" : $" · {t.AdjustReason}")
+        + (t.AdjustedBy is null ? "" : $" · {t.AdjustedBy} chỉnh");
+
     public static string StageText(TicketStage stage) => stage switch
     {
         TicketStage.AwaitingSecondWeigh => "Chờ cân lần 2",

@@ -83,6 +83,25 @@ public sealed class TicketRecord
     /// <summary>The settlement period this truck was gathered into; null while it is still waiting to be settled.</summary>
     public int? PeriodId { get; set; }
 
+    /// <summary>
+    /// An admin's correction of the weight paid for (the seller's warehouse scale said 12.050, ours 12.000, and 12.050 is what is paid).
+    /// The Original* values keep what the weighing app sent; a re-import refreshes them and the correction is applied on top again.
+    /// </summary>
+    public decimal? AdjustedNetKg { get; set; }
+    public decimal? AdjustedUnitPrice { get; set; }
+    public decimal? OriginalNetKg { get; set; }
+    public decimal? OriginalBillableKg { get; set; }
+    public decimal? OriginalUnitPrice { get; set; }
+    public long? OriginalAmountVnd { get; set; }
+    public DateTimeOffset? AdjustedAt { get; set; }
+    public string? AdjustedBy { get; set; }
+    public string? AdjustReason { get; set; }
+
+    /// <summary>One line per correction ("when · who: field: old → new · reason"), oldest first.</summary>
+    public string? AdjustLog { get; set; }
+
+    public bool IsAdjusted => AdjustedNetKg is not null || AdjustedUnitPrice is not null;
+
     public bool IsDeleted { get; set; }
     public required string ContentHash { get; set; }
     public int ImportBatchId { get; set; }

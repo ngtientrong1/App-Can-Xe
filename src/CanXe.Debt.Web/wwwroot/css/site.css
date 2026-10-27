@@ -372,3 +372,7 @@ button.big-btn { font-size: 1.05rem; padding: 11px 26px; }
 .edit-pay label { display: block; font-size: .9rem; }
 .edit-pay input, .edit-pay select { width: 100%; margin-top: 2px; }
 .pay-line .edit-pay { display: block; }
+
+.adj { margin-left: 6px; font-size: .75rem; padding: 1px 6px; border-radius: 999px; background: #fdecc8; color: #7a4b00; white-space: nowrap; }
+.edit-ticket { margin-left: 6px; }
+@media print { .adj { background: none; color: #000; border: 1px solid #555; } }

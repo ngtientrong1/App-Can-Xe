@@ -82,6 +82,37 @@
     el.addEventListener("change", function () { el.form && el.form.submit(); });
   });
 
+  // Live preview on the ticket edit page: the same 3 per mille rule as the weighing app.
+  document.querySelectorAll("form[data-ticket-preview]").forEach(function (form) {
+    var net = form.querySelector("[name=NetText]");
+    var price = form.querySelector("[name=PriceText]");
+    var billableOut = form.querySelector("[data-out=billable]");
+    var amountOut = form.querySelector("[data-out=amount]");
+    var firstKg = parseFloat(form.getAttribute("data-split-first") || "0");
+    var secondPrice = parseFloat(form.getAttribute("data-split-price") || "0");
+    var fixedPrice = parseFloat(form.getAttribute("data-price") || "0");
+    function digits(el) { return el ? parseInt((el.value || "").replace(/[^0-9]/g, ""), 10) || 0 : 0; }
+    function billable(kg) { return Math.round(kg - kg / 1000 * 3); }
+    function group(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "."); }
+    function update() {
+      var kg = digits(net);
+      var unit = price ? digits(price) : fixedPrice;
+      var weight, amount;
+      if (firstKg > 0 && secondPrice > 0 && firstKg < kg) {
+        var a = billable(firstKg), b = billable(kg - firstKg);
+        weight = a + b;
+        amount = Math.round(a * unit) + Math.round(b * secondPrice);
+      } else {
+        weight = billable(kg);
+        amount = Math.round(weight * unit);
+      }
+      billableOut.textContent = kg > 0 ? group(weight) : "—";
+      amountOut.textContent = kg > 0 && unit > 0 ? group(amount) : "chưa có giá";
+    }
+    form.addEventListener("input", update);
+    update();
+  });
+
   // data-print="1" / "2" prints one sheet of the report; plain data-print prints everything on the page.
   document.querySelectorAll("[data-print]").forEach(function (el) {
     el.addEventListener("click", function () {

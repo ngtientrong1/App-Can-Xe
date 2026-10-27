@@ -1,0 +1,155 @@
+@page "{id:int}"
+@using Microsoft.EntityFrameworkCore
+@inject DebtDbContext Db
+@inject TicketAdjustService Adjuster
+@inject LedgerService Ledger
+@functions {
+    [BindProperty(SupportsGet = true)] public int Id { get; set; }
+    [BindProperty] public string NetText { get; set; } = "";
+    [BindProperty] public string? PriceText { get; set; }
+    [BindProperty] public string? Reason { get; set; }
+
+    public TicketRecord? Ticket { get; set; }
+    public Dictionary<string, string> Stations { get; set; } = [];
+    public string? Error { get; set; }
+
+    public async Task<IActionResult> OnGetAsync()
+    {
+        if (!await LoadAsync())
+            return NotFound();
+        NetText = Fmt.Kg(Ticket!.NetWeightKg);
+        PriceText = Ticket.HasPriceSplit ? null : Ticket.UnitPrice is { } p ? Fmt.Kg(p) : "";
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostSaveAsync()
+    {
+        if (!await LoadAsync())
+            return NotFound();
+
+        if (!Fmt.TryParseVnd(NetText, out var kg))
+        {
+            Error = "Khối lượng không hợp lệ. Chỉ nhập chữ số, ví dụ 12.050.";
+            return Page();
+        }
+
+        decimal? price = null;
+        if (!Ticket!.HasPriceSplit && !string.IsNullOrWhiteSpace(PriceText))
+        {
+            if (!Fmt.TryParseVnd(PriceText, out var p))
+            {
+                Error = "Đơn giá không hợp lệ. Chỉ nhập chữ số, ví dụ 25.900.";
+                return Page();
+            }
+
+            price = p;
+        }
+
+        var result = await Adjuster.AdjustAsync(Id, kg, price, Reason, User.Identity!.Name!);
+        if (!result.Ok)
+        {
+            Error = result.Error;
+            return Page();
+        }
+
+        TempData["Message"] = $"Đã chỉnh phiếu {Ticket.DisplayNumber}: tính tiền theo {Fmt.Kg(result.Value!.NetWeightKg)} kg. Số cân gốc vẫn được lưu và khôi phục được.";
+        return Back();
+    }
+
+    public async Task<IActionResult> OnPostRestoreAsync()
+    {
+        if (!await LoadAsync())
+            return NotFound();
+
+        var result = await Adjuster.RestoreAsync(Id, User.Identity!.Name!);
+        if (!result.Ok)
+        {
+            Error = result.Error;
+            return Page();
+        }
+
+        TempData["Message"] = $"Đã khôi phục phiếu {Ticket!.DisplayNumber} về đúng số của app cân.";
+        return Back();
+    }
+
+    private IActionResult Back() =>
+        Ticket!.CustomerId is { } customerId ? RedirectToPage("/Customers/Detail", new { id = customerId }) : RedirectToPage("/Tickets");
+
+    private async Task<bool> LoadAsync()
+    {
+        Ticket = await Db.Tickets.AsNoTracking().Include(t => t.Customer).FirstOrDefaultAsync(t => t.Id == Id && !t.IsDeleted);
+        Stations = await Ledger.GetStationNamesAsync();
+        return Ticket is not null;
+    }
+}
+@{
+    var t = Ticket!;
+    var vi = System.Globalization.CultureInfo.InvariantCulture;
+    ViewData["Title"] = "Chỉnh phiếu " + t.DisplayNumber;
+    var originalNet = t.IsAdjusted ? t.OriginalNetKg : t.NetWeightKg;
+    var originalAmount = t.IsAdjusted ? t.OriginalAmountVnd : t.AmountVnd;
+    var canEdit = t.Stage != TicketStage.AwaitingSecondWeigh;
+}
+<div class="page-head">
+    <h1>Chỉnh phiếu @t.DisplayNumber</h1>
+    <div class="toolbar">
+        @if (t.CustomerId is { } cid) { <a class="btn secondary" asp-page="/Customers/Detail" asp-route-id="@cid">← Quay lại chủ hàng</a> }
+        else { <a class="btn secondary" asp-page="/Tickets">← Quay lại</a> }
+    </div>
+</div>
+@if (Error is not null) { <div class="alert error" role="alert">@Error</div> }
+
+<div class="card">
+    <h2>@(t.Customer?.Name ?? t.CustomerNameRaw)</h2>
+    <div>@Fmt.DateTime(t.TicketDateTime) · phiếu @t.DisplayNumber · <span class="@Fmt.StationClass(t.StationCode)">@Stations.GetValueOrDefault(t.StationCode, t.StationCode)</span> · @t.LicensePlate · @t.Cargo</div>
+    <div class="mini-stats">
+        <div><div class="label">Số của app cân</div><div class="value">@Fmt.Kg(originalNet) kg</div></div>
+        <div><div class="label">Đang tính tiền theo</div><div class="value">@Fmt.Kg(t.NetWeightKg) kg</div></div>
+        <div><div class="label">KL tính tiền (trừ 3‰)</div><div class="value">@Fmt.Kg(t.BillableWeightKg) kg</div></div>
+        <div><div class="label">Thành tiền@(t.IsAdjusted ? $" (gốc {Fmt.Vnd(originalAmount)})" : "")</div><div class="value">@(t.Stage == TicketStage.Priced ? Fmt.Vnd(t.AmountVnd) : "Chưa có giá")</div></div>
+    </div>
+</div>
+
+@if (!canEdit)
+{
+    <div class="alert warn">Phiếu đang chờ cân lần 2 nên chưa chỉnh được.</div>
+}
+else
+{
+    <div class="card">
+        <h2>Chỉnh khối lượng thanh toán</h2>
+        <p class="muted">Dùng khi tiền trả theo số cân khác với số cân nhà (ví dụ kho khách cân 12.050 kg, về cân nhà 12.000 kg nhưng vẫn trả theo 12.050). Số của app cân vẫn được lưu và nhập lại file không làm mất chỉnh sửa này.</p>
+        <form method="post" asp-page-handler="Save" asp-route-id="@t.Id" data-ticket-preview
+              data-price="@((t.UnitPrice ?? 0).ToString(vi))" data-split-first="@((t.HasPriceSplit ? t.SplitFirstWeightKg ?? 0 : 0).ToString(vi))" data-split-price="@((t.HasPriceSplit ? t.SecondUnitPrice ?? 0 : 0).ToString(vi))">
+            <div class="form-grid">
+                <div class="field"><label for="NetText">Khối lượng hàng để tính tiền (kg)</label><input id="NetText" name="NetText" class="big-input" type="text" inputmode="numeric" data-money value="@NetText" autocomplete="off" required /></div>
+                @if (!t.HasPriceSplit)
+                {
+                    <div class="field"><label for="PriceText">Đơn giá (đồng/kg)</label><input id="PriceText" name="PriceText" type="text" inputmode="numeric" data-money value="@PriceText" autocomplete="off" /></div>
+                }
+                else
+                {
+                    <div class="field"><label>Đơn giá</label><div>@Fmt.UnitPrice(t) <span class="muted small">(phiếu có 2 mức giá, chỉ chỉnh khối lượng)</span></div></div>
+                }
+                <div class="field full"><label for="Reason">Lý do (bắt buộc)</label><input id="Reason" name="Reason" type="text" list="reasons" value="@Reason" placeholder="Ví dụ: lấy theo cân kho khách" required /></div>
+            </div>
+            <datalist id="reasons"><option value="Lấy theo cân kho khách"></option><option value="Thỏa thuận lại với chủ hàng"></option><option value="Sửa số cân nhập sai"></option></datalist>
+            <div class="outcome open" data-preview>Tính lại: KL tính tiền <strong data-out="billable">—</strong> kg · Thành tiền <strong data-out="amount">—</strong></div>
+            <p class="toolbar"><button type="submit" class="big-btn">Lưu chỉnh</button></p>
+        </form>
+        @if (t.IsAdjusted)
+        {
+            <form method="post" asp-page-handler="Restore" asp-route-id="@t.Id" data-confirm="Khôi phục phiếu này về đúng số của app cân?">
+                <button type="submit" class="secondary">Khôi phục theo số của app cân</button>
+            </form>
+        }
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(t.AdjustLog))
+{
+    <div class="card">
+        <h2>Lịch sử chỉnh</h2>
+        @foreach (var line in t.AdjustLog.Split('\n', StringSplitOptions.RemoveEmptyEntries)) { <div>@line</div> }
+    </div>
+}

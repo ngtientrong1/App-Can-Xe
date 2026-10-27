@@ -138,6 +138,10 @@
                         <td class="num">@(t.Stage == TicketStage.Priced ? Fmt.Vnd(t.AmountVnd) : "Chưa có giá")</td>
                     }
                 </tr>
+                @if (t.IsAdjusted)
+                {
+                    <tr class="note"><td></td><td colspan="9">Tính tiền theo @Fmt.Kg(t.NetWeightKg) kg (cân nhà @Fmt.Kg(t.OriginalNetKg) kg)@(string.IsNullOrWhiteSpace(t.AdjustReason) ? "" : " · " + t.AdjustReason)</td></tr>
+                }
                 @if (!string.IsNullOrWhiteSpace(t.Notes))
                 {
                     <tr class="note"><td></td><td colspan="9">Ghi chú: @t.Notes</td></tr>

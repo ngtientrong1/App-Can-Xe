@@ -211,6 +211,17 @@ public sealed class ImportService(DebtDbContext db)
         ticket.SecondUnitPrice = source.SecondUnitPrice;
         ticket.AmountVnd = source.AmountVnd;
         ticket.IsDeleted = source.IsDeleted;
+
+        // A ticket an admin corrected keeps the correction: the file only refreshes what the weighing app said.
+        if (ticket.IsAdjusted && !source.AwaitingSecondWeigh && source.NetWeightKg is not null)
+        {
+            ticket.OriginalNetKg = source.NetWeightKg;
+            ticket.OriginalBillableKg = source.BillableWeightKg;
+            ticket.OriginalUnitPrice = source.UnitPrice;
+            ticket.OriginalAmountVnd = source.AmountVnd;
+            TicketPricing.Reapply(ticket);
+        }
+
         ticket.ImportBatchId = batchId;
         ticket.UpdatedAt = DateTimeOffset.Now;
     }
