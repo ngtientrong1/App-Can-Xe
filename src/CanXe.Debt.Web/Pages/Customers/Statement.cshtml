@@ -54,7 +54,7 @@
 @foreach (var p in s.Periods)
 {
     <div class="card">
-        <h2>@(p.IsOpen ? $"Xe chờ chốt kỳ · {p.TruckCount} xe" : $"Kỳ {p.Number} · {Fmt.PeriodRange(p)}")</h2>
+        <h2>@(p.IsOpen ? $"Xe chờ chốt lô · {p.TruckCount} xe" : $"Lô {p.Number} · {Fmt.PeriodRange(p)}")</h2>
         <table>
             <thead>
             <tr>
@@ -103,8 +103,8 @@
 
         <table class="ledger">
             <tbody>
-            <tr><td>Nợ từ kỳ trước</td><td class="num">@Fmt.Balance(p.CarryIn)</td></tr>
-            <tr><td>Tiền hàng kỳ này</td><td class="num">@Fmt.Vnd(p.TicketsTotal)</td></tr>
+            <tr><td>Nợ từ lô trước</td><td class="num">@Fmt.Balance(p.CarryIn)</td></tr>
+            <tr><td>Tiền hàng lô này</td><td class="num">@Fmt.Vnd(p.TicketsTotal)</td></tr>
             <tr><th>Tổng phải trả</th><th class="num">@Fmt.Balance(p.Payable)</th></tr>
             @foreach (var pay in p.Payments)
             {
@@ -118,7 +118,7 @@
                     <td class="num credit">− @Fmt.Vnd(pay.AmountVnd)</td>
                 </tr>
             }
-            <tr><th>@(p.IsOpen ? "Tạm tính còn nợ" : p.Remaining < 0 ? "Đã ứng trước" : p.Remaining == 0 ? "Đã tất toán" : "Còn nợ, chuyển sang kỳ sau")</th><th class="num">@Fmt.Balance(p.Remaining)</th></tr>
+            <tr><th>@(p.IsOpen ? "Tạm tính còn nợ" : p.Remaining < 0 ? "Đã ứng trước" : p.Remaining == 0 ? "Đã tất toán" : "Còn nợ, chuyển sang lô sau")</th><th class="num">@Fmt.Balance(p.Remaining)</th></tr>
             </tbody>
         </table>
     </div>

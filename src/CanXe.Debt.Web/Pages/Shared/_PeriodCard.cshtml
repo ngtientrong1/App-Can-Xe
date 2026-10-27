@@ -5,7 +5,7 @@
 }
 <section class="period @(open ? "open" : "")" id="@(open ? "ky-mo" : "ky-" + v.Id)">
     <div class="period-head">
-        <h3>@(open ? $"Xe chờ chốt kỳ · {v.TruckCount} xe" : $"Kỳ {v.Number} · {Fmt.PeriodRange(v)}")</h3>
+        <h3>@(open ? $"Xe chờ chốt lô · {v.TruckCount} xe" : $"Lô {v.Number} · {Fmt.PeriodRange(v)}")</h3>
         @switch (v.Status)
         {
             case PeriodStatus.Open: <span class="badge pending">Chưa chốt</span> break;
@@ -16,7 +16,7 @@
     </div>
 
     <div class="mini-stats">
-        <div><div class="label">Nợ từ kỳ trước</div><div class="value">@Fmt.Balance(v.CarryIn)</div></div>
+        <div><div class="label">Nợ từ lô trước</div><div class="value">@Fmt.Balance(v.CarryIn)</div></div>
         <div><div class="label">Tiền hàng · @v.PricedCount xe · @Fmt.Kg(v.BillableKg) kg</div><div class="value">@Fmt.Vnd(v.TicketsTotal)</div></div>
         <div><div class="label">Tổng phải trả</div><div class="value">@Fmt.Balance(v.Payable)</div></div>
         <div><div class="label">Đã trả@(v.Payments.Count > 0 ? $" · {v.Payments.Count} lần" : "")</div><div class="value credit">@Fmt.Vnd(v.Paid)</div></div>
@@ -37,13 +37,13 @@
         <div class="alert warn" role="status">
             @if (v.AwaitingCount > 0) { <span><strong>@v.AwaitingCount xe</strong> chờ cân lần 2 (trả xác). </span> }
             @if (v.NoPriceCount > 0) { <span><strong>@v.NoPriceCount xe</strong> chưa có đơn giá. </span> }
-            Chưa tính vào tiền. Khi app cân có đủ số cân và giá, nhập lại file là các xe này tự cộng vào kỳ này.
+            Chưa tính vào tiền. Khi app cân có đủ số cân và giá, nhập lại file là các xe này tự cộng vào lô này.
         </div>
     }
     @if (v.ChangedAfterCloseCount > 0)
     {
         <div class="alert warn" role="status">
-            <strong>@v.ChangedAfterCloseCount xe</strong> được nhập hoặc đổi giá sau khi chốt kỳ (tổng @Fmt.Vnd(v.ChangedAfterCloseAmount)). Tiền hàng và số còn nợ của kỳ đã tính lại.
+            <strong>@v.ChangedAfterCloseCount xe</strong> được nhập hoặc đổi giá sau khi chốt lô (tổng @Fmt.Vnd(v.ChangedAfterCloseAmount)). Tiền hàng và số còn nợ của lô đã tính lại.
         </div>
     }
 
@@ -85,22 +85,22 @@
     }
     else if (v.Status == PeriodStatus.Owing)
     {
-        <div class="outcome owe">Còn nợ @Fmt.Vnd(v.Remaining) → chuyển sang kỳ sau</div>
+        <div class="outcome owe">Còn nợ @Fmt.Vnd(v.Remaining) → chuyển sang lô sau</div>
     }
     else if (v.Status == PeriodStatus.PaidAhead)
     {
-        <div class="outcome ahead">Đã ứng trước @Fmt.Vnd(-v.Remaining) → trừ vào kỳ sau</div>
+        <div class="outcome ahead">Đã ứng trước @Fmt.Vnd(-v.Remaining) → trừ vào lô sau</div>
     }
     else
     {
-        <div class="outcome done">Đã tất toán kỳ này</div>
+        <div class="outcome done">Đã tất toán lô này</div>
     }
 
     @if (v.Tickets.Count > 0 && open && Model.SeasonOpen)
     {
         <form method="post" asp-page="/Customers/Detail" asp-page-handler="Close" asp-route-id="@Model.CustomerId" asp-route-SeasonId="@Model.SeasonId" data-close-form>
             <div class="select-bar no-print">
-                <strong>Chọn xe để chốt kỳ</strong>
+                <strong>Chọn xe để chốt lô</strong>
                 <button type="button" class="secondary" data-select="all">Chọn tất cả</button>
                 <button type="button" class="secondary" data-select="none">Bỏ chọn</button>
                 <span class="select-range">
@@ -175,7 +175,7 @@
                                 }
                             </td>
                             <td>@t.Notes</td>
-                            <td class="no-print"><button type="submit" name="PayOne" value="@t.Id" class="secondary pay-one" title="Chốt riêng xe này thành một kỳ rồi trả">Trả riêng</button></td>
+                            <td class="no-print"><button type="submit" name="PayOne" value="@t.Id" class="secondary pay-one" title="Chốt riêng xe này thành một lô rồi trả">Trả riêng</button></td>
                         </tr>
                     }
                     </tbody>
@@ -184,7 +184,7 @@
 
             <div class="select-foot no-print">
                 <div class="outcome open" data-sel-summary data-carry="@v.CarryIn">Chưa chọn xe nào.</div>
-                <button type="submit" name="PayNow" value="false">Chốt kỳ với các xe đã chọn</button>
+                <button type="submit" name="PayNow" value="false">Chốt lô với các xe đã chọn</button>
                 <button type="submit" name="PayNow" value="true" class="secondary">Chốt rồi trả luôn</button>
             </div>
         </form>
@@ -192,7 +192,7 @@
     else if (v.Tickets.Count > 0)
     {
         <details>
-            <summary>Xem @v.TruckCount xe trong kỳ</summary>
+            <summary>Xem @v.TruckCount xe trong lô</summary>
             <h4 class="small-head">Theo ngày và điểm cân</h4>
             <div class="table-wrap">
                 <table>
@@ -277,8 +277,8 @@
 
     @if (Model.CanUndo)
     {
-        <form method="post" asp-page="/Customers/Detail" asp-page-handler="Undo" asp-route-id="@Model.CustomerId" asp-route-SeasonId="@Model.SeasonId" class="no-print" data-confirm="Hủy chốt kỳ này? Các xe sẽ quay về kỳ đang mở.">
-            <button type="submit" class="secondary">Hủy chốt kỳ này</button>
+        <form method="post" asp-page="/Customers/Detail" asp-page-handler="Undo" asp-route-id="@Model.CustomerId" asp-route-SeasonId="@Model.SeasonId" class="no-print" data-confirm="Hủy chốt lô này? Các xe sẽ quay về lô đang mở.">
+            <button type="submit" class="secondary">Hủy chốt lô này</button>
         </form>
     }
 </section>

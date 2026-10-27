@@ -4,7 +4,7 @@
 
 #define MyAppName "Công Nợ Cà Tiến Trọng"
 #define MyAppNameAscii "Can Xe Cong No"
-#define MyAppVersion "1.3.0"
+#define MyAppVersion "1.3.1"
 #define MyAppPublisher "Tien Trong"
 #define MyServiceName "CanXeDebt"
 #define MyAppExeName "CanXe.Debt.Web.exe"

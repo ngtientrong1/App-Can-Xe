@@ -98,7 +98,7 @@
         if (PayOne is not null || PayNow)
             return RedirectToPage(new { id = Id, seasonId = Season.Id, pay = result.Value!.Id });
 
-        TempData["Message"] = $"Đã chốt kỳ gồm {count} xe. Giờ có thể ghi nhận trả tiền cho kỳ này.";
+        TempData["Message"] = $"Đã chốt lô gồm {count} xe. Giờ có thể ghi nhận trả tiền cho lô này.";
         return RedirectToPage(new { id = Id, seasonId = Season.Id });
     }
     public async Task<IActionResult> OnPostUndoAsync()
@@ -113,7 +113,7 @@
             return Page();
         }
 
-        TempData["Message"] = "Đã hủy chốt kỳ gần nhất.";
+        TempData["Message"] = "Đã hủy chốt lô gần nhất.";
         return RedirectToPage(new { id = Id, seasonId = Season.Id });
     }
 
@@ -200,13 +200,13 @@
         <form method="post" asp-page-handler="Pay" asp-route-id="@customer.Id" asp-route-SeasonId="@season.Id" data-pay-form>
             <div class="form-grid">
                 <div class="field full">
-                    <label for="PeriodId">Trả cho kỳ</label>
+                    <label for="PeriodId">Trả cho lô</label>
                     <select id="PeriodId" name="PeriodId" data-pay-period>
                         @foreach (var p in payable)
                         {
-                            <option value="@p.Id" data-remaining="@p.Remaining" selected="@(p.Id == defaultPeriod)">Kỳ @p.Number · @p.TruckCount xe · còn nợ @Fmt.Vnd(p.Remaining)</option>
+                            <option value="@p.Id" data-remaining="@p.Remaining" selected="@(p.Id == defaultPeriod)">Lô @p.Number · @p.TruckCount xe · còn nợ @Fmt.Vnd(p.Remaining)</option>
                         }
-                        <option value="" data-remaining="@openPeriod.Remaining" selected="@(defaultPeriod is null)">Ứng trước (chưa chốt kỳ)@(openPeriod.Remaining > 0 ? $" · nợ tạm tính {Fmt.Vnd(openPeriod.Remaining)}" : "")</option>
+                        <option value="" data-remaining="@openPeriod.Remaining" selected="@(defaultPeriod is null)">Ứng trước (chưa chốt lô)@(openPeriod.Remaining > 0 ? $" · nợ tạm tính {Fmt.Vnd(openPeriod.Remaining)}" : "")</option>
                     </select>
                 </div>
                 <div class="field"><label for="PaidOn">Ngày trả</label><input id="PaidOn" name="PaidOn" type="text" inputmode="numeric" data-date maxlength="10" placeholder="dd/MM/yyyy" autocomplete="off" value="@Fmt.Date(PaidOn)" required /></div>
@@ -233,11 +233,11 @@
             <div class="outcome open" data-pay-result></div>
             <p class="toolbar">
                 <button type="submit">Ghi nhận trả tiền</button>
-                <button type="button" class="secondary" data-pay-all>Trả hết kỳ đã chọn</button>
+                <button type="button" class="secondary" data-pay-all>Trả hết lô đã chọn</button>
                 <button type="button" class="secondary" data-pay-round="100000000">Tròn xuống 100 triệu</button>
                 <button type="button" class="secondary" data-pay-round="50000000">Tròn xuống 50 triệu</button>
             </p>
-            <p class="muted small">Muốn trả cho một vài xe: ở bảng “Xe chờ chốt kỳ” bên phải, tick các xe rồi bấm “Chốt rồi trả luôn”, hoặc bấm “Trả riêng” ở dòng của xe đó. “Ứng trước” là tiền trả khi chưa chốt kỳ, trừ dần vào các xe sau.</p>
+            <p class="muted small">Muốn trả cho một vài xe: ở bảng “Xe chờ chốt lô” bên phải, tick các xe rồi bấm “Chốt rồi trả luôn”, hoặc bấm “Trả riêng” ở dòng của xe đó. “Ứng trước” là tiền trả khi chưa chốt lô, trừ dần vào các xe sau.</p>
         </form>
     </div>
 }
@@ -248,7 +248,7 @@ else
 
 </aside>
 <div class="content">
-<h2>Các kỳ</h2>
+<h2>Các lô</h2>
 <partial name="_PeriodCard" model="new PeriodCardModel(openPeriod, customer.Id, season.Id, open, false, Stations)" />
 @foreach (var p in s.Closed.OrderByDescending(p => p.Number))
 {

@@ -152,7 +152,7 @@ public sealed class PaymentService(DebtDbContext db)
             return OperationResult<Payment>.Fail($"Ngày trả phải từ {season.StartDate:dd/MM/yyyy} trở đi.");
 
         if (periodId is { } pid && !await db.Periods.AnyAsync(p => p.Id == pid && p.CustomerId == customerId && p.SeasonId == seasonId, ct))
-            return OperationResult<Payment>.Fail("Kỳ này không thuộc chủ hàng hoặc mùa đang chọn.");
+            return OperationResult<Payment>.Fail("Lô này không thuộc chủ hàng hoặc mùa đang chọn.");
 
         var payment = new Payment
         {

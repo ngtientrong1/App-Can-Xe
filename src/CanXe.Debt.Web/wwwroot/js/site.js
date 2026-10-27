@@ -111,17 +111,17 @@
       if (!paid) {
         result.className += " open";
         result.textContent = remaining() > 0
-          ? "Kỳ này còn nợ " + fmt(remaining()) + ". Nhập số tiền trả để xem còn lại bao nhiêu."
+          ? "Lô này còn nợ " + fmt(remaining()) + ". Nhập số tiền trả để xem còn lại bao nhiêu."
           : "Nhập số tiền trả.";
       } else if (left > 0) {
         result.className += " owe";
-        result.textContent = "Trả " + fmt(paid) + " → còn nợ " + fmt(left) + ", tự chuyển sang kỳ sau.";
+        result.textContent = "Trả " + fmt(paid) + " → còn nợ " + fmt(left) + ", tự chuyển sang lô sau.";
       } else if (left === 0) {
         result.className += " done";
-        result.textContent = "Trả " + fmt(paid) + " → tất toán kỳ này.";
+        result.textContent = "Trả " + fmt(paid) + " → tất toán lô này.";
       } else {
         result.className += " ahead";
-        result.textContent = "Trả " + fmt(paid) + " → đã ứng trước " + fmt(left) + ", trừ vào kỳ sau.";
+        result.textContent = "Trả " + fmt(paid) + " → đã ứng trước " + fmt(left) + ", trừ vào lô sau.";
       }
     };
 

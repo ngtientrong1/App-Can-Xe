@@ -105,7 +105,7 @@ public enum TicketStage
 }
 
 /// <summary>
-/// A settlement period ("kỳ") of one seller: a set of trucks chosen to be paid together, which can be a run of tickets, a
+/// A settlement period ("lô") of one seller: a set of trucks chosen to be paid together, which can be a run of tickets, a
 /// few trucks of the same day or a single truck. <see cref="FromDate"/> and <see cref="ToDate"/> are the dates of its
 /// first and last truck. Whatever is left unpaid carries into the next period.
 /// </summary>

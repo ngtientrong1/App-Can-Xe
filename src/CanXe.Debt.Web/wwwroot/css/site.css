@@ -282,7 +282,7 @@ tfoot th { border-top: 2px solid var(--line); }
   .col-opt { display: none; }
 }
 @media print { .col-opt { display: table-cell !important; } }
-/* Chốt kỳ sits above the period cards on the right as a compact bar. */
+/* Chốt lô sits above the period cards on the right as a compact bar. */
 .content .card#chot { padding: 10px 16px; }
 .content .card#chot h2 { display: inline-block; margin: 0 12px 0 0; font-size: 1.05rem; }
 .content .card#chot > p.muted { display: inline; margin: 0; }

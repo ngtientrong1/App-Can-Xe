@@ -71,16 +71,16 @@ public sealed class SettlementService(DebtDbContext db)
     public async Task<OperationResult> UndoLastCloseAsync(int customerId, int seasonId, CancellationToken ct = default)
     {
         if (await db.Seasons.AnyAsync(s => s.Id == seasonId && s.IsClosed, ct))
-            return OperationResult.Fail("Mùa này đã chốt, không hủy chốt kỳ được.");
+            return OperationResult.Fail("Mùa này đã chốt, không hủy chốt lô được.");
 
         var last = (await db.Periods.Where(p => p.CustomerId == customerId && p.SeasonId == seasonId).ToListAsync(ct))
             .OrderByDescending(p => p.Id).FirstOrDefault();
         if (last is null)
-            return OperationResult.Fail("Chưa có kỳ nào để hủy chốt.");
+            return OperationResult.Fail("Chưa có lô nào để hủy chốt.");
 
         var attached = await db.Payments.Where(p => p.PeriodId == last.Id).ToListAsync(ct);
         if (attached.Any(p => !p.IsVoided))
-            return OperationResult.Fail("Kỳ này đã có khoản trả. Hãy hủy các khoản trả đó trước khi hủy chốt kỳ.");
+            return OperationResult.Fail("Lô này đã có khoản trả. Hãy hủy các khoản trả đó trước khi hủy chốt lô.");
 
         foreach (var voided in attached)
             voided.PeriodId = null;
@@ -107,7 +107,7 @@ public sealed class SettlementService(DebtDbContext db)
         if (season.IsClosed)
             return OperationResult<int>.Fail("Mùa này đã chốt.");
         if (toDate > DateOnly.FromDateTime(DateTime.Today))
-            return OperationResult<int>.Fail("Không chốt kỳ đến một ngày trong tương lai.");
+            return OperationResult<int>.Fail("Không chốt lô đến một ngày trong tương lai.");
 
         var rows = await BuildBatchAsync(season, toDate, ct);
         foreach (var (row, ids) in rows)
@@ -179,7 +179,7 @@ public sealed class SettlementService(DebtDbContext db)
     {
         chosen = [];
         if (season.IsClosed)
-            return "Mùa này đã chốt, không chốt thêm kỳ được.";
+            return "Mùa này đã chốt, không chốt thêm lô được.";
 
         var ids = ticketIds.Distinct().ToList();
         if (ids.Count == 0)
@@ -187,7 +187,7 @@ public sealed class SettlementService(DebtDbContext db)
 
         var waiting = tickets.Where(t => !t.IsDeleted && t.PeriodId is null).ToDictionary(t => t.Id);
         if (ids.Any(id => !waiting.ContainsKey(id)))
-            return "Có xe không thuộc chủ hàng này hoặc đã nằm trong một kỳ khác. Tải lại trang rồi chọn lại.";
+            return "Có xe không thuộc chủ hàng này hoặc đã nằm trong một lô khác. Tải lại trang rồi chọn lại.";
 
         chosen = ids.Select(id => waiting[id]).OrderBy(t => t.TicketDateTime).ThenBy(t => t.StationCode).ThenBy(t => t.Code).ToList();
         return null;
