@@ -12,26 +12,27 @@ public sealed class PeriodBuilderTests
 
     private static TicketRecord Ticket(
         string code, string date, long? amount, string station = "DAKHA", bool awaiting = false, decimal kg = 1000m,
-        DateTimeOffset? updatedAt = null) =>
+        DateTimeOffset? updatedAt = null, int? periodId = null, string time = "08:00:00") =>
         new()
         {
             StationCode = station,
             Code = code,
             DisplayNumber = code,
             TicketDate = DateOnly.Parse(date),
-            TicketDateTime = DateTimeOffset.Parse($"{date}T08:00:00+07:00"),
+            TicketDateTime = DateTimeOffset.Parse($"{date}T{time}+07:00"),
             BillableWeightKg = awaiting || amount is null ? null : kg,
             NetWeightKg = awaiting ? null : kg,
             AmountVnd = awaiting ? null : amount,
             AwaitingSecondWeigh = awaiting,
+            PeriodId = periodId,
             ContentHash = "x",
             UpdatedAt = updatedAt ?? DateTimeOffset.Parse($"{date}T09:00:00+07:00")
         };
 
-    private static SettlementPeriod Period(int id, string from, string to, string closedAt) =>
+    private static SettlementPeriod Period(int id, string closedAt) =>
         new()
         {
-            Id = id, CustomerId = 1, SeasonId = 1, FromDate = DateOnly.Parse(from), ToDate = DateOnly.Parse(to),
+            Id = id, CustomerId = 1, SeasonId = 1, FromDate = new DateOnly(2025, 11, 1), ToDate = new DateOnly(2025, 11, 1),
             ClosedAt = DateTimeOffset.Parse($"{closedAt}T18:00:00+07:00"), ClosedBy = "ketoan"
         };
 
@@ -43,15 +44,14 @@ public sealed class PeriodBuilderTests
     {
         var tickets = new[]
         {
-            Ticket("a", "2025-11-03", 434_233_380), Ticket("b", "2025-11-04", 441_184_464),
-            Ticket("c", "2025-11-05", 286_418_160), Ticket("d", "2025-11-05", 405_005_328),
-            Ticket("e", "2025-11-05", 433_144_656),
+            Ticket("a", "2025-11-03", 434_233_380, periodId: 1), Ticket("b", "2025-11-04", 441_184_464, periodId: 1),
+            Ticket("c", "2025-11-05", 286_418_160, periodId: 1), Ticket("d", "2025-11-05", 405_005_328, periodId: 1),
+            Ticket("e", "2025-11-05", 433_144_656, periodId: 1),
             Ticket("f", "2025-11-24", 814_469_240), Ticket("g", "2025-11-25", 784_658_940)
         };
-        var periods = new[] { Period(1, "2025-11-01", "2025-11-05", "2025-11-06") };
         var payments = new[] { Pay("2025-11-08", 500_000_000, 1), Pay("2025-11-12", 600_000_000, 1) };
 
-        var result = PeriodBuilder.Build(Season, tickets, periods, payments, Stations);
+        var result = PeriodBuilder.Build(Season, tickets, [Period(1, "2025-11-06")], payments, Stations);
 
         var first = result.Periods[0];
         Assert.Equal(1_999_985_988, first.TicketsTotal);
@@ -59,9 +59,11 @@ public sealed class PeriodBuilderTests
         Assert.Equal(1_100_000_000, first.Paid);
         Assert.Equal(899_985_988, first.Remaining);
         Assert.Equal(PeriodStatus.Owing, first.Status);
+        Assert.Equal(1, first.Number);
 
         var open = result.Open;
         Assert.True(open.IsOpen);
+        Assert.Equal(0, open.Number);
         Assert.Equal(899_985_988, open.CarryIn);
         Assert.Equal(1_599_128_180, open.TicketsTotal);
         Assert.Equal(2_499_114_168, open.Payable);
@@ -69,12 +71,48 @@ public sealed class PeriodBuilderTests
     }
 
     [Fact]
+    public void ThreeTrucksOfTheSameDay_OneCanBePaidAheadWhileTheOthersWait()
+    {
+        // "3 xe 3 phiếu nhưng trả trước 1 xe": the first truck is its own period, paid in full.
+        var tickets = new[]
+        {
+            Ticket("57/10", "2025-11-05", 400, time: "06:38:00", periodId: 1),
+            Ticket("58/10", "2025-11-05", 500, time: "09:10:00"),
+            Ticket("59/10", "2025-11-05", 600, time: "14:20:00")
+        };
+
+        var result = PeriodBuilder.Build(Season, tickets, [Period(1, "2025-11-05")], [Pay("2025-11-05", 400, 1)], Stations);
+
+        Assert.Equal(PeriodStatus.Settled, result.Periods[0].Status);
+        Assert.Equal(1, result.Periods[0].TruckCount);
+        Assert.Equal(2, result.Open.TruckCount);
+        Assert.Equal(1_100, result.Open.Payable);
+        Assert.Equal(1_100, result.Balance);
+    }
+
+    [Fact]
+    public void PeriodIsALooseRangeOfTickets_FirstAndLastAreByWeighingTime()
+    {
+        var tickets = new[]
+        {
+            Ticket("C", "2025-11-06", 1, time: "15:00:00", periodId: 1),
+            Ticket("A", "2025-11-05", 1, time: "07:00:00", periodId: 1),
+            Ticket("B", "2025-11-05", 1, time: "11:00:00", periodId: 1)
+        };
+
+        var period = PeriodBuilder.Build(Season, tickets, [Period(1, "2025-11-07")], [], Stations).Periods[0];
+
+        Assert.Equal("A", period.FirstTicket!.Code);
+        Assert.Equal("C", period.LastTicket!.Code);
+        Assert.Equal(new DateOnly(2025, 11, 5), period.From);
+        Assert.Equal(new DateOnly(2025, 11, 6), period.To);
+    }
+
+    [Fact]
     public void PayingAPeriodInFullSettlesIt_AndNothingCarries()
     {
-        var periods = new[] { Period(1, "2025-11-01", "2025-11-05", "2025-11-06") };
-
         var result = PeriodBuilder.Build(
-            Season, [Ticket("a", "2025-11-03", 1_000)], periods, [Pay("2025-11-08", 1_000, 1)], Stations);
+            Season, [Ticket("a", "2025-11-03", 1_000, periodId: 1)], [Period(1, "2025-11-06")], [Pay("2025-11-08", 1_000, 1)], Stations);
 
         Assert.Equal(PeriodStatus.Settled, result.Periods[0].Status);
         Assert.Equal(0, result.Open.CarryIn);
@@ -83,10 +121,9 @@ public sealed class PeriodBuilderTests
     [Fact]
     public void PayingMoreThanThePeriod_IsPaidAheadAndReducesTheNextPeriod()
     {
-        var periods = new[] { Period(1, "2025-11-01", "2025-11-05", "2025-11-06") };
-        var tickets = new[] { Ticket("a", "2025-11-03", 1_000), Ticket("b", "2025-11-10", 400) };
+        var tickets = new[] { Ticket("a", "2025-11-03", 1_000, periodId: 1), Ticket("b", "2025-11-10", 400) };
 
-        var result = PeriodBuilder.Build(Season, tickets, periods, [Pay("2025-11-08", 1_300, 1)], Stations);
+        var result = PeriodBuilder.Build(Season, tickets, [Period(1, "2025-11-06")], [Pay("2025-11-08", 1_300, 1)], Stations);
 
         Assert.Equal(PeriodStatus.PaidAhead, result.Periods[0].Status);
         Assert.Equal(-300, result.Periods[0].Remaining);
@@ -95,7 +132,7 @@ public sealed class PeriodBuilderTests
     }
 
     [Fact]
-    public void PaymentsWithoutAPeriodCountTowardTheOpenPeriod()
+    public void PaymentsWithoutAPeriodCountTowardTheOpenPool()
     {
         var result = PeriodBuilder.Build(
             Season, [Ticket("a", "2025-11-03", 1_000)], [], [Pay("2025-11-08", 400, null)], Stations);
@@ -145,14 +182,13 @@ public sealed class PeriodBuilderTests
     [Fact]
     public void TrucksChangedAfterThePeriodWasClosedAreFlagged()
     {
-        var closed = Period(1, "2025-11-01", "2025-11-05", "2025-11-06");
         var tickets = new[]
         {
-            Ticket("a", "2025-11-03", 1_000),
-            Ticket("late", "2025-11-04", 700, updatedAt: DateTimeOffset.Parse("2025-11-09T10:00:00+07:00"))
+            Ticket("a", "2025-11-03", 1_000, periodId: 1),
+            Ticket("late", "2025-11-04", 700, updatedAt: DateTimeOffset.Parse("2025-11-09T10:00:00+07:00"), periodId: 1)
         };
 
-        var view = PeriodBuilder.Build(Season, tickets, [closed], [], Stations).Periods[0];
+        var view = PeriodBuilder.Build(Season, tickets, [Period(1, "2025-11-06")], [], Stations).Periods[0];
 
         Assert.Equal(1, view.ChangedAfterCloseCount);
         Assert.Equal(700, view.ChangedAfterCloseAmount);
@@ -162,8 +198,11 @@ public sealed class PeriodBuilderTests
     [Fact]
     public void LastRemainderAlwaysEqualsBilledMinusPaid()
     {
-        var periods = new[] { Period(1, "2025-11-01", "2025-11-05", "2025-11-06"), Period(2, "2025-11-06", "2025-11-10", "2025-11-11") };
-        var tickets = new[] { Ticket("a", "2025-11-03", 900), Ticket("b", "2025-11-08", 800), Ticket("c", "2025-11-20", 700) };
+        var periods = new[] { Period(1, "2025-11-06"), Period(2, "2025-11-11") };
+        var tickets = new[]
+        {
+            Ticket("a", "2025-11-03", 900, periodId: 1), Ticket("b", "2025-11-08", 800, periodId: 2), Ticket("c", "2025-11-20", 700)
+        };
         var payments = new[] { Pay("2025-11-07", 500, 1), Pay("2025-11-12", 1_000, 2), Pay("2025-11-13", 100, null) };
 
         var result = PeriodBuilder.Build(Season, tickets, periods, payments, Stations);
@@ -184,36 +223,67 @@ public sealed class SettlementServiceTests
 
     private static (Season Season, Customer Customer) Setup(TestDb t) => (t.AddSeason(), t.AddCustomer("Thi Gia Chiêm"));
 
+    private static async Task<List<int>> Ids(TestDb t, params string[] codes) =>
+        await t.Db.Tickets.Where(x => codes.Contains(x.Code)).OrderBy(x => x.Code).Select(x => x.Id).ToListAsync();
+
     [Fact]
-    public async Task ClosingFixesTheDateRange_AndTheNextPeriodStartsTheDayAfter()
+    public async Task ClosingGathersTheChosenTrucks_AndTheRestKeepWaiting()
     {
         using var t = new TestDb();
         var (season, customer) = Setup(t);
         await Import(t, "DAKHA",
-            Make.Ticket("1", "2026-10-03", "Thi Gia Chiêm", amount: 100), Make.Ticket("2", "2026-10-09", "Thi Gia Chiêm", amount: 200));
+            Make.Ticket("1", "2026-10-03", "Thi Gia Chiêm", amount: 100), Make.Ticket("2", "2026-10-09", "Thi Gia Chiêm", amount: 200),
+            Make.Ticket("3", "2026-10-09", "Thi Gia Chiêm", amount: 300));
         var service = new SettlementService(t.Db);
 
-        var first = await service.ClosePeriodAsync(customer.Id, season.Id, new DateOnly(2026, 10, 5), "ketoan");
-        var second = await service.ClosePeriodAsync(customer.Id, season.Id, new DateOnly(2026, 10, 10), "ketoan");
+        var closed = await service.ClosePeriodAsync(customer.Id, season.Id, await Ids(t, "1", "2"), "ketoan");
+        var settlement = (await service.GetAsync(customer.Id, season))!;
 
-        Assert.True(first.Ok, first.Error);
-        Assert.Equal(new DateOnly(2026, 10, 1), first.Value!.FromDate);
-        Assert.True(second.Ok, second.Error);
-        Assert.Equal(new DateOnly(2026, 10, 6), second.Value!.FromDate);
+        Assert.True(closed.Ok, closed.Error);
+        Assert.Equal(new DateOnly(2026, 10, 3), closed.Value!.FromDate);
+        Assert.Equal(new DateOnly(2026, 10, 9), closed.Value.ToDate);
+        Assert.Equal(300, settlement.Periods[0].TicketsTotal);
+        Assert.Equal(1, settlement.Open.TruckCount);
+        Assert.Equal(300, settlement.Open.TicketsTotal);
     }
 
     [Fact]
-    public async Task ClosingIsRefusedForBadDates()
+    public async Task OneTruckOfThreeInTheSameDay_CanBeClosedAndPaidOnItsOwn()
     {
         using var t = new TestDb();
         var (season, customer) = Setup(t);
-        await Import(t, "DAKHA", Make.Ticket("1", "2026-10-03", "Thi Gia Chiêm", amount: 100));
+        await Import(t, "DAKHA",
+            Make.Ticket("57/10", "2026-10-27", "Thi Gia Chiêm", amount: 400), Make.Ticket("58/10", "2026-10-27", "Thi Gia Chiêm", amount: 500),
+            Make.Ticket("59/10", "2026-10-27", "Thi Gia Chiêm", amount: 600));
         var service = new SettlementService(t.Db);
-        await service.ClosePeriodAsync(customer.Id, season.Id, new DateOnly(2026, 10, 5), "ketoan");
+        var period = (await service.ClosePeriodAsync(customer.Id, season.Id, await Ids(t, "57/10"), "ketoan")).Value!;
 
-        Assert.False((await service.ClosePeriodAsync(customer.Id, season.Id, new DateOnly(2026, 10, 5), "ketoan")).Ok);
-        Assert.False((await service.ClosePeriodAsync(customer.Id, season.Id, new DateOnly(2026, 10, 8), "ketoan")).Ok);
-        Assert.False((await service.ClosePeriodAsync(customer.Id, season.Id, DateOnly.FromDateTime(DateTime.Today).AddDays(1), "ketoan")).Ok);
+        await new PaymentService(t.Db).AddAsync(customer.Id, season.Id, new DateOnly(2026, 10, 27), 400, PaymentMethod.Cash, null, "ketoan", periodId: period.Id);
+        var settlement = (await service.GetAsync(customer.Id, season))!;
+
+        Assert.Equal(PeriodStatus.Settled, settlement.Periods[0].Status);
+        Assert.Equal(2, settlement.Open.TruckCount);
+        Assert.Equal(1_100, settlement.Open.Remaining);
+    }
+
+    [Fact]
+    public async Task ClosingIsRefusedForBadSelections()
+    {
+        using var t = new TestDb();
+        var (season, customer) = Setup(t);
+        var other = t.AddCustomer("Nguyễn Văn An");
+        await Import(t, "DAKHA",
+            Make.Ticket("1", "2026-10-03", "Thi Gia Chiêm", amount: 100), Make.Ticket("2", "2026-10-04", "Thi Gia Chiêm", amount: 200),
+            Make.Ticket("9", "2026-10-04", "Nguyễn Văn An", amount: 900));
+        var service = new SettlementService(t.Db);
+        var one = await Ids(t, "1");
+        await service.ClosePeriodAsync(customer.Id, season.Id, one, "ketoan");
+
+        Assert.False((await service.ClosePeriodAsync(customer.Id, season.Id, [], "ketoan")).Ok);
+        Assert.False((await service.ClosePeriodAsync(customer.Id, season.Id, one, "ketoan")).Ok);                    // already in a period
+        Assert.False((await service.ClosePeriodAsync(customer.Id, season.Id, await Ids(t, "9"), "ketoan")).Ok);     // someone else's truck
+        Assert.False((await service.ClosePeriodAsync(customer.Id, season.Id, [99999], "ketoan")).Ok);               // unknown
+        Assert.True((await service.ClosePeriodAsync(other.Id, season.Id, await Ids(t, "9"), "ketoan")).Ok);
     }
 
     [Fact]
@@ -223,7 +293,7 @@ public sealed class SettlementServiceTests
         var season = t.AddSeason(end: "2026-12-31", closed: true);
         var customer = t.AddCustomer("Thi Gia Chiêm");
 
-        var result = await new SettlementService(t.Db).ClosePeriodAsync(customer.Id, season.Id, new DateOnly(2026, 10, 5), "ketoan");
+        var result = await new SettlementService(t.Db).ClosePeriodAsync(customer.Id, season.Id, [1], "ketoan");
 
         Assert.False(result.Ok);
     }
@@ -237,7 +307,7 @@ public sealed class SettlementServiceTests
         await new PaymentService(t.Db).AddAsync(customer.Id, season.Id, new DateOnly(2026, 10, 4), 300, PaymentMethod.Cash, null, "ketoan");
         var service = new SettlementService(t.Db);
 
-        await service.ClosePeriodAsync(customer.Id, season.Id, new DateOnly(2026, 10, 5), "ketoan");
+        await service.ClosePeriodAsync(customer.Id, season.Id, await Ids(t, "1"), "ketoan");
         var result = await service.GetAsync(customer.Id, season);
 
         Assert.Equal(300, result!.Periods[0].Paid);
@@ -253,7 +323,7 @@ public sealed class SettlementServiceTests
         var other = t.AddCustomer("Nguyễn Văn An");
         await Import(t, "DAKHA", Make.Ticket("1", "2026-10-03", "Thi Gia Chiêm", amount: 1_000));
         var service = new SettlementService(t.Db);
-        var period = (await service.ClosePeriodAsync(customer.Id, season.Id, new DateOnly(2026, 10, 5), "ketoan")).Value!;
+        var period = (await service.ClosePeriodAsync(customer.Id, season.Id, await Ids(t, "1"), "ketoan")).Value!;
         var payments = new PaymentService(t.Db);
 
         var ok = await payments.AddAsync(customer.Id, season.Id, new DateOnly(2026, 10, 8), 400, PaymentMethod.Transfer, null, "ketoan", "Dung", "Vietcombank", period.Id);
@@ -265,13 +335,13 @@ public sealed class SettlementServiceTests
     }
 
     [Fact]
-    public async Task UndoClose_IsBlockedWhileMoneyWasPaidAgainstThePeriod()
+    public async Task UndoClose_IsBlockedWhileMoneyWasPaid_AndThenReturnsTheTrucksToWaiting()
     {
         using var t = new TestDb();
         var (season, customer) = Setup(t);
         await Import(t, "DAKHA", Make.Ticket("1", "2026-10-03", "Thi Gia Chiêm", amount: 1_000));
         var service = new SettlementService(t.Db);
-        var period = (await service.ClosePeriodAsync(customer.Id, season.Id, new DateOnly(2026, 10, 5), "ketoan")).Value!;
+        var period = (await service.ClosePeriodAsync(customer.Id, season.Id, await Ids(t, "1"), "ketoan")).Value!;
         var payment = (await new PaymentService(t.Db).AddAsync(
             customer.Id, season.Id, new DateOnly(2026, 10, 8), 400, PaymentMethod.Cash, null, "ketoan", periodId: period.Id)).Value!;
 
@@ -281,10 +351,12 @@ public sealed class SettlementServiceTests
         Assert.True((await service.UndoLastCloseAsync(customer.Id, season.Id)).Ok);
         Assert.Empty(t.Db.Periods);
         Assert.Null((await t.Db.Payments.SingleAsync()).PeriodId);
+        Assert.Null((await t.Db.Tickets.SingleAsync()).PeriodId);
+        Assert.Equal(1, (await service.GetAsync(customer.Id, season))!.Open.TruckCount);
     }
 
     [Fact]
-    public async Task BatchClose_ClosesEverySellerFromTheirOwnStartDate_AndSkipsThoseWithNoTrucks()
+    public async Task BatchClose_GathersEverySellersWaitingTrucksUpToTheDate_AndSkipsThoseWithNone()
     {
         using var t = new TestDb();
         var season = t.AddSeason();
@@ -294,34 +366,39 @@ public sealed class SettlementServiceTests
         await Import(t, "DAKHA",
             Make.Ticket("1", "2026-10-03", "Thi Gia Chiêm", amount: 100),
             Make.Ticket("2", "2026-10-09", "Thi Gia Chiêm", amount: 200),
-            Make.Ticket("3", "2026-10-09", "Nguyễn Văn An", amount: 300));
+            Make.Ticket("3", "2026-10-09", "Nguyễn Văn An", amount: 300),
+            Make.Ticket("4", "2026-10-20", "Nguyễn Văn An", amount: 400));
         var service = new SettlementService(t.Db);
-        await service.ClosePeriodAsync(thi.Id, season.Id, new DateOnly(2026, 10, 5), "ketoan");
+        await service.ClosePeriodAsync(thi.Id, season.Id, await Ids(t, "1"), "ketoan");
 
         var preview = (await service.PreviewBatchAsync(season, new DateOnly(2026, 10, 10))).Value!;
         var closed = await service.CloseBatchAsync(season.Id, new DateOnly(2026, 10, 10), "ketoan");
 
         Assert.Equal(["Nguyễn Văn An", "Thi Gia Chiêm"], preview.Select(r => r.CustomerName));
-        Assert.Equal(new DateOnly(2026, 10, 6), preview.Single(r => r.CustomerName == "Thi Gia Chiêm").From);
-        Assert.Equal(100, preview.Single(r => r.CustomerName == "Thi Gia Chiêm").CarryIn);
-        Assert.Equal(300, preview.Single(r => r.CustomerName == "Thi Gia Chiêm").Payable);
+        var thiRow = preview.Single(r => r.CustomerName == "Thi Gia Chiêm");
+        Assert.Equal(1, thiRow.TruckCount);
+        Assert.Equal(100, thiRow.CarryIn);
+        Assert.Equal(300, thiRow.Payable);
         Assert.Equal(2, closed.Value);
         Assert.Equal(1, await t.Db.Periods.CountAsync(p => p.CustomerId == an.Id));
         Assert.Equal(2, await t.Db.Periods.CountAsync(p => p.CustomerId == thi.Id));
+        Assert.Null((await t.Db.Tickets.SingleAsync(x => x.Code == "4")).PeriodId);
     }
 
     [Fact]
-    public async Task Preview_DoesNotSaveAnything()
+    public async Task Preview_DoesNotSaveAnything_AndShowsTheChosenTotal()
     {
         using var t = new TestDb();
         var (season, customer) = Setup(t);
-        await Import(t, "DAKHA", Make.Ticket("1", "2026-10-03", "Thi Gia Chiêm", amount: 1_000));
+        await Import(t, "DAKHA", Make.Ticket("1", "2026-10-03", "Thi Gia Chiêm", amount: 1_000), Make.Ticket("2", "2026-10-03", "Thi Gia Chiêm", amount: 500));
 
-        var preview = await new SettlementService(t.Db).PreviewCloseAsync(customer.Id, season, new DateOnly(2026, 10, 5));
+        var preview = await new SettlementService(t.Db).PreviewCloseAsync(customer.Id, season, await Ids(t, "1"));
 
         Assert.True(preview.Ok);
         Assert.Equal(1_000, preview.Value!.Payable);
+        Assert.Equal(1, preview.Value.TruckCount);
         Assert.Empty(t.Db.Periods);
+        Assert.All(t.Db.Tickets, x => Assert.Null(x.PeriodId));
     }
 
     [Fact]
@@ -340,8 +417,7 @@ public sealed class SettlementServiceTests
         Assert.Equal(1, waiting.AwaitingCount);
         Assert.Equal(0, waiting.TicketsTotal);
 
-        var weighed = Make.Ticket("2610-0001", "2026-10-03", "Thi Gia Chiêm", amount: null, kg: 16_070m, price: null);
-        await Import(t, "DAKHA", weighed);
+        await Import(t, "DAKHA", Make.Ticket("2610-0001", "2026-10-03", "Thi Gia Chiêm", amount: null, kg: 16_070m, price: null));
         var unpriced = (await service.GetAsync(customer.Id, season))!.Open;
         Assert.Equal(1, unpriced.NoPriceCount);
         Assert.Equal(0, unpriced.AwaitingCount);
@@ -357,7 +433,7 @@ public sealed class SettlementServiceTests
     }
 
     [Fact]
-    public async Task PriceArrivingAfterClosing_FlowsIntoTheClosedPeriodAndIsFlagged()
+    public async Task PriceArrivingAfterClosing_FlowsIntoTheTrucksPeriodAndIsFlagged()
     {
         using var t = new TestDb();
         var (season, customer) = Setup(t);
@@ -365,7 +441,7 @@ public sealed class SettlementServiceTests
             Make.Ticket("1", "2026-10-03", "Thi Gia Chiêm", amount: 1_000),
             Make.Ticket("2", "2026-10-04", "Thi Gia Chiêm", amount: null, price: null));
         var service = new SettlementService(t.Db);
-        await service.ClosePeriodAsync(customer.Id, season.Id, new DateOnly(2026, 10, 5), "ketoan");
+        await service.ClosePeriodAsync(customer.Id, season.Id, await Ids(t, "1", "2"), "ketoan");
         await Task.Delay(20);
 
         await Import(t, "DAKHA", Make.Ticket("2", "2026-10-04", "Thi Gia Chiêm", amount: 500, price: 500m));
@@ -375,6 +451,23 @@ public sealed class SettlementServiceTests
         Assert.Equal(1, period.ChangedAfterCloseCount);
         Assert.Equal(500, period.ChangedAfterCloseAmount);
         Assert.Equal(0, period.NoPriceCount);
+    }
+
+    [Fact]
+    public async Task ANewTruckForAnOldDay_WaitsInThePoolInsteadOfJoiningAClosedPeriod()
+    {
+        using var t = new TestDb();
+        var (season, customer) = Setup(t);
+        await Import(t, "DAKHA", Make.Ticket("1", "2026-10-05", "Thi Gia Chiêm", amount: 1_000));
+        var service = new SettlementService(t.Db);
+        await service.ClosePeriodAsync(customer.Id, season.Id, await Ids(t, "1"), "ketoan");
+
+        await Import(t, "DAKTO", Make.Ticket("1", "2026-10-05", "Thi Gia Chiêm", amount: 250));
+        var settlement = (await service.GetAsync(customer.Id, season))!;
+
+        Assert.Equal(1_000, settlement.Periods[0].TicketsTotal);
+        Assert.Equal(1, settlement.Open.TruckCount);
+        Assert.Equal("DAKTO", settlement.Open.Tickets[0].StationCode);
     }
 
     [Fact]

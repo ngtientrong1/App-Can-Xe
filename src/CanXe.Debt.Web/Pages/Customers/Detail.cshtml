@@ -12,7 +12,10 @@
     public PaymentSuggestions Suggestions { get; set; } = new([], [], []);
     [BindProperty(SupportsGet = true)] public int Id { get; set; }
     [BindProperty(SupportsGet = true)] public int? SeasonId { get; set; }
-    [BindProperty(SupportsGet = true)] public DateOnly? CloseTo { get; set; }
+    [BindProperty(SupportsGet = true)] public int? Pay { get; set; }
+    [BindProperty] public List<int> TicketIds { get; set; } = [];
+    [BindProperty] public int? PayOne { get; set; }
+    [BindProperty] public bool PayNow { get; set; }
 
     [BindProperty] public DateOnly PaidOn { get; set; } = DateOnly.FromDateTime(DateTime.Today);
     [BindProperty] public string AmountText { get; set; } = "";
@@ -28,8 +31,6 @@
     public Customer? Customer { get; set; }
     public Season? Season { get; set; }
     public CustomerSettlement? Settlement { get; set; }
-    public PeriodView? ClosePreview { get; set; }
-    public string? CloseError { get; set; }
     public Dictionary<string, string> Stations { get; set; } = [];
     public string? Error { get; set; }
     public string? Message { get; set; }
@@ -40,12 +41,11 @@
         if (!await LoadAsync())
             return NotFound();
 
-        CloseError = DateError(nameof(CloseTo), "Ngày chốt");
-        if (CloseTo is { } to && Season is { IsClosed: false })
+        // Coming from "Trả riêng" / "Chốt rồi trả luôn": the payment form opens on that period with its whole remainder filled in.
+        if (Pay is { } target && Settlement!.Closed.FirstOrDefault(p => p.Id == target) is { Remaining: > 0 } period)
         {
-            var preview = await Settlements.PreviewCloseAsync(Id, Season, to);
-            ClosePreview = preview.Value;
-            CloseError = preview.Error;
+            PeriodId = target;
+            AmountText = period.Remaining.ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
 
         return Page();
@@ -80,28 +80,27 @@
         return RedirectToPage(new { id = Id, seasonId = Season.Id });
     }
 
-    public async Task<IActionResult> OnPostCloseAsync(DateOnly closeTo)
+    public async Task<IActionResult> OnPostCloseAsync()
     {
         if (!await LoadAsync())
             return NotFound();
 
-        if (DateError(nameof(CloseTo), "Ngày chốt") is { } dateError)
-        {
-            Error = dateError;
-            return Page();
-        }
-
-        var result = await Settlements.ClosePeriodAsync(Id, Season!.Id, closeTo, User.Identity!.Name!);
+        // "Trả riêng" on a row closes just that truck; otherwise the ticked trucks are gathered into one period.
+        var ids = PayOne is { } one ? [one] : TicketIds;
+        var result = await Settlements.ClosePeriodAsync(Id, Season!.Id, ids, User.Identity!.Name!);
         if (!result.Ok)
         {
             Error = result.Error;
             return Page();
         }
 
-        TempData["Message"] = $"Đã chốt kỳ {Fmt.Range(result.Value!.FromDate, result.Value.ToDate)}. Giờ có thể ghi nhận trả tiền cho kỳ này.";
+        var count = ids.Distinct().Count();
+        if (PayOne is not null || PayNow)
+            return RedirectToPage(new { id = Id, seasonId = Season.Id, pay = result.Value!.Id });
+
+        TempData["Message"] = $"Đã chốt kỳ gồm {count} xe. Giờ có thể ghi nhận trả tiền cho kỳ này.";
         return RedirectToPage(new { id = Id, seasonId = Season.Id });
     }
-
     public async Task<IActionResult> OnPostUndoAsync()
     {
         if (!await LoadAsync())
@@ -159,12 +158,8 @@
 
     var openPeriod = s.Open;
     var lastClosed = s.Closed.LastOrDefault();
-    var payable = s.Closed.Where(p => p.Remaining > 0).OrderBy(p => p.From).ToList();
-    var defaultPeriod = payable.FirstOrDefault()?.Id;
-    var allTickets = s.Periods.SelectMany(p => p.Tickets).ToList();
-    var latestTicketDate = openPeriod.Tickets.Count == 0 ? (DateOnly?)null : openPeriod.Tickets.Max(t => t.TicketDate);
-    var today = DateOnly.FromDateTime(DateTime.Today);
-    var suggested = CloseTo ?? (latestTicketDate is { } l && l <= today ? l : today);
+    var payable = s.Closed.Where(p => p.Remaining > 0).OrderBy(p => p.Number).ToList();
+    var defaultPeriod = PeriodId ?? payable.FirstOrDefault()?.Id;
 }
 <div class="page-head">
     <div>
@@ -209,9 +204,9 @@
                     <select id="PeriodId" name="PeriodId" data-pay-period>
                         @foreach (var p in payable)
                         {
-                            <option value="@p.Id" data-remaining="@p.Remaining" selected="@(p.Id == defaultPeriod)">Kỳ @Fmt.Range(p.From, p.To) · còn nợ @Fmt.Vnd(p.Remaining)</option>
+                            <option value="@p.Id" data-remaining="@p.Remaining" selected="@(p.Id == defaultPeriod)">Kỳ @p.Number · @p.TruckCount xe · còn nợ @Fmt.Vnd(p.Remaining)</option>
                         }
-                        <option value="" data-remaining="@openPeriod.Remaining" selected="@(defaultPeriod is null)">Kỳ đang mở (chưa chốt)@(openPeriod.Remaining > 0 ? $" · nợ tạm tính {Fmt.Vnd(openPeriod.Remaining)}" : "")</option>
+                        <option value="" data-remaining="@openPeriod.Remaining" selected="@(defaultPeriod is null)">Ứng trước (chưa chốt kỳ)@(openPeriod.Remaining > 0 ? $" · nợ tạm tính {Fmt.Vnd(openPeriod.Remaining)}" : "")</option>
                     </select>
                 </div>
                 <div class="field"><label for="PaidOn">Ngày trả</label><input id="PaidOn" name="PaidOn" type="text" inputmode="numeric" data-date maxlength="10" placeholder="dd/MM/yyyy" autocomplete="off" value="@Fmt.Date(PaidOn)" required /></div>
@@ -242,7 +237,7 @@
                 <button type="button" class="secondary" data-pay-round="100000000">Tròn xuống 100 triệu</button>
                 <button type="button" class="secondary" data-pay-round="50000000">Tròn xuống 50 triệu</button>
             </p>
-            <p class="muted small">Trả trước khi chốt kỳ (chọn “Kỳ đang mở”) được tính là tiền ứng và trừ dần vào các xe sau.</p>
+            <p class="muted small">Muốn trả cho một vài xe: ở bảng “Xe chờ chốt kỳ” bên phải, tick các xe rồi bấm “Chốt rồi trả luôn”, hoặc bấm “Trả riêng” ở dòng của xe đó. “Ứng trước” là tiền trả khi chưa chốt kỳ, trừ dần vào các xe sau.</p>
         </form>
     </div>
 }
@@ -253,52 +248,9 @@ else
 
 </aside>
 <div class="content">
-@if (open)
-{
-    <div class="card" id="chot">
-        <h2>Chốt kỳ</h2>
-        <p class="muted">Gom các xe từ @Fmt.Date(openPeriod.From) đến ngày bạn chọn thành một kỳ để trả tiền một lần. Số còn nợ sẽ tự chuyển sang kỳ sau.</p>
-        <form method="get" class="toolbar">
-            <input type="hidden" name="SeasonId" value="@season.Id" />
-            <div class="field"><label for="CloseTo">Chốt đến ngày</label><input id="CloseTo" name="CloseTo" type="text" inputmode="numeric" data-date maxlength="10" placeholder="dd/MM/yyyy" autocomplete="off" value="@Fmt.Date(suggested)" /></div>
-            <button type="submit" class="secondary">Xem trước</button>
-        </form>
-        @if (CloseError is not null)
-        {
-            <div class="alert warn" role="status">@CloseError</div>
-        }
-        @if (ClosePreview is { } pv)
-        {
-            <div class="period">
-                <div class="period-head"><h3>Xem trước kỳ @Fmt.Range(pv.From, pv.To)</h3></div>
-                <div class="mini-stats">
-                    <div><div class="label">Nợ từ kỳ trước</div><div class="value">@Fmt.Balance(pv.CarryIn)</div></div>
-                    <div><div class="label">Tiền hàng · @pv.PricedCount xe · @Fmt.Kg(pv.BillableKg) kg</div><div class="value">@Fmt.Vnd(pv.TicketsTotal)</div></div>
-                    <div><div class="label">Đã trả trước (nếu có)</div><div class="value">@Fmt.Vnd(pv.Paid)</div></div>
-                    <div><div class="label">Tổng phải trả</div><div class="value">@Fmt.Balance(pv.Payable - pv.Paid)</div></div>
-                </div>
-                <div class="chips">
-                    @foreach (var st in pv.ByStation)
-                    {
-                        <span class="chip"><span class="@Fmt.StationClass(st.StationCode)">@st.StationName</span> @st.TruckCount xe · @Fmt.Kg(st.BillableKg) kg · <strong>@Fmt.Vnd(st.Amount)</strong></span>
-                    }
-                </div>
-                @if (pv.AwaitingCount > 0 || pv.NoPriceCount > 0)
-                {
-                    <div class="alert warn">@pv.AwaitingCount xe chờ cân lần 2 và @pv.NoPriceCount xe chưa có giá trong kỳ này chưa được tính tiền. Có giá rồi nhập lại file là tự cộng vào kỳ.</div>
-                }
-                <form method="post" asp-page-handler="Close" asp-route-id="@customer.Id" asp-route-SeasonId="@season.Id">
-                    <input type="hidden" name="closeTo" value="@pv.To?.ToString("yyyy-MM-dd")" />
-                    <button type="submit">Chốt kỳ này</button>
-                </form>
-            </div>
-        }
-    </div>
-}
-
 <h2>Các kỳ</h2>
 <partial name="_PeriodCard" model="new PeriodCardModel(openPeriod, customer.Id, season.Id, open, false, Stations)" />
-@foreach (var p in s.Closed.OrderByDescending(p => p.From))
+@foreach (var p in s.Closed.OrderByDescending(p => p.Number))
 {
     <partial name="_PeriodCard" model="new PeriodCardModel(p, customer.Id, season.Id, open, open && lastClosed is not null && p.Id == lastClosed.Id && p.Payments.Count == 0, Stations)" />
 }

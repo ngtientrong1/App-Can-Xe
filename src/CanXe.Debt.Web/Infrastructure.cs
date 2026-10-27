@@ -219,6 +219,18 @@ public static class Fmt
         : from == to ? Date(from)
         : $"{from:dd/MM} – {to:dd/MM/yyyy}";
 
+    /// <summary>"24/11/2025 · phiếu 218/11 → 225/11 (3 xe)" or, across days, "24/11/2025 (phiếu 218/11) → 25/11/2025 (phiếu 239/11) · 5 xe".</summary>
+    public static string PeriodRange(PeriodView period)
+    {
+        if (period.FirstTicket is not { } first || period.LastTicket is not { } last)
+            return "(không có xe)";
+
+        var count = period.TruckCount;
+        return first.TicketDate == last.TicketDate
+            ? $"{Date(first.TicketDate)} · phiếu {first.DisplayNumber}{(count > 1 ? $" → {last.DisplayNumber}" : "")} ({count} xe)"
+            : $"{Date(first.TicketDate)} (phiếu {first.DisplayNumber}) → {Date(last.TicketDate)} (phiếu {last.DisplayNumber}) · {count} xe";
+    }
+
     public static string StageText(TicketStage stage) => stage switch
     {
         TicketStage.AwaitingSecondWeigh => "Chờ cân lần 2",

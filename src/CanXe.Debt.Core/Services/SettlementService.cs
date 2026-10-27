@@ -25,29 +25,33 @@ public sealed class SettlementService(DebtDbContext db)
         return PeriodBuilder.Build(season, data.Tickets, data.Periods, data.Payments, data.Stations);
     }
 
-    /// <summary>What closing the open period through <paramref name="toDate"/> would look like, without saving it.</summary>
+    /// <summary>What closing a period out of the chosen trucks would look like, without saving it.</summary>
     public async Task<OperationResult<PeriodView>> PreviewCloseAsync(
-        int customerId, Season season, DateOnly toDate, CancellationToken ct = default)
+        int customerId, Season season, IReadOnlyCollection<int> ticketIds, CancellationToken ct = default)
     {
         var data = await LoadAsync(customerId, season, ct);
-        var problem = ValidateClose(season, data.Periods, data.Tickets, toDate, out var from);
+        var problem = ValidateSelection(season, data.Tickets, ticketIds, out var chosen);
         if (problem is not null)
             return OperationResult<PeriodView>.Fail(problem);
 
         const int hypotheticalId = -1;
+        var chosenIds = chosen.Select(t => t.Id).ToHashSet();
         var hypothetical = new SettlementPeriod
         {
             Id = hypotheticalId, CustomerId = customerId, SeasonId = season.Id,
-            FromDate = from, ToDate = toDate, ClosedAt = DateTimeOffset.Now, ClosedBy = ""
+            FromDate = chosen.Min(t => t.TicketDate), ToDate = chosen.Max(t => t.TicketDate),
+            ClosedAt = DateTimeOffset.Now, ClosedBy = ""
         };
         var settlement = PeriodBuilder.Build(
             season, data.Tickets, data.Periods.Append(hypothetical), data.Payments, data.Stations,
-            p => p.PeriodId ?? hypotheticalId);
+            p => p.PeriodId ?? hypotheticalId,
+            t => chosenIds.Contains(t.Id) ? hypotheticalId : t.PeriodId);
         return OperationResult<PeriodView>.Success(settlement.Periods.First(p => p.Id == hypotheticalId));
     }
 
+    /// <summary>Gathers the chosen trucks into a period. Any number of trucks, down to a single one, in any combination.</summary>
     public async Task<OperationResult<SettlementPeriod>> ClosePeriodAsync(
-        int customerId, int seasonId, DateOnly toDate, string user, CancellationToken ct = default)
+        int customerId, int seasonId, IReadOnlyCollection<int> ticketIds, string user, CancellationToken ct = default)
     {
         var season = await db.Seasons.AsNoTracking().FirstOrDefaultAsync(s => s.Id == seasonId, ct);
         if (season is null)
@@ -56,21 +60,21 @@ public sealed class SettlementService(DebtDbContext db)
             return OperationResult<SettlementPeriod>.Fail("Không tìm thấy chủ hàng.");
 
         var data = await LoadAsync(customerId, season, ct);
-        var problem = ValidateClose(season, data.Periods, data.Tickets, toDate, out var from);
+        var problem = ValidateSelection(season, data.Tickets, ticketIds, out var chosen);
         if (problem is not null)
             return OperationResult<SettlementPeriod>.Fail(problem);
 
-        return OperationResult<SettlementPeriod>.Success(await CreatePeriodAsync(customerId, seasonId, from, toDate, user, ct));
+        return OperationResult<SettlementPeriod>.Success(await CreatePeriodAsync(customerId, seasonId, chosen.Select(t => t.Id).ToList(), user, ct));
     }
 
-    /// <summary>Takes back the newest period, only while nothing has been paid against it.</summary>
+    /// <summary>Takes back the newest period, only while nothing has been paid against it. Its trucks go back to waiting.</summary>
     public async Task<OperationResult> UndoLastCloseAsync(int customerId, int seasonId, CancellationToken ct = default)
     {
         if (await db.Seasons.AnyAsync(s => s.Id == seasonId && s.IsClosed, ct))
             return OperationResult.Fail("Mùa này đã chốt, không hủy chốt kỳ được.");
 
         var last = (await db.Periods.Where(p => p.CustomerId == customerId && p.SeasonId == seasonId).ToListAsync(ct))
-            .OrderByDescending(p => p.FromDate).FirstOrDefault();
+            .OrderByDescending(p => p.Id).FirstOrDefault();
         if (last is null)
             return OperationResult.Fail("Chưa có kỳ nào để hủy chốt.");
 
@@ -80,6 +84,8 @@ public sealed class SettlementService(DebtDbContext db)
 
         foreach (var voided in attached)
             voided.PeriodId = null;
+        foreach (var ticket in await db.Tickets.Where(t => t.PeriodId == last.Id).ToListAsync(ct))
+            ticket.PeriodId = null;
         db.Periods.Remove(last);
         await db.SaveChangesAsync(ct);
         return OperationResult.Success;
@@ -89,10 +95,10 @@ public sealed class SettlementService(DebtDbContext db)
         Season season, DateOnly toDate, CancellationToken ct = default)
     {
         var rows = await BuildBatchAsync(season, toDate, ct);
-        return OperationResult<IReadOnlyList<BatchRow>>.Success(rows);
+        return OperationResult<IReadOnlyList<BatchRow>>.Success(rows.Select(r => r.Row).ToList());
     }
 
-    /// <summary>Closes the open period of every seller who has trucks up to <paramref name="toDate"/>.</summary>
+    /// <summary>For every seller, gathers all trucks still waiting up to <paramref name="toDate"/> into one period.</summary>
     public async Task<OperationResult<int>> CloseBatchAsync(int seasonId, DateOnly toDate, string user, CancellationToken ct = default)
     {
         var season = await db.Seasons.AsNoTracking().FirstOrDefaultAsync(s => s.Id == seasonId, ct);
@@ -104,21 +110,26 @@ public sealed class SettlementService(DebtDbContext db)
             return OperationResult<int>.Fail("Không chốt kỳ đến một ngày trong tương lai.");
 
         var rows = await BuildBatchAsync(season, toDate, ct);
-        foreach (var row in rows)
-            await CreatePeriodAsync(row.CustomerId, seasonId, row.From, toDate, user, ct);
+        foreach (var (row, ids) in rows)
+            await CreatePeriodAsync(row.CustomerId, seasonId, ids, user, ct);
         return OperationResult<int>.Success(rows.Count);
     }
 
     private async Task<SettlementPeriod> CreatePeriodAsync(
-        int customerId, int seasonId, DateOnly from, DateOnly to, string user, CancellationToken ct)
+        int customerId, int seasonId, IReadOnlyCollection<int> ticketIds, string user, CancellationToken ct)
     {
+        var tickets = await db.Tickets.Where(t => ticketIds.Contains(t.Id)).ToListAsync(ct);
         var period = new SettlementPeriod
         {
-            CustomerId = customerId, SeasonId = seasonId, FromDate = from, ToDate = to,
+            CustomerId = customerId, SeasonId = seasonId,
+            FromDate = tickets.Min(t => t.TicketDate), ToDate = tickets.Max(t => t.TicketDate),
             ClosedAt = DateTimeOffset.Now, ClosedBy = user
         };
         db.Periods.Add(period);
         await db.SaveChangesAsync(ct);
+
+        foreach (var ticket in tickets)
+            ticket.PeriodId = period.Id;
 
         // Money paid ahead, before this period existed, now counts toward it.
         foreach (var ahead in await db.Payments
@@ -129,58 +140,56 @@ public sealed class SettlementService(DebtDbContext db)
         return period;
     }
 
-    private async Task<IReadOnlyList<BatchRow>> BuildBatchAsync(Season season, DateOnly toDate, CancellationToken ct)
+    private async Task<List<(BatchRow Row, List<int> TicketIds)>> BuildBatchAsync(Season season, DateOnly toDate, CancellationToken ct)
     {
         var policy = await new SettingsService(db).GetBilledCargoPolicyAsync(ct);
         var customers = await db.Customers.AsNoTracking().ToDictionaryAsync(c => c.Id, c => c.Name, ct);
-        var allTickets = (await db.Tickets.AsNoTracking()
-                .Where(t => !t.IsDeleted && t.CustomerId != null && t.TicketDate >= season.StartDate && t.TicketDate <= toDate)
+        var start = season.StartDate;
+        var seasonEnd = season.EndDate;
+        var all = (await db.Tickets.AsNoTracking()
+                .Where(t => !t.IsDeleted && t.CustomerId != null && t.TicketDate >= start && (seasonEnd == null || t.TicketDate <= seasonEnd))
                 .ToListAsync(ct))
             .Where(t => policy.IsBilled(t.Cargo))
             .ToList();
-        var periods = (await db.Periods.AsNoTracking().Where(p => p.SeasonId == season.Id).ToListAsync(ct))
-            .ToLookup(p => p.CustomerId);
+        var periods = (await db.Periods.AsNoTracking().Where(p => p.SeasonId == season.Id).ToListAsync(ct)).ToLookup(p => p.CustomerId);
         var payments = (await db.Payments.AsNoTracking().Where(p => p.SeasonId == season.Id && p.VoidedAt == null).ToListAsync(ct))
             .ToLookup(p => p.CustomerId);
 
-        var rows = new List<BatchRow>();
-        foreach (var group in allTickets.GroupBy(t => t.CustomerId!.Value))
+        var rows = new List<(BatchRow, List<int>)>();
+        foreach (var group in all.GroupBy(t => t.CustomerId!.Value))
         {
-            var customerPeriods = periods[group.Key].OrderBy(p => p.FromDate).ToList();
-            var from = customerPeriods.Count == 0 ? season.StartDate : customerPeriods[^1].ToDate.AddDays(1);
-            if (toDate < from)
+            var waiting = group.Where(t => t.PeriodId is null && t.TicketDate <= toDate).ToList();
+            if (waiting.Count == 0)
                 continue;
 
-            var inRange = group.Where(t => t.TicketDate >= from).ToList();
-            if (inRange.Count == 0)
-                continue;
-
-            var settlement = PeriodBuilder.Build(season, group, customerPeriods, payments[group.Key], new Dictionary<string, string>());
+            var settlement = PeriodBuilder.Build(season, group, periods[group.Key], payments[group.Key], new Dictionary<string, string>());
             var carry = settlement.Closed.LastOrDefault()?.Remaining ?? 0;
-            var total = inRange.Where(t => t.Stage == TicketStage.Priced).Sum(t => t.AmountVnd ?? 0);
-            rows.Add(new BatchRow(
-                group.Key, customers.GetValueOrDefault(group.Key, "(đã xóa)"), from, inRange.Count,
-                inRange.Count(t => t.Stage != TicketStage.Priced), total, carry, carry + total));
+            var total = waiting.Where(t => t.Stage == TicketStage.Priced).Sum(t => t.AmountVnd ?? 0);
+            rows.Add((new BatchRow(
+                group.Key, customers.GetValueOrDefault(group.Key, "(đã xóa)"), waiting.Min(t => t.TicketDate), waiting.Count,
+                waiting.Count(t => t.Stage != TicketStage.Priced), total, carry, carry + total),
+                waiting.Select(t => t.Id).ToList()));
         }
 
-        return rows.OrderBy(r => r.CustomerName).ToList();
+        return rows.OrderBy(r => r.Item1.CustomerName).ToList();
     }
 
-    private static string? ValidateClose(
-        Season season, IReadOnlyList<SettlementPeriod> periods, IReadOnlyList<TicketRecord> tickets, DateOnly toDate, out DateOnly from)
+    private static string? ValidateSelection(
+        Season season, IReadOnlyList<TicketRecord> tickets, IReadOnlyCollection<int> ticketIds, out List<TicketRecord> chosen)
     {
-        var last = periods.OrderBy(p => p.FromDate).LastOrDefault();
-        var start = last is null ? season.StartDate : last.ToDate.AddDays(1);
-        from = start;
-
+        chosen = [];
         if (season.IsClosed)
             return "Mùa này đã chốt, không chốt thêm kỳ được.";
-        if (toDate < start)
-            return $"Ngày chốt phải từ {start:dd/MM/yyyy} trở đi (sau kỳ trước).";
-        if (toDate > DateOnly.FromDateTime(DateTime.Today))
-            return "Không chốt kỳ đến một ngày trong tương lai.";
-        if (!tickets.Any(t => !t.IsDeleted && t.TicketDate >= start && t.TicketDate <= toDate))
-            return "Không có xe nào trong khoảng ngày này.";
+
+        var ids = ticketIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return "Chưa chọn xe nào để chốt.";
+
+        var waiting = tickets.Where(t => !t.IsDeleted && t.PeriodId is null).ToDictionary(t => t.Id);
+        if (ids.Any(id => !waiting.ContainsKey(id)))
+            return "Có xe không thuộc chủ hàng này hoặc đã nằm trong một kỳ khác. Tải lại trang rồi chọn lại.";
+
+        chosen = ids.Select(id => waiting[id]).OrderBy(t => t.TicketDateTime).ThenBy(t => t.StationCode).ThenBy(t => t.Code).ToList();
         return null;
     }
 

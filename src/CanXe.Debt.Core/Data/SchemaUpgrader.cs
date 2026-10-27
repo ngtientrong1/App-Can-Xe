@@ -21,6 +21,7 @@ public static class SchemaUpgrader
         new("Tickets", "AwaitingSecondWeigh", "INTEGER NOT NULL DEFAULT 0"),
         new("Tickets", "FirstWeightKg", "TEXT NULL"),
         new("Tickets", "Notes", "TEXT NULL"),
+        new("Tickets", "PeriodId", "INTEGER NULL"),
         new("Payments", "BankName", "TEXT NULL"),
         new("Payments", "ReceivedBy", "TEXT NULL"),
         new("Payments", "PaidBy", "TEXT NULL"),
@@ -40,10 +41,13 @@ public static class SchemaUpgrader
         )
         """;
 
+    private const string OldUniquePeriodIndex = "IX_Periods_CustomerId_SeasonId_FromDate";
+
     private static readonly string[] Indexes =
     [
-        """CREATE UNIQUE INDEX IF NOT EXISTS "IX_Periods_CustomerId_SeasonId_FromDate" ON "Periods" ("CustomerId", "SeasonId", "FromDate")""",
-        """CREATE INDEX IF NOT EXISTS "IX_Payments_PeriodId" ON "Payments" ("PeriodId")"""
+        """CREATE INDEX IF NOT EXISTS "IX_Periods_CustomerId_SeasonId" ON "Periods" ("CustomerId", "SeasonId")""",
+        """CREATE INDEX IF NOT EXISTS "IX_Payments_PeriodId" ON "Payments" ("PeriodId")""",
+        """CREATE INDEX IF NOT EXISTS "IX_Tickets_PeriodId" ON "Tickets" ("PeriodId")"""
     ];
 
     /// <summary>Descriptions of what an upgrade would change; empty when the database is current or not built yet.</summary>
@@ -62,6 +66,7 @@ public static class SchemaUpgrader
         if (pending.Count == 0)
             return pending;
 
+        var ticketColumnIsNew = pending.Contains("Tickets.PeriodId");
         await using var transaction = await connection.BeginTransactionAsync(ct);
         foreach (var column in Columns)
         {
@@ -72,11 +77,22 @@ public static class SchemaUpgrader
         if (await TableExistsAsync(connection, "Customers", ct))
         {
             await ExecuteAsync(connection, CreatePeriods, ct);
+            await ExecuteAsync(connection, $"DROP INDEX IF EXISTS \"{OldUniquePeriodIndex}\"", ct);
             foreach (var index in Indexes)
-            {
-                if (await TableExistsAsync(connection, index.Contains("\"Periods\"") ? "Periods" : "Payments", ct))
-                    await ExecuteAsync(connection, index, ct);
-            }
+                await ExecuteAsync(connection, index, ct);
+        }
+
+        // Periods used to be a run of dates. Keep what they gathered: each truck of the seller inside the dates joins the period.
+        if (ticketColumnIsNew)
+        {
+            await ExecuteAsync(connection, """
+                UPDATE "Tickets" SET "PeriodId" = (
+                    SELECT p."Id" FROM "Periods" p
+                    WHERE p."CustomerId" = "Tickets"."CustomerId"
+                      AND "Tickets"."TicketDate" >= p."FromDate" AND "Tickets"."TicketDate" <= p."ToDate"
+                    ORDER BY p."Id" LIMIT 1)
+                WHERE "PeriodId" IS NULL AND "CustomerId" IS NOT NULL AND "IsDeleted" = 0
+                """, ct);
         }
 
         await transaction.CommitAsync(ct);
@@ -97,6 +113,8 @@ public static class SchemaUpgrader
 
         if (!await TableExistsAsync(connection, "Periods", ct))
             pending.Add("Periods");
+        else if (await IndexExistsAsync(connection, OldUniquePeriodIndex, ct))
+            pending.Add("Periods (unique index)");
         return pending;
     }
 
@@ -107,6 +125,17 @@ public static class SchemaUpgrader
         var parameter = command.CreateParameter();
         parameter.ParameterName = "$name";
         parameter.Value = table;
+        command.Parameters.Add(parameter);
+        return await command.ExecuteScalarAsync(ct) is not null;
+    }
+
+    private static async Task<bool> IndexExistsAsync(DbConnection connection, string index, CancellationToken ct)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = $name LIMIT 1";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "$name";
+        parameter.Value = index;
         command.Parameters.Add(parameter);
         return await command.ExecuteScalarAsync(ct) is not null;
     }

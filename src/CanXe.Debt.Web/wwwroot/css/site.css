@@ -216,6 +216,17 @@ details summary { cursor: pointer; color: var(--brand); }
 .outcome.ahead { background: var(--warn-soft); color: var(--warn); }
 .outcome.open { background: color-mix(in srgb, var(--surface) 90%, var(--ink)); }
 .stage { font-size: .8rem; }
+.select-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 6px 0 8px; padding: 8px 10px; background: color-mix(in srgb, var(--surface) 92%, var(--ink)); border-radius: 8px; }
+.select-bar label { display: inline-flex; align-items: center; gap: 6px; margin: 0; color: var(--ink); font-size: .9rem; }
+.select-bar select, .select-bar input[type=text] { padding: 5px 8px; max-width: 280px; }
+.select-bar button { padding: 5px 12px; }
+.select-range { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+table.pick td:first-child, table.pick th:first-child { width: 34px; text-align: center; }
+table.pick input[type=checkbox] { width: 18px; height: 18px; }
+table.pick tr:has(input:checked) td { background: var(--brand-soft); }
+button.pay-one { padding: 3px 10px; font-size: .85rem; white-space: nowrap; }
+.select-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
+.select-foot .outcome { flex: 1 1 320px; margin-top: 0; }
 .small-head { margin: 14px 0 4px; font-size: .95rem; color: var(--muted); }
 .age { font-size: .85rem; color: var(--muted); white-space: nowrap; }
 tr.dim td { color: var(--muted); }
@@ -292,3 +303,7 @@ tfoot th { border-top: 2px solid var(--line); }
   main { padding: 14px 18px 40px; }
   .stat .value { font-size: 1.35rem; }
 }
+/* The picking table only needs what helps choose trucks; the full figures are in the closed periods below. */
+table.pick .col-opt { display: none; }
+table.pick th, table.pick td { padding: 5px 8px; }
+table.pick td:nth-last-child(2) { white-space: nowrap; }

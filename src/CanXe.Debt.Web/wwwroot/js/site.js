@@ -30,6 +30,54 @@
     });
   });
 
+  // Picking trucks for a period: all / none / a run of tickets / everything up to a day, with a live total.
+  document.querySelectorAll("form[data-close-form]").forEach(function (form) {
+    var boxes = Array.prototype.slice.call(form.querySelectorAll("input[data-pick]"));
+    var summary = form.querySelector("[data-sel-summary]");
+    var carry = parseInt(summary.getAttribute("data-carry"), 10) || 0;
+
+    function refresh() {
+      var count = 0, kg = 0, amount = 0;
+      boxes.forEach(function (box) {
+        if (box.checked) {
+          count += 1;
+          kg += parseFloat(box.getAttribute("data-kg")) || 0;
+          amount += parseInt(box.getAttribute("data-amount"), 10) || 0;
+        }
+      });
+      if (count === 0) { summary.textContent = "Chưa chọn xe nào."; return; }
+      var payable = carry + amount;
+      summary.textContent = "Đã chọn " + count + " xe · " + fmt(kg) + " kg · tiền hàng " + fmt(amount) +
+        (carry !== 0 ? " · cộng nợ trước " + (carry < 0 ? "−" : "") + fmt(carry) : "") +
+        " → phải trả " + (payable < 0 ? "−" : "") + fmt(payable);
+    }
+
+    function setAll(checked) { boxes.forEach(function (box) { box.checked = checked; }); refresh(); }
+
+    form.querySelectorAll("[data-select]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var mode = button.getAttribute("data-select");
+        if (mode === "all") { setAll(true); }
+        else if (mode === "none") { setAll(false); }
+        else if (mode === "range") {
+          var a = parseInt(form.querySelector("[data-range-from]").value, 10);
+          var b = parseInt(form.querySelector("[data-range-to]").value, 10);
+          var lo = Math.min(a, b), hi = Math.max(a, b);
+          boxes.forEach(function (box, i) { box.checked = i >= lo && i <= hi; });
+          refresh();
+        } else if (mode === "until") {
+          var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(form.querySelector("[data-select-until]").value.trim());
+          if (!m) { summary.textContent = "Nhập ngày dạng 27/10/2026."; return; }
+          var limit = m[3] + "-" + m[2] + "-" + m[1];
+          boxes.forEach(function (box) { box.checked = box.getAttribute("data-day") <= limit; });
+          refresh();
+        }
+      });
+    });
+    boxes.forEach(function (box) { box.addEventListener("change", refresh); });
+    refresh();
+  });
+
   document.querySelectorAll("[data-autosubmit]").forEach(function (el) {
     el.addEventListener("change", function () { el.form && el.form.submit(); });
   });

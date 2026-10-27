@@ -80,6 +80,9 @@ public sealed class TicketRecord
     /// <summary>The note typed at the scale (for example a deposit tag or a lot name).</summary>
     public string? Notes { get; set; }
 
+    /// <summary>The settlement period this truck was gathered into; null while it is still waiting to be settled.</summary>
+    public int? PeriodId { get; set; }
+
     public bool IsDeleted { get; set; }
     public required string ContentHash { get; set; }
     public int ImportBatchId { get; set; }
@@ -102,8 +105,9 @@ public enum TicketStage
 }
 
 /// <summary>
-/// A settlement period ("kỳ") of one seller: a run of days gathered and paid together. Periods follow each other
-/// without gaps; whatever is left unpaid carries into the next one.
+/// A settlement period ("kỳ") of one seller: a set of trucks chosen to be paid together, which can be a run of tickets, a
+/// few trucks of the same day or a single truck. <see cref="FromDate"/> and <see cref="ToDate"/> are the dates of its
+/// first and last truck. Whatever is left unpaid carries into the next period.
 /// </summary>
 public sealed class SettlementPeriod
 {

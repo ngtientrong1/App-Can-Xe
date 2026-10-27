@@ -21,8 +21,10 @@ public sealed record DayLine(
     DateOnly Date, string StationCode, string StationName, int TruckCount, decimal BillableKg,
     string PricesText, long Amount, int UnfinishedCount);
 
+/// <param name="Number">1-based order the periods were closed in; 0 for the open pool.</param>
 public sealed record PeriodView(
     SettlementPeriod? Period,
+    int Number,
     DateOnly From,
     DateOnly? To,
     IReadOnlyList<TicketRecord> Tickets,
@@ -52,6 +54,11 @@ public sealed record PeriodView(
 
     public int TruckCount => Tickets.Count;
 
+    /// <summary>First and last truck by weighing time: the "from ticket … to ticket …" of the period.</summary>
+    public TicketRecord? FirstTicket => Tickets.Count == 0 ? null : Tickets[0];
+
+    public TicketRecord? LastTicket => Tickets.Count == 0 ? null : Tickets[^1];
+
     public bool WaitingForWeightOrPrice => NoPriceCount + AwaitingCount > 0;
 
     public PeriodStatus Status =>
@@ -75,42 +82,45 @@ public sealed record CustomerSettlement(IReadOnlyList<PeriodView> Periods, long 
 public static class PeriodBuilder
 {
     /// <summary>
-    /// Lays one seller's trucks and payments out by settlement period. Trucks belong to a period by their date, and a
-    /// payment to the period it was entered for (none = the open period). Each period's unpaid remainder is the next
-    /// period's carried-in debt, so the last remainder always equals total billed minus total paid.
+    /// Lays one seller's trucks and payments out by settlement period. A truck belongs to the period it was gathered into
+    /// (none = the open pool still waiting to be settled), and a payment to the period it was entered for (none = paid ahead,
+    /// counted with the open pool). Periods run in the order they were closed; each one's unpaid remainder is the next one's
+    /// carried-in debt, so the last remainder always equals total billed minus total paid.
     /// </summary>
+    /// <param name="ticketPeriodOf">Overrides which period a truck is in, to preview a period that is not saved yet.</param>
     public static CustomerSettlement Build(
         Season season,
         IEnumerable<TicketRecord> tickets,
         IEnumerable<SettlementPeriod> periods,
         IEnumerable<Payment> payments,
         IReadOnlyDictionary<string, string> stationNames,
-        Func<Payment, int?>? periodOf = null)
+        Func<Payment, int?>? periodOf = null,
+        Func<TicketRecord, int?>? ticketPeriodOf = null)
     {
         periodOf ??= p => p.PeriodId;
+        ticketPeriodOf ??= t => t.PeriodId;
         var allTickets = tickets.Where(t => !t.IsDeleted).ToList();
-        var ordered = periods.OrderBy(p => p.FromDate).ToList();
+        var ordered = periods.OrderBy(p => p.Id <= 0 ? int.MaxValue : p.Id).ThenBy(p => p.ClosedAt).ToList();
         var livePayments = payments.Where(p => !p.IsVoided).ToList();
 
         var views = new List<PeriodView>();
         long carry = 0;
-        foreach (var period in ordered)
+        foreach (var (period, index) in ordered.Select((p, i) => (p, i)))
         {
             var view = BuildView(
-                period, period.FromDate, period.ToDate,
-                allTickets.Where(t => t.TicketDate >= period.FromDate && t.TicketDate <= period.ToDate).ToList(),
+                period, index + 1,
+                allTickets.Where(t => ticketPeriodOf(t) == period.Id).ToList(),
                 livePayments.Where(p => periodOf(p) == period.Id).ToList(),
-                carry, stationNames);
+                carry, stationNames, season.StartDate);
             views.Add(view);
             carry = view.Remaining;
         }
 
-        var openFrom = ordered.Count == 0 ? season.StartDate : ordered[^1].ToDate.AddDays(1);
         views.Add(BuildView(
-            null, openFrom, null,
-            allTickets.Where(t => t.TicketDate >= openFrom).ToList(),
+            null, 0,
+            allTickets.Where(t => ticketPeriodOf(t) is null).ToList(),
             livePayments.Where(p => periodOf(p) is null).ToList(),
-            carry, stationNames));
+            carry, stationNames, season.StartDate));
 
         return new CustomerSettlement(
             views,
@@ -140,11 +150,13 @@ public static class PeriodBuilder
     private static string Money(decimal? value) => value is { } v ? v.ToString("#,##0", System.Globalization.CultureInfo.InvariantCulture).Replace(',', '.') : "—";
 
     private static PeriodView BuildView(
-        SettlementPeriod? period, DateOnly from, DateOnly? to,
+        SettlementPeriod? period, int number,
         List<TicketRecord> tickets, List<Payment> payments, long carryIn,
-        IReadOnlyDictionary<string, string> stationNames)
+        IReadOnlyDictionary<string, string> stationNames, DateOnly seasonStart)
     {
         var sorted = tickets.OrderBy(t => t.TicketDateTime).ThenBy(t => t.StationCode).ThenBy(t => t.Code).ToList();
+        var from = sorted.Count > 0 ? sorted.Min(t => t.TicketDate) : period?.FromDate ?? seasonStart;
+        DateOnly? to = period is null ? null : sorted.Count > 0 ? sorted.Max(t => t.TicketDate) : period.ToDate;
         var priced = sorted.Where(t => t.Stage == TicketStage.Priced).ToList();
         var byStation = sorted
             .GroupBy(t => t.StationCode)
@@ -175,7 +187,7 @@ public static class PeriodBuilder
             : sorted.Where(t => t.UpdatedAt > period.ClosedAt).ToList();
 
         return new PeriodView(
-            period, from, to, sorted, byStation,
+            period, number, from, to, sorted, byStation,
             priced.Count,
             sorted.Count(t => t.Stage == TicketStage.NoPrice),
             sorted.Count(t => t.Stage == TicketStage.AwaitingSecondWeigh),

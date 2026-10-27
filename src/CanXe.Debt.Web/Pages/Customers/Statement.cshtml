@@ -54,7 +54,7 @@
 @foreach (var p in s.Periods)
 {
     <div class="card">
-        <h2>@(p.IsOpen ? $"Kỳ chưa chốt · {Fmt.Range(p.From, null)}" : $"Kỳ {Fmt.Range(p.From, p.To)}")</h2>
+        <h2>@(p.IsOpen ? $"Xe chờ chốt kỳ · {p.TruckCount} xe" : $"Kỳ {p.Number} · {Fmt.PeriodRange(p)}")</h2>
         <table>
             <thead>
             <tr>

@@ -11,10 +11,11 @@ public sealed class SchemaUpgraderTests
     private static async Task MakeLegacy(TestDb t)
     {
         await Exec(t, "DROP INDEX IF EXISTS IX_Payments_PeriodId");
+        await Exec(t, "DROP INDEX IF EXISTS IX_Tickets_PeriodId");
         foreach (var (table, column) in new[]
                  {
                      ("Tickets", "GrossWeightKg"), ("Tickets", "TareWeightKg"), ("Tickets", "NetWeightKg"),
-                     ("Tickets", "AwaitingSecondWeigh"), ("Tickets", "FirstWeightKg"), ("Tickets", "Notes"),
+                     ("Tickets", "AwaitingSecondWeigh"), ("Tickets", "FirstWeightKg"), ("Tickets", "Notes"), ("Tickets", "PeriodId"),
                      ("Payments", "BankName"), ("Payments", "ReceivedBy"), ("Payments", "PaidBy"), ("Payments", "PeriodId")
                  })
             await Exec(t, $"ALTER TABLE \"{table}\" DROP COLUMN \"{column}\"");
@@ -103,7 +104,7 @@ public sealed class SchemaUpgraderTests
     }
 
     [Fact]
-    public async Task UpgradedDatabase_AllowsOnlyOnePeriodPerSellerStart()
+    public async Task UpgradedDatabase_AllowsSeveralPeriodsOfTheSameSeller()
     {
         using var t = new TestDb();
         var season = t.AddSeason();
@@ -112,13 +113,58 @@ public sealed class SchemaUpgraderTests
         await SchemaUpgrader.ApplyAsync(t.Db);
         SettlementPeriod Make() => new()
         {
-            CustomerId = customer.Id, SeasonId = season.Id, FromDate = new DateOnly(2026, 10, 1), ToDate = new DateOnly(2026, 10, 5),
+            CustomerId = customer.Id, SeasonId = season.Id, FromDate = new DateOnly(2026, 10, 1), ToDate = new DateOnly(2026, 10, 1),
             ClosedAt = DateTimeOffset.Now, ClosedBy = "kt"
         };
         t.Db.Periods.Add(Make());
-        await t.Db.SaveChangesAsync();
         t.Db.Periods.Add(Make());
 
-        await Assert.ThrowsAsync<DbUpdateException>(() => t.Db.SaveChangesAsync());
+        await t.Db.SaveChangesAsync();
+
+        Assert.Equal(2, await t.Db.Periods.CountAsync());
+    }
+
+    [Fact]
+    public async Task UpgradeFromTheDateRangeVersion_KeepsEachPeriodsTrucksAndDropsTheUniqueIndex()
+    {
+        using var t = new TestDb();
+        var season = t.AddSeason();
+        var customer = t.AddCustomer("A");
+        var other = t.AddCustomer("B");
+        foreach (var (code, date, owner) in new[] { ("1", "2026-10-03", customer), ("2", "2026-10-05", customer), ("3", "2026-10-09", customer), ("4", "2026-10-04", other) })
+        {
+            t.Db.Tickets.Add(new TicketRecord
+            {
+                StationCode = "DAKHA", Code = code, DisplayNumber = code, TicketDate = DateOnly.Parse(date),
+                TicketDateTime = DateTimeOffset.Parse($"{date}T08:00:00+07:00"), CustomerId = owner.Id, ContentHash = "x"
+            });
+        }
+
+        t.Db.Periods.Add(new SettlementPeriod
+        {
+            CustomerId = customer.Id, SeasonId = season.Id, FromDate = new DateOnly(2026, 10, 1), ToDate = new DateOnly(2026, 10, 5),
+            ClosedAt = DateTimeOffset.Now, ClosedBy = "kt"
+        });
+        await t.Db.SaveChangesAsync();
+        // the shape of the date-range version: no Tickets.PeriodId, and a unique index on the period start
+        await Exec(t, "DROP INDEX IF EXISTS IX_Tickets_PeriodId");
+        await Exec(t, "ALTER TABLE Tickets DROP COLUMN PeriodId");
+        await Exec(t, "DROP INDEX IF EXISTS IX_Periods_CustomerId_SeasonId");
+        await Exec(t, "CREATE UNIQUE INDEX IX_Periods_CustomerId_SeasonId_FromDate ON Periods (CustomerId, SeasonId, FromDate)");
+        t.Db.ChangeTracker.Clear();
+
+        var pending = await SchemaUpgrader.PendingChangesAsync(t.Db);
+        Assert.Contains("Tickets.PeriodId", pending);
+        Assert.Contains("Periods (unique index)", pending);
+
+        await SchemaUpgrader.ApplyAsync(t.Db);
+
+        var periodId = (await t.Db.Periods.SingleAsync()).Id;
+        var byCode = await t.Db.Tickets.ToDictionaryAsync(x => x.Code, x => x.PeriodId);
+        Assert.Equal(periodId, byCode["1"]);
+        Assert.Equal(periodId, byCode["2"]);
+        Assert.Null(byCode["3"]);   // after the period's last day: still waiting
+        Assert.Null(byCode["4"]);   // another seller
+        Assert.Empty(await SchemaUpgrader.PendingChangesAsync(t.Db));
     }
 }

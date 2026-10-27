@@ -28,7 +28,8 @@ public sealed class DebtDbContext(DbContextOptions<DebtDbContext> options) : DbC
         b.Entity<TicketRecord>().Ignore(x => x.HasPriceSplit);
         b.Entity<TicketRecord>().Ignore(x => x.Stage);
 
-        b.Entity<SettlementPeriod>().HasIndex(x => new { x.CustomerId, x.SeasonId, x.FromDate }).IsUnique();
+        b.Entity<SettlementPeriod>().HasIndex(x => new { x.CustomerId, x.SeasonId });
+        b.Entity<TicketRecord>().HasIndex(x => x.PeriodId);
         b.Entity<SettlementPeriod>().HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId);
         b.Entity<Payment>().HasIndex(x => x.PeriodId);
 
