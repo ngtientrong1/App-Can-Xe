@@ -145,7 +145,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .field { display: flex; flex-direction: column; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; }
 .radio-row { display: flex; gap: 18px; padding: 9px 0; }
-.radio-row label { display: inline-flex; align-items: center; gap: 6px; font-size: 1rem; color: var(--ink); margin: 0; }
+.radio-row label { display: inline-flex; align-items: center; gap: 6px; font-size: 1rem; color: var(--ink); margin: 0; white-space: nowrap; }
 
 button, .btn {
   font: inherit;

@@ -1,10 +1,10 @@
-﻿; Công Nợ Cà Tiến Trọng — Inno Setup installer for the debt web app (runs as a Windows service).
+; Công Nợ Cà Tiến Trọng — Inno Setup installer for the debt web app (runs as a Windows service).
 ; The service listens on 127.0.0.1:5200 only; remote access goes through "tailscale serve".
 ; Data lives in %ProgramData%\CanXeDebt and is never removed by install, upgrade or uninstall.
 
 #define MyAppName "Công Nợ Cà Tiến Trọng"
 #define MyAppNameAscii "Can Xe Cong No"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "Tien Trong"
 #define MyServiceName "CanXeDebt"
 #define MyAppExeName "CanXe.Debt.Web.exe"
