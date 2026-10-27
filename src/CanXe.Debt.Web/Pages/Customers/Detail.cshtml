@@ -19,7 +19,7 @@
 
     [BindProperty] public DateOnly PaidOn { get; set; } = DateOnly.FromDateTime(DateTime.Today);
     [BindProperty] public string AmountText { get; set; } = "";
-    [BindProperty] public PaymentMethod Method { get; set; } = PaymentMethod.Cash;
+    [BindProperty] public PaymentMethod Method { get; set; } = PaymentMethod.Transfer;
     [BindProperty] public int? PeriodId { get; set; }
     [BindProperty] public string? BankName { get; set; }
     [BindProperty] public string? PaidBy { get; set; }
@@ -70,6 +70,12 @@
         if (!Fmt.TryParseVnd(AmountText, out var amount))
         {
             Error = "Số tiền không hợp lệ. Chỉ nhập chữ số, ví dụ 150.000.000.";
+            return Page();
+        }
+
+        if (Method == PaymentMethod.Transfer && string.IsNullOrWhiteSpace(BankName))
+        {
+            Error = "Chuyển khoản thì cần ghi ngân hàng / tài khoản.";
             return Page();
         }
 
@@ -250,21 +256,18 @@
                 <div class="field full">
                     <label>Hình thức</label>
                     <div class="radio-row">
-                        <label><input type="radio" name="Method" value="Cash" checked="@(Method == PaymentMethod.Cash)" /> Tiền mặt</label>
                         <label><input type="radio" name="Method" value="Transfer" checked="@(Method == PaymentMethod.Transfer)" /> Chuyển khoản</label>
+                        <label><input type="radio" name="Method" value="Cash" checked="@(Method == PaymentMethod.Cash)" /> Tiền mặt</label>
                         <label><input type="radio" name="Method" value="Offset" checked="@(Method == PaymentMethod.Offset)" /> Trừ vào công nợ khác</label>
                     </div>
                 </div>
             </div>
-            <details class="more" open="@(!string.IsNullOrWhiteSpace(BankName) || !string.IsNullOrWhiteSpace(PaidBy) || !string.IsNullOrWhiteSpace(ReceivedBy) || !string.IsNullOrWhiteSpace(Note))">
-                <summary>Thêm chi tiết (không bắt buộc): ngân hàng, người chi, người nhận, ghi chú</summary>
-                <div class="form-grid">
-                    <div class="field full"><label for="BankName">Ngân hàng / tài khoản</label><input id="BankName" name="BankName" type="text" value="@BankName" list="banks" placeholder="Vietcombank, tk công ty…" /></div>
-                    <div class="field"><label for="PaidBy">Người chi (bên mình)</label><input id="PaidBy" name="PaidBy" type="text" value="@PaidBy" list="payers" placeholder="Bố giao, tài xế ứng…" /></div>
-                    <div class="field"><label for="ReceivedBy">Người nhận tiền</label><input id="ReceivedBy" name="ReceivedBy" type="text" value="@ReceivedBy" list="receivers" placeholder="Ai nhận giùm…" /></div>
-                    <div class="field full"><label for="Note">Ghi chú</label><input id="Note" name="Note" type="text" value="@Note" placeholder="Ví dụ: ứng để nhập hàng tiếp" /></div>
-                </div>
-            </details>
+            <div class="form-grid">
+                <div class="field full"><label for="BankName">Ngân hàng / tài khoản <span class="req" data-bank-required>(bắt buộc khi chuyển khoản)</span></label><input id="BankName" name="BankName" type="text" value="@BankName" list="banks" placeholder="Vietcombank, tk công ty…" required="@(Method == PaymentMethod.Transfer)" /></div>
+                <div class="field"><label for="PaidBy">Người chi (bên mình)</label><input id="PaidBy" name="PaidBy" type="text" value="@PaidBy" list="payers" placeholder="Bố giao, tài xế ứng…" /></div>
+                <div class="field"><label for="ReceivedBy">Người nhận tiền</label><input id="ReceivedBy" name="ReceivedBy" type="text" value="@ReceivedBy" list="receivers" placeholder="Ai nhận giùm…" /></div>
+                <div class="field full"><label for="Note">Ghi chú (không bắt buộc)</label><input id="Note" name="Note" type="text" value="@Note" placeholder="Ví dụ: ứng để nhập hàng tiếp" /></div>
+            </div>
             <datalist id="banks">@foreach (var b in Suggestions.Banks) { <option value="@b"></option> }</datalist>
             <datalist id="payers">@foreach (var b in Suggestions.Payers) { <option value="@b"></option> }</datalist>
             <datalist id="receivers">@foreach (var b in Suggestions.Receivers) { <option value="@b"></option> }</datalist>

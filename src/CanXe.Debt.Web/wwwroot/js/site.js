@@ -156,13 +156,21 @@
           var input = payForm.querySelector("input[name=" + name + "]");
           if (input && saved[name]) { input.value = saved[name]; }
         });
-        var radio = payForm.querySelector("input[name=Method][value=" + saved.Method + "]");
-        if (radio) { radio.checked = true; }
       }
     } catch (e) { /* storage not available: nothing to remember */ }
+    // The bank is needed for a transfer only; cash and offsets can leave it empty.
+    var bank = payForm.querySelector("input[name=BankName]");
+    var bankHint = payForm.querySelector("[data-bank-required]");
+    function syncBank() {
+      var transfer = (payForm.querySelector("input[name=Method]:checked") || {}).value === "Transfer";
+      if (bank) { bank.required = transfer; }
+      if (bankHint) { bankHint.hidden = !transfer; }
+    }
+    payForm.querySelectorAll("input[name=Method]").forEach(function (radio) { radio.addEventListener("change", syncBank); });
+    syncBank();
     payForm.addEventListener("submit", function () {
       try {
-        var data = { Method: (payForm.querySelector("input[name=Method]:checked") || {}).value || "Cash" };
+        var data = {};
         fields.forEach(function (name) { data[name] = payForm.querySelector("input[name=" + name + "]").value; });
         window.localStorage.setItem(memoryKey, JSON.stringify(data));
       } catch (e) { /* ignore */ }

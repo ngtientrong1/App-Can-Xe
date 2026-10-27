@@ -321,3 +321,4 @@ button.big-btn { font-size: 1.05rem; padding: 11px 26px; }
 .qr svg { width: 100%; height: auto; display: block; }
 .recovery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 8px 0; }
 .recovery code, code { background: color-mix(in srgb, var(--surface) 90%, var(--ink)); padding: 3px 8px; border-radius: 6px; font-size: 1.05rem; letter-spacing: .06em; }
+.req { color: var(--muted, #667); font-weight: 400; font-size: .85em; }
