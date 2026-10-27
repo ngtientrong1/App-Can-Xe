@@ -22,13 +22,17 @@ Lần đầu sử dụng
 
 Gửi link cho kế toán (giống app quản lý công nhân)
 --------------------------------------------------
+Máy này còn chạy app khác (ví dụ app quản lý công nhân ở cổng 3000), nên mỗi app một link riêng, cùng tên máy, khác cổng:
+  - App quản lý công nhân:  https://ten-may.ten-mang.ts.net         (cổng 443)
+  - App công nợ:            https://ten-may.ten-mang.ts.net:8443     (cổng 8443)
 Chỉ cần làm một lần trên máy này, mở PowerShell (Administrator):
-    tailscale funnel --bg 5200
-Tailscale cho một địa chỉ dạng https://ten-may.ten-mang.ts.net — gửi địa chỉ này cho kế toán.
-Kế toán mở link ở bất kỳ đâu, không cần cài Tailscale, đăng nhập bằng tên đăng nhập và mật khẩu như bình thường.
+    tailscale funnel --bg --https=8443 5200
+    tailscale funnel --bg 3000
+(Dòng đầu mở app công nợ ở cổng 8443; dòng sau đặt lại app công nhân ở cổng 443.)
+Gửi link có đuôi :8443 cho kế toán. Kế toán mở link ở bất kỳ đâu, không cần cài Tailscale, đăng nhập bằng tên đăng nhập và mật khẩu như bình thường.
 (Nếu Tailscale hiện thông báo yêu cầu bật Funnel, làm theo đường dẫn nó đưa ra trong trang quản trị Tailscale.)
-Tắt link: tailscale funnel --https=443 off
-
+Xem đang mở gì:  tailscale funnel status
+Tắt link công nợ: tailscale funnel --https=8443 off
 Vì link mở ra internet nên app có sẵn các lớp bảo vệ:
 - Mật khẩu từ 10 ký tự. Nhập sai 5 lần, tài khoản bị khóa 10 phút; một địa chỉ nhập sai nhiều lần cũng bị chặn.
 - Nên đặt mật khẩu dài, khác với nơi khác.
