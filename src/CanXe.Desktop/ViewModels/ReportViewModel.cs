@@ -20,17 +20,20 @@ public sealed partial class ReportViewModel : ObservableObject
     private readonly IPrintNotificationService _notificationService;
     private readonly StationSettingsService _stationSettings;
     private readonly FastEntrySearchService _fastEntrySearch;
+    private readonly IDebtExportService _debtExport;
 
     public ReportViewModel(
         IReportService reportService,
         IPrintNotificationService notificationService,
         StationSettingsService stationSettings,
-        FastEntrySearchService fastEntrySearch)
+        FastEntrySearchService fastEntrySearch,
+        IDebtExportService debtExport)
     {
         _reportService = reportService;
         _notificationService = notificationService;
         _stationSettings = stationSettings;
         _fastEntrySearch = fastEntrySearch;
+        _debtExport = debtExport;
         FromDate = DateTime.Today.AddDays(-7);
         ToDate = DateTime.Today;
     }
@@ -308,6 +311,73 @@ public sealed partial class ReportViewModel : ObservableObject
         catch (Exception ex)
         {
             MessageBox.Show(ex.Message, "Lỗi xuất Excel", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>Exports every completed ticket in the date range (all customers) for the debt app to import.</summary>
+    [RelayCommand]
+    private async Task ExportDebtFileAsync()
+    {
+        if (IsBusy)
+            return;
+
+        var from = FromDate ?? new DateTime(2000, 1, 1);
+        var to = ToDate ?? DateTime.Today;
+        var station = await _stationSettings.GetStationAsync();
+        if (string.IsNullOrWhiteSpace(station.DebtStationCode))
+        {
+            MessageBox.Show(
+                "Chưa đặt mã điểm cân.\n\nVào Cài đặt → Cấu hình trạm cân, mục “Điểm cân”, nhập mã (ví dụ DAKHA) và tên điểm, rồi lưu.",
+                "Xuất file công nợ",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            $"Xuất file công nợ của điểm cân {station.DebtStationName ?? station.DebtStationCode}\n" +
+            $"Từ ngày {from:dd/MM/yyyy} đến ngày {to:dd/MM/yyyy}, tất cả khách hàng.\n\n" +
+            "Tiếp tục?",
+            "Xuất file công nợ",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Question);
+        if (confirm != MessageBoxResult.OK)
+            return;
+
+        var dialog = new SaveFileDialog
+        {
+            Filter = "File công nợ (*.json)|*.json",
+            FileName = $"CanXe-{station.DebtStationCode}-{DateTime.Now:yyyyMMdd-HHmm}.json",
+            DefaultExt = ".json"
+        };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        IsBusy = true;
+        try
+        {
+            var result = await _debtExport.ExportAsync(from, to, dialog.FileName);
+            if (!result.Success)
+            {
+                MessageBox.Show(
+                    result.ErrorMessage ?? "Không thể xuất file công nợ.",
+                    "Lỗi xuất file công nợ",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            await _notificationService.ShowExportSuccessToastAsync(result.FilePath);
+            StatusMessage = $"Đã xuất file công nợ: {result.TicketCount} phiếu" +
+                            (result.DeletedCount > 0 ? $" (+{result.DeletedCount} phiếu đã xóa)" : "") + ".";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Lỗi xuất file công nợ", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
         {

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using CanXe.Application.Models;
+using CanXe.Domain.Services;
 
 namespace CanXe.Application.Services;
 
@@ -16,6 +17,13 @@ public static partial class SettingsValidationService
 
         if (!string.IsNullOrWhiteSpace(settings.Email) && !EmailRegex().IsMatch(settings.Email.Trim()))
             result.AddError(nameof(StationSettingsDto.Email), "Email không hợp lệ.");
+
+        if (!string.IsNullOrWhiteSpace(settings.DebtStationCode) && !DebtStationCodePolicy.IsValid(settings.DebtStationCode))
+        {
+            result.AddError(
+                nameof(StationSettingsDto.DebtStationCode),
+                $"Mã điểm cân gồm {DebtStationCodePolicy.MinLength}–{DebtStationCodePolicy.MaxLength} ký tự: chữ không dấu, số hoặc gạch dưới (ví dụ DAKHA).");
+        }
 
         return result;
     }

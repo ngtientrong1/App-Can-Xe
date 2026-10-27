@@ -14,6 +14,8 @@ public sealed class StationSettingsDto
     public string? LogoPath { get; set; }
     public string? TicketFooterText { get; set; }
     public string? SignLocationName { get; set; }
+    public string? DebtStationCode { get; set; }
+    public string? DebtStationName { get; set; }
 }
 
 public sealed class ScaleDeviceSettingsDto

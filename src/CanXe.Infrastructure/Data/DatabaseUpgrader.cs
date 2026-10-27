@@ -17,6 +17,7 @@ public static class DatabaseUpgrader
     public const string Phase5Rc6MigrationId = "202607040006_Phase5_Rc6_CatalogFields";
     public const string Phase6Rc1MigrationId = "202607140001_Phase6_Rc1_WeighInputSource";
     public const string Phase7PriceSplitMigrationId = "202610270001_Phase7_TicketPriceSplit";
+    public const string Phase7DebtStationMigrationId = "202610270002_Phase7_DebtStation";
 
     public static async Task UpgradeAsync(CanXeDbContext db, string databasePath, CancellationToken cancellationToken = default)
     {
@@ -46,6 +47,8 @@ public static class DatabaseUpgrader
             await RecordMigrationAsync(db, Phase6Rc1MigrationId, cancellationToken);
             await ApplyPhase7TicketPriceSplitAsync(db, cancellationToken);
             await RecordMigrationAsync(db, Phase7PriceSplitMigrationId, cancellationToken);
+            await ApplyPhase7DebtStationAsync(db, cancellationToken);
+            await RecordMigrationAsync(db, Phase7DebtStationMigrationId, cancellationToken);
             return;
         }
 
@@ -79,6 +82,8 @@ public static class DatabaseUpgrader
         await RecordMigrationAsync(db, Phase6Rc1MigrationId, cancellationToken);
         await ApplyPhase7TicketPriceSplitAsync(db, cancellationToken);
         await RecordMigrationAsync(db, Phase7PriceSplitMigrationId, cancellationToken);
+        await ApplyPhase7DebtStationAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase7DebtStationMigrationId, cancellationToken);
     }
 
     public static void BackupDatabase(string databasePath)
@@ -477,6 +482,17 @@ public static class DatabaseUpgrader
 
         await AddColumnIfMissingAsync(db, "WeighTickets", "SplitFirstWeightGrams", "INTEGER NULL", cancellationToken);
         await AddColumnIfMissingAsync(db, "WeighTickets", "SecondUnitPriceVndPerKg", "INTEGER NULL", cancellationToken);
+    }
+
+    private static async Task ApplyPhase7DebtStationAsync(
+        CanXeDbContext db,
+        CancellationToken cancellationToken)
+    {
+        if (!await TableExistsAsync(db, "StationSettings", cancellationToken))
+            return;
+
+        await AddColumnIfMissingAsync(db, "StationSettings", "DebtStationCode", "TEXT NULL", cancellationToken);
+        await AddColumnIfMissingAsync(db, "StationSettings", "DebtStationName", "TEXT NULL", cancellationToken);
     }
 
     private static async Task ApplyPhase6Rc1WeighInputSourceAsync(

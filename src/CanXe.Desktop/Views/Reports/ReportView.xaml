@@ -67,6 +67,8 @@
                     <Button Content="LỌC" Command="{Binding ApplyFilterCommand}" Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,0,8,0"/>
                     <Button Content="XÓA LỌC" Command="{Binding ClearFilterCommand}" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
                     <Button Content="XUẤT EXCEL" Command="{Binding ExportExcelCommand}" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
+                    <Button Content="XUẤT FILE CÔNG NỢ" Command="{Binding ExportDebtFileCommand}" Style="{StaticResource FilterButton}" Margin="0,0,8,0"
+                            ToolTip="Xuất các phiếu đã cân (mọi khách) trong khoảng ngày để gửi cho kế toán nhập vào app công nợ"/>
                     <Button Content="XEM BÁO CÁO" Command="{Binding PreviewReportCommand}" Style="{StaticResource FilterButton}" Margin="0,0,8,0"/>
                     <Button Content="IN BÁO CÁO" Command="{Binding PrintReportCommand}" Style="{StaticResource FilterButton}"/>
                 </WrapPanel>

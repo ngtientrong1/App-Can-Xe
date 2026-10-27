@@ -66,6 +66,7 @@ public static class DependencyInjection
         services.AddSingleton<IDeveloperAuthorizationService>(sp =>
             new DeveloperAuthorizationService(sp.GetRequiredService<IUserPermissionService>()));
         services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<IDebtExportService, DebtExportService>();
         services.AddSingleton<IExcelReportExporter, ExcelReportExporter>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<StationSettingsService>();

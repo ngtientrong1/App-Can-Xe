@@ -1128,6 +1128,20 @@
                         <TextBox Text="{Binding TaxCode}" Style="{StaticResource CanXeTextBoxStyle}"/>
                         <TextBlock Text="Nội dung chân phiếu" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,4"/>
                         <TextBox Text="{Binding TicketFooterText}" Style="{StaticResource CanXeTextBoxStyle}" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="72"/>
+                        <TextBlock Text="Điểm cân (dùng khi xuất file công nợ)" Style="{StaticResource SectionHeaderTextStyle}" Margin="0,16,0,6"/>
+                        <TextBlock Text="Mỗi điểm cân có một mã riêng để app công nợ phân biệt phiếu của hai điểm. Đặt một lần, không đổi về sau."
+                                   TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource MutedTextBrush}" Margin="0,0,0,6"/>
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Mã điểm cân (ví dụ DAKHA)" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding DebtStationCode, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource CanXeTextBoxStyle}" CharacterCasing="Upper" MaxLength="20"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Tên điểm cân (ví dụ Đắk Hà)" FontSize="14" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding DebtStationName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource CanXeTextBoxStyle}"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="{Binding DebtStationCodeError}" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"/>
                         <Button Content="LƯU CẤU HÌNH" Command="{Binding SaveStationCommand}" Style="{StaticResource CanXePrimaryButtonStyle}" Margin="0,14,0,0"/>
                         <TextBlock Text="{Binding SettingsStatusMessage}" Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,8,0,0"/>
                     </StackPanel>

@@ -30,6 +30,8 @@ public sealed class StationSettingsRepository(CanXeDbContext db) : IStationSetti
         entity.TaxCode = settings.TaxCode?.Trim();
         entity.LogoPath = settings.LogoPath?.Trim();
         entity.TicketFooterText = settings.TicketFooterText?.Trim();
+        entity.DebtStationCode = DebtStationCodePolicy.Normalize(settings.DebtStationCode);
+        entity.DebtStationName = string.IsNullOrWhiteSpace(settings.DebtStationName) ? null : settings.DebtStationName.Trim();
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
     }
@@ -43,7 +45,9 @@ public sealed class StationSettingsRepository(CanXeDbContext db) : IStationSetti
         Email = entity.Email,
         TaxCode = entity.TaxCode,
         LogoPath = entity.LogoPath,
-        TicketFooterText = entity.TicketFooterText
+        TicketFooterText = entity.TicketFooterText,
+        DebtStationCode = entity.DebtStationCode,
+        DebtStationName = entity.DebtStationName
     };
 }
 

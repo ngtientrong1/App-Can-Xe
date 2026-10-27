@@ -1,7 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\CanXe.Application\CanXe.Application.csproj" />
+    <ProjectReference Include="..\CanXe.Debt.Contract\CanXe.Debt.Contract.csproj" />
     <ProjectReference Include="..\CanXe.Domain\CanXe.Domain.csproj" />
     <ProjectReference Include="..\CanXe.ScaleProtocol.Core\CanXe.ScaleProtocol.Core.csproj" />
   </ItemGroup>
@@ -32,3 +33,4 @@
   </ItemGroup>
 
 </Project>
+

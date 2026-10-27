@@ -72,6 +72,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string? _logoPath;
     [ObservableProperty] private string? _ticketFooterText;
     [ObservableProperty] private string? _stationNameError;
+    [ObservableProperty] private string? _debtStationCode;
+    [ObservableProperty] private string? _debtStationName;
+    [ObservableProperty] private string? _debtStationCodeError;
 
     [ObservableProperty] private string _deviceMode = "Simulation";
     [ObservableProperty] private string _portName = "COM1";
@@ -139,6 +142,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         TaxCode = station.TaxCode;
         LogoPath = station.LogoPath;
         TicketFooterText = station.TicketFooterText;
+        DebtStationCode = station.DebtStationCode;
+        DebtStationName = station.DebtStationName;
 
         var scale = await _settingsService.GetScaleAsync();
         DeviceMode = !string.IsNullOrWhiteSpace(_appSettings.DeviceMode)
@@ -312,11 +317,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     private async Task SaveStationAsync()
     {
         StationNameError = null;
+        DebtStationCodeError = null;
         var dto = BuildStationDto();
         var (success, validation) = await _settingsService.SaveStationAsync(dto);
         if (!success)
         {
             StationNameError = validation.Errors.GetValueOrDefault(nameof(StationSettingsDto.StationName));
+            DebtStationCodeError = validation.Errors.GetValueOrDefault(nameof(StationSettingsDto.DebtStationCode));
             SettingsStatusMessage = "Không lưu được — kiểm tra các trường lỗi.";
             return;
         }
@@ -666,7 +673,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         Email = Email,
         TaxCode = TaxCode,
         LogoPath = LogoPath,
-        TicketFooterText = TicketFooterText
+        TicketFooterText = TicketFooterText,
+        DebtStationCode = DebtStationCode,
+        DebtStationName = DebtStationName
     };
 
     public TicketDocumentRenderOptions BuildPreviewOptions() => new()
