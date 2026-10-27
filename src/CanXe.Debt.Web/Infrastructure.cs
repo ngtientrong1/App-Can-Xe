@@ -96,6 +96,32 @@ public sealed class DailyBackupService(BackupManager backups, IServiceScopeFacto
     }
 }
 
+/// <summary>Appends unhandled errors to a text file the owner can send over; keeps the file from growing without end.</summary>
+public sealed class FileErrorLog(string path)
+{
+    private const long MaxBytes = 2_000_000;
+    private readonly object _gate = new();
+
+    public string Path { get; } = path;
+
+    public void Write(string context, Exception exception)
+    {
+        try
+        {
+            lock (_gate)
+            {
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+                if (File.Exists(Path) && new FileInfo(Path).Length > MaxBytes)
+                    File.Move(Path, Path + ".old", overwrite: true);
+                File.AppendAllText(Path, $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss}] {context}{Environment.NewLine}{exception}{Environment.NewLine}{Environment.NewLine}");
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+}
+
 /// <summary>Binds dates typed day/month/year, so every date box reads the same whatever the browser's language is.</summary>
 public sealed class DateOnlyModelBinderProvider : Microsoft.AspNetCore.Mvc.ModelBinding.IModelBinderProvider
 {

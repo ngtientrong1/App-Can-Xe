@@ -81,25 +81,59 @@ builder.Services.Configure<ForwardedHeadersOptions>(o =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+var errorLog = new FileErrorLog(Path.Combine(dataDir, "logs", "error.log"));
+
+try
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<DebtDbContext>();
+
+    // A database made by an older version gets the newer columns and tables, after a safety backup of it.
+    var pending = await SchemaUpgrader.PendingChangesAsync(db);
+    if (pending.Count > 0)
+    {
+        var backup = app.Services.GetRequiredService<BackupManager>().Create(BackupManager.BeforeUpgrade);
+        if (!backup.Ok)
+            throw new InvalidOperationException($"Không sao lưu được dữ liệu trước khi nâng cấp nên chưa nâng cấp: {backup.Error}");
+
+        await SchemaUpgrader.ApplyAsync(db);
+        app.Logger.LogWarning("Đã nâng cấp cơ sở dữ liệu ({Changes}). Bản sao lưu trước khi nâng cấp: {File}", string.Join(", ", pending), backup.Info!.FileName);
+    }
+
     db.Database.EnsureCreated();
     var codes = app.Services.GetRequiredService<SetupCodeStore>();
     if (!await db.Users.AnyAsync())
     {
         var code = codes.EnsureCode();
-        app.Logger.LogWarning("ChÆ°a cÃ³ tÃ i khoáº£n. Má»Ÿ trang /Setup vÃ  nháº­p mÃ£ cÃ i Ä‘áº·t: {Code} (cÅ©ng lÆ°u trong {Path})", code, codes.FilePath);
+        app.Logger.LogWarning("Chưa có tài khoản. Mở trang /Setup và nhập mã cài đặt: {Code} (cũng lưu trong {Path})", code, codes.FilePath);
     }
     else
     {
         codes.Clear();
     }
 }
-
+catch (Exception ex)
+{
+    errorLog.Write("Khởi động thất bại", ex);
+    throw;
+}
 app.UseForwardedHeaders();
 if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
+
+// Inside the exception handler, so every unhandled error is written to logs\error.log before the error page shows.
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        errorLog.Write($"{context.Request.Method} {context.Request.Path}{context.Request.QueryString}", ex);
+        throw;
+    }
+});
 
 app.Use(async (context, next) =>
 {

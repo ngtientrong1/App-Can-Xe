@@ -81,6 +81,9 @@ Sao lưu
 
 Kiểm tra / xử lý sự cố
 ----------------------
+- Lỗi: mọi lỗi được ghi vào C:\ProgramData\CanXeDebt\logs\error.log (gửi file này khi cần báo lỗi).
+- Cài bản mới đè bản cũ: lần khởi động đầu app tự sao lưu dữ liệu (file *-truoc-nang-cap.db trong thư mục backup)
+  rồi tự thêm cột/bảng mới; dữ liệu cũ giữ nguyên.
 - Xem dịch vụ:    sc query CanXeDebt
 - Khởi động lại:  sc stop CanXeDebt   rồi   sc start CanXeDebt
 - Không mở được trang: kiểm tra dịch vụ "CanXeDebt" có đang chạy (Services.msc).

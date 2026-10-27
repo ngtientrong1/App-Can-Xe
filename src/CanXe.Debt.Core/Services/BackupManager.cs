@@ -17,6 +17,7 @@ public sealed partial class BackupManager(string databasePath, string backupDire
     public const string Daily = "daily";
     public const string Manual = "manual";
     public const string BeforeSeasonClose = "truoc-chot-mua";
+    public const string BeforeUpgrade = "truoc-nang-cap";
 
     public const int KeepDaily = 30;
     public const int KeepManual = 20;
