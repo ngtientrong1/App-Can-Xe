@@ -174,6 +174,64 @@ public sealed class PaymentService(DebtDbContext db)
         return OperationResult<Payment>.Success(payment);
     }
 
+    /// <summary>
+    /// Corrects a payment entered wrongly (the receiver, the bank, the amount…). Which period it belongs to stays; every change
+    /// is written to the payment's edit log with who and when, so the original wording is never lost.
+    /// </summary>
+    public async Task<OperationResult<Payment>> EditAsync(
+        int paymentId, DateOnly paidOn, long amountVnd, PaymentMethod method, string? bankName, string? paidBy, string? receivedBy,
+        string? note, string user, DateTimeOffset? now = null, CancellationToken ct = default)
+    {
+        if (amountVnd <= 0)
+            return OperationResult<Payment>.Fail("Số tiền trả phải lớn hơn 0.");
+
+        var payment = await db.Payments.FirstOrDefaultAsync(p => p.Id == paymentId, ct);
+        if (payment is null)
+            return OperationResult<Payment>.Fail("Không tìm thấy khoản trả.");
+        if (payment.IsVoided)
+            return OperationResult<Payment>.Fail("Khoản trả này đã hủy nên không sửa được.");
+
+        var season = await db.Seasons.AsNoTracking().FirstAsync(s => s.Id == payment.SeasonId, ct);
+        if (season.IsClosed)
+            return OperationResult<Payment>.Fail("Mùa này đã chốt, không sửa được khoản trả.");
+        if (!season.Contains(paidOn))
+            return OperationResult<Payment>.Fail($"Ngày trả phải từ {season.StartDate:dd/MM/yyyy} trở đi.");
+
+        static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        var bank = method != PaymentMethod.Cash ? Clean(bankName) : null;
+        var changes = new List<string>();
+        void Track(string label, string? before, string? after)
+        {
+            if (!string.Equals(before ?? "", after ?? "", StringComparison.Ordinal))
+                changes.Add($"{label}: {(string.IsNullOrEmpty(before) ? "(trống)" : before)} → {(string.IsNullOrEmpty(after) ? "(trống)" : after)}");
+        }
+
+        static string MethodName(PaymentMethod m) => m switch { PaymentMethod.Cash => "Tiền mặt", PaymentMethod.Offset => "Bù trừ", _ => "Chuyển khoản" };
+        Track("Ngày trả", payment.PaidOn.ToString("dd/MM/yyyy"), paidOn.ToString("dd/MM/yyyy"));
+        Track("Số tiền", payment.AmountVnd.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")), amountVnd.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")));
+        Track("Hình thức", MethodName(payment.Method), MethodName(method));
+        Track("Ngân hàng", payment.BankName, bank);
+        Track("Người chi", payment.PaidBy, Clean(paidBy));
+        Track("Người nhận", payment.ReceivedBy, Clean(receivedBy));
+        Track("Ghi chú", payment.Note, Clean(note));
+        if (changes.Count == 0)
+            return OperationResult<Payment>.Fail("Chưa có gì thay đổi.");
+
+        var when = now ?? DateTimeOffset.Now;
+        payment.PaidOn = paidOn;
+        payment.AmountVnd = amountVnd;
+        payment.Method = method;
+        payment.BankName = bank;
+        payment.PaidBy = Clean(paidBy);
+        payment.ReceivedBy = Clean(receivedBy);
+        payment.Note = Clean(note);
+        payment.EditedAt = when;
+        payment.EditedBy = user;
+        payment.EditLog = (payment.EditLog is { Length: > 0 } log ? log + "\n" : "") + $"{when:dd/MM/yyyy HH:mm} · {user}: {string.Join("; ", changes)}";
+        await db.SaveChangesAsync(ct);
+        return OperationResult<Payment>.Success(payment);
+    }
+
     public static readonly TimeSpan UndoWindow = TimeSpan.FromMinutes(15);
 
     /// <summary>

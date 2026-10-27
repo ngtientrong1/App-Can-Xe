@@ -146,6 +146,12 @@ public sealed class Payment
     public required string CreatedBy { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
+    public DateTimeOffset? EditedAt { get; set; }
+    public string? EditedBy { get; set; }
+
+    /// <summary>One line per correction ("when · who: field: old → new"), oldest first, so a fixed payment still shows what it used to say.</summary>
+    public string? EditLog { get; set; }
+
     public DateTimeOffset? VoidedAt { get; set; }
     public string? VoidedBy { get; set; }
     public string? VoidReason { get; set; }

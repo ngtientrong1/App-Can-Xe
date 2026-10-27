@@ -51,6 +51,7 @@ Trả tiền / ứng tiền theo số tiền (cách dùng hằng ngày)
 - Khoản trả theo số tiền bất kỳ (ví dụ ứng 50-100 triệu để chủ hàng nhập hàng tiếp) trừ vào tổng nợ.
   Bảng xe bên phải tự cho biết xe nào "Đã trả đủ", "Đã trả một phần", "Chưa trả" (trả từ xe cũ nhất).
 - Nợ lại rồi gom trả một lần: tick các xe cần trả, bấm "Gom lô rồi trả luôn", nhập số tiền.
+- Nhập sai người nhận, ngân hàng, số tiền...? Bấm "Sửa" ở dòng khoản trả trong lô, sửa rồi "Lưu sửa". Nội dung cũ vẫn được lưu (bấm "đã sửa lúc..." để xem).
 - Nhập nhầm? Ngay sau khi ghi nhận có nút "Hoàn tác" (trong 15 phút, chính người vừa nhập).
 - Hình thức, ngân hàng, người chi, người nhận, ghi chú nằm ở "Thêm chi tiết"; app nhớ lựa chọn lần trước.
 

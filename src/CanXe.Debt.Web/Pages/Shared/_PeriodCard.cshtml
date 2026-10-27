@@ -5,7 +5,7 @@
 }
 <section class="period @(open ? "open" : "")" id="@(open ? "ky-mo" : "ky-" + v.Id)">
     <div class="period-head">
-        <h3>@(open ? $"Xe chưa gom lô · {v.TruckCount} xe" : $"Lô {v.Number} · {Fmt.PeriodRange(v)}")</h3>
+        <h3>@(open ? $"Xe chưa gom lô · {v.TruckCount} xe" : $"Lô {Fmt.PeriodRange(v)}")</h3>
         @switch (v.Status)
         {
             case PeriodStatus.Open: <span class="badge pending">Chưa chốt</span> break;
@@ -59,11 +59,35 @@
                         @if (!string.IsNullOrWhiteSpace(p.ReceivedBy)) { <span> · @p.ReceivedBy nhận</span> }
                         @if (!string.IsNullOrWhiteSpace(p.Note)) { <span class="muted"> · @p.Note</span> }
                         <span class="muted small"> · nhập bởi @p.CreatedBy lúc @Fmt.DateTime(p.CreatedAt)</span>
+                        @if (p.EditedAt is { } editedAt)
+                        {
+                            <details class="edit-log small"><summary class="muted">đã sửa lúc @Fmt.DateTime(editedAt) bởi @p.EditedBy</summary><div class="muted">@foreach (var line in (p.EditLog ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries)) { <div>@line</div> }</div></details>
+                        }
                     </span>
                     <span>
                         <span class="amount">@Fmt.Vnd(p.AmountVnd)</span>
                         @if (Model.SeasonOpen)
                         {
+                            <details class="no-print edit-pay">
+                                <summary>Sửa</summary>
+                                <form method="post" asp-page="/Customers/Detail" asp-page-handler="EditPayment" asp-route-id="@Model.CustomerId" asp-route-SeasonId="@Model.SeasonId" class="form-grid">
+                                    <input type="hidden" name="EditId" value="@p.Id" />
+                                    <label>Ngày trả<input type="text" name="PaidOn" inputmode="numeric" data-date maxlength="10" value="@Fmt.Date(p.PaidOn)" autocomplete="off" required /></label>
+                                    <label>Số tiền (đồng)<input type="text" name="AmountText" inputmode="numeric" data-money value="@Fmt.Vnd(p.AmountVnd)" autocomplete="off" required /></label>
+                                    <label>Hình thức
+                                        <select name="Method">
+                                            <option value="Transfer" selected="@(p.Method == PaymentMethod.Transfer)">Chuyển khoản</option>
+                                            <option value="Cash" selected="@(p.Method == PaymentMethod.Cash)">Tiền mặt</option>
+                                            <option value="Offset" selected="@(p.Method == PaymentMethod.Offset)">Trừ vào công nợ khác</option>
+                                        </select>
+                                    </label>
+                                    <label>Ngân hàng / tài khoản<input type="text" name="BankName" value="@p.BankName" list="banks" /></label>
+                                    <label>Người chi (bên mình)<input type="text" name="PaidBy" value="@p.PaidBy" list="payers" /></label>
+                                    <label>Người nhận tiền<input type="text" name="ReceivedBy" value="@p.ReceivedBy" list="receivers" /></label>
+                                    <label>Ghi chú<input type="text" name="Note" value="@p.Note" /></label>
+                                    <div><button type="submit">Lưu sửa</button></div>
+                                </form>
+                            </details>
                             <details class="no-print">
                                 <summary>Hủy</summary>
                                 <form method="post" asp-page="/Customers/Detail" asp-page-handler="Void" asp-route-id="@Model.CustomerId" asp-route-SeasonId="@Model.SeasonId" class="inline-form" data-confirm="Hủy khoản trả này?">

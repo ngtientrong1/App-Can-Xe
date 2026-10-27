@@ -25,6 +25,7 @@
     [BindProperty] public string? PaidBy { get; set; }
     [BindProperty] public string? ReceivedBy { get; set; }
     [BindProperty] public string? Note { get; set; }
+    [BindProperty] public int EditId { get; set; }
     [BindProperty] public int VoidId { get; set; }
     [BindProperty] public string? VoidReason { get; set; }
 
@@ -134,6 +135,28 @@
 
         TempData["Message"] = "Đã hủy chốt lô gần nhất.";
         return RedirectToPage(new { id = Id, seasonId = Season.Id });
+    }
+
+    public async Task<IActionResult> OnPostEditPaymentAsync()
+    {
+        if (!await LoadAsync())
+            return NotFound();
+
+        string? problem = DateError(nameof(PaidOn), "Ngày trả");
+        long amount = 0;
+        if (problem is null && !Fmt.TryParseVnd(AmountText, out amount))
+            problem = "Số tiền không hợp lệ. Chỉ nhập chữ số, ví dụ 150.000.000.";
+        if (problem is null && Method == PaymentMethod.Transfer && string.IsNullOrWhiteSpace(BankName))
+            problem = "Chuyển khoản thì cần ghi ngân hàng / tài khoản.";
+
+        if (problem is null)
+        {
+            var result = await Payments.EditAsync(EditId, PaidOn, amount, Method, BankName, PaidBy, ReceivedBy, Note, User.Identity!.Name!);
+            problem = result.Ok ? null : result.Error;
+        }
+
+        TempData[problem is null ? "Message" : "Error"] = problem ?? "Đã sửa khoản trả. Nội dung cũ vẫn được lưu trong lịch sử sửa.";
+        return RedirectToPage(new { id = Id, seasonId = Season!.Id });
     }
 
     public async Task<IActionResult> OnPostVoidAsync()
@@ -248,7 +271,7 @@
                         <option value="" data-remaining="@openPeriod.Remaining" data-label="Đang nợ" selected="@(defaultPeriod is null)">Chung: trừ vào tổng nợ (ứng trước hoặc trả theo số tiền)</option>
                         @foreach (var p in payable)
                         {
-                            <option value="@p.Id" data-remaining="@p.Remaining" data-label="Lô @p.Number còn nợ" selected="@(p.Id == defaultPeriod)">Lô @p.Number · @p.TruckCount xe · còn nợ @Fmt.Vnd(p.Remaining)</option>
+                            <option value="@p.Id" data-remaining="@p.Remaining" data-label="@Fmt.LotLabel(p) còn nợ" selected="@(p.Id == defaultPeriod)">@Fmt.LotLabel(p) · @p.TruckCount xe · còn nợ @Fmt.Vnd(p.Remaining)</option>
                         }
                     </select>
                 </div>
@@ -264,8 +287,8 @@
             </div>
             <div class="form-grid">
                 <div class="field full"><label for="BankName">Ngân hàng / tài khoản <span class="req" data-bank-required>(bắt buộc khi chuyển khoản)</span></label><input id="BankName" name="BankName" type="text" value="@BankName" list="banks" placeholder="Vietcombank, tk công ty…" required="@(Method == PaymentMethod.Transfer)" /></div>
-                <div class="field"><label for="PaidBy">Người chi (bên mình)</label><input id="PaidBy" name="PaidBy" type="text" value="@PaidBy" list="payers" placeholder="Bố giao, tài xế ứng…" /></div>
-                <div class="field"><label for="ReceivedBy">Người nhận tiền</label><input id="ReceivedBy" name="ReceivedBy" type="text" value="@ReceivedBy" list="receivers" placeholder="Ai nhận giùm…" /></div>
+                <div class="field full"><label for="PaidBy">Người chi (bên mình)</label><input id="PaidBy" name="PaidBy" type="text" value="@PaidBy" list="payers" placeholder="Bố giao, tài xế ứng…" /></div>
+                <div class="field full"><label for="ReceivedBy">Người nhận tiền</label><input id="ReceivedBy" name="ReceivedBy" type="text" value="@ReceivedBy" list="receivers" placeholder="Ai nhận giùm…" /></div>
                 <div class="field full"><label for="Note">Ghi chú (không bắt buộc)</label><input id="Note" name="Note" type="text" value="@Note" placeholder="Ví dụ: ứng để nhập hàng tiếp" /></div>
             </div>
             <datalist id="banks">@foreach (var b in Suggestions.Banks) { <option value="@b"></option> }</datalist>

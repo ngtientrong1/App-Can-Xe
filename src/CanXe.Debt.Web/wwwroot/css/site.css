@@ -367,3 +367,8 @@ button.big-btn { font-size: 1.05rem; padding: 11px 26px; }
   body[data-print="2"] .sheet-1 { display: none; }
   body[data-print="2"] .sheet-2 { break-before: auto; }
 }
+/* Names such as company receivers are long: every name field gets the full width, in the payment form and in the edit form. */
+.edit-pay form { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 6px 0; min-width: min(420px, 100%); }
+.edit-pay label { display: block; font-size: .9rem; }
+.edit-pay input, .edit-pay select { width: 100%; margin-top: 2px; }
+.pay-line .edit-pay { display: block; }

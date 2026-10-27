@@ -29,7 +29,10 @@ public static class SchemaUpgrader
         new("Payments", "BankName", "TEXT NULL"),
         new("Payments", "ReceivedBy", "TEXT NULL"),
         new("Payments", "PaidBy", "TEXT NULL"),
-        new("Payments", "PeriodId", "INTEGER NULL")
+        new("Payments", "PeriodId", "INTEGER NULL"),
+        new("Payments", "EditedAt", "TEXT NULL"),
+        new("Payments", "EditedBy", "TEXT NULL"),
+        new("Payments", "EditLog", "TEXT NULL")
     ];
 
     private const string CreatePeriods = """
