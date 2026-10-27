@@ -242,6 +242,7 @@
     </Style>
 
     <Style TargetType="DatePicker">
+        <Setter Property="Language" Value="vi-VN"/>
         <Setter Property="Foreground" Value="{DynamicResource InputForegroundBrush}"/>
         <Setter Property="Background" Value="{DynamicResource DatePickerBackgroundBrush}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>

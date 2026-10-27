@@ -93,11 +93,11 @@ public static class WeighTicketPrintFormatter
     /// <summary>"15.000 kg × 19.800 + 1.022 kg × 19.600" when the ticket is priced in two parts, else null.</summary>
     public static string? FormatPriceBreakdown(WeighTicketPrintModel model)
     {
-        if (!model.ShowPrice || !model.HasPriceSplit || model.BillableWeightKg is not > 0 || model.UnitPriceVndPerKg is not > 0)
+        if (!model.ShowPrice || !model.HasPriceSplit || model.NetWeightKg is not > 0 || model.UnitPriceVndPerKg is not > 0)
             return null;
 
         var lines = PriceBreakdown.Compute(
-            model.BillableWeightKg.Value,
+            model.NetWeightKg.Value,
             model.UnitPriceVndPerKg.Value,
             PriceSplit.TryCreate(model.SplitFirstWeightKg, model.SecondUnitPriceVndPerKg));
 

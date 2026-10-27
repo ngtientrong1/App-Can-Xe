@@ -557,7 +557,7 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Margin="0,0,6,0">
-                            <TextBlock Text="Phần đầu (kg) — giá theo ô Đơn giá" Style="{StaticResource CanXeFormFieldLabelStyle}"/>
+                            <TextBlock Text="KL hàng phần đầu (kg) — giá theo ô Đơn giá" Style="{StaticResource CanXeFormFieldLabelStyle}"/>
                             <TextBox x:Name="SplitFirstWeightField" TabIndex="5" Style="{StaticResource CanXeTextBoxStyle}"
                                      MinHeight="{Binding FormFieldHeight}" FontSize="20"
                                      LostFocus="SplitField_OnLostFocus"

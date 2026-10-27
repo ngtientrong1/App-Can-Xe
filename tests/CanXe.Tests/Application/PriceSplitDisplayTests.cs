@@ -15,11 +15,12 @@ public sealed class PriceSplitDisplayTests
                 Id = 1,
                 DisplayNumber = "1/10",
                 TicketDateTime = DateTimeOffset.Now,
+                NetWeightKg = 16070m,
                 BillableWeightKg = 16022m,
                 UnitPriceVndPerKg = 19800m,
                 SplitFirstWeightKg = split ? 15000m : null,
                 SecondUnitPriceVndPerKg = split ? 19600m : null,
-                TotalAmountVnd = 317_031_200m
+                TotalAmountVnd = 317_022_200m
             },
             new StationSettingsDto(),
             new PrintSettingsDto { ShowPrice = showPrice });
@@ -41,7 +42,7 @@ public sealed class PriceSplitDisplayTests
     {
         var text = WeighTicketPrintFormatter.FormatPriceBreakdown(Model(split: true));
 
-        Assert.Equal($"{N(15000m)} kg × {N(19800m)}  +  {N(1022m)} kg × {N(19600m)}", text);
+        Assert.Equal($"{N(14955m)} kg × {N(19800m)}  +  {N(1067m)} kg × {N(19600m)}", text);
         Assert.Null(WeighTicketPrintFormatter.FormatPriceBreakdown(Model(split: false)));
     }
 

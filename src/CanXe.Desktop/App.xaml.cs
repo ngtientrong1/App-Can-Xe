@@ -22,6 +22,7 @@ public partial class App : System.Windows.Application
     {
         try
         {
+            CanXe.Application.Services.DisplayDateCulture.Apply();
             base.OnStartup(e);
             LifecycleLogger.Write("AppStarting");
 

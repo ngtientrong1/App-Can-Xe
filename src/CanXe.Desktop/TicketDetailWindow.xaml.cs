@@ -28,10 +28,10 @@ public partial class TicketDetailWindow : Window
         {
             UnitPriceBlock.Text = "Cân dịch vụ";
         }
-        else if (detail is { HasPriceSplit: true, BillableWeightKg: > 0 })
+        else if (detail is { HasPriceSplit: true, NetWeightKg: > 0 })
         {
             var lines = Domain.Services.PriceBreakdown.Compute(
-                detail.BillableWeightKg.Value, price, Domain.Services.PriceSplit.TryCreate(detail.SplitFirstWeightKg, detail.SecondUnitPriceVndPerKg));
+                detail.NetWeightKg.Value, price, Domain.Services.PriceSplit.TryCreate(detail.SplitFirstWeightKg, detail.SecondUnitPriceVndPerKg));
             UnitPriceBlock.Text = $"{Domain.Services.PriceTextFormatter.Breakdown(lines)} (VNĐ/kg)";
         }
         else

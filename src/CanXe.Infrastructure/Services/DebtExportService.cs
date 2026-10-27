@@ -88,7 +88,8 @@ public sealed class DebtExportService(CanXeDbContext db) : IDebtExportService
             awaiting || t.UnitPriceVndPerKg is null ? null : t.TotalAmountVnd,
             t.IsDeleted,
             awaiting,
-            firstKg);
+            firstKg,
+            string.IsNullOrWhiteSpace(t.Notes) ? null : t.Notes.Trim());
     }
 
     private static async Task WriteAtomicallyAsync(string path, string content, CancellationToken cancellationToken)

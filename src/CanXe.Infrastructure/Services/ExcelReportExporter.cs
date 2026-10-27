@@ -34,7 +34,7 @@ public sealed class ExcelReportExporter : IExcelReportExporter
         {
             "STT", "Ngày giờ", "Số phiếu", "Khách hàng", "Biển số", "Loại hàng",
             "Tổng", "Bì", "Hàng", "KL tính tiền", "Đơn giá", "Thành tiền", "Ghi chú",
-            "KL phần giá 1 (kg)", "Đơn giá phần còn lại"
+            "KL hàng phần giá 1 (kg)", "Đơn giá phần còn lại"
         };
 
         for (var col = 0; col < headers.Length; col++)

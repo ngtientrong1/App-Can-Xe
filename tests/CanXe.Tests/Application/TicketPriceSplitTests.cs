@@ -61,7 +61,8 @@ public sealed class TicketPriceSplitTests : IAsyncLifetime
         var db = scope.ServiceProvider.GetRequiredService<CanXeDbContext>();
         var ticket = await db.WeighTickets.AsNoTracking().SingleAsync();
         Assert.Equal(16022000, ticket.BillableWeightGrams);
-        Assert.Equal(15000m * 19800m + 1022m * 19600m, (decimal)ticket.TotalAmountVnd!.Value);
+        // 16,070 kg of goods: 15,000 kg (14,955 billable) at 19,800 and 1,070 kg (1,067 billable) at 19,600.
+        Assert.Equal(14955m * 19800m + 1067m * 19600m, (decimal)ticket.TotalAmountVnd!.Value);
         Assert.Equal(15_000_000, ticket.SplitFirstWeightGrams);
         Assert.Equal(19600, ticket.SecondUnitPriceVndPerKg);
         Assert.Equal(19800, ticket.UnitPriceVndPerKg);
@@ -87,9 +88,9 @@ public sealed class TicketPriceSplitTests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData(16022)]
+    [InlineData(16070)]
     [InlineData(20000)]
-    public async Task FirstPartNotSmallerThanBillableWeight_IsRejected(int firstKg)
+    public async Task FirstPartNotSmallerThanTheGoodsWeight_IsRejected(int firstKg)
     {
         await using var scope = _factory.Provider.CreateAsyncScope();
         var service = scope.ServiceProvider.GetRequiredService<WeighTicketService>();
@@ -100,7 +101,7 @@ public sealed class TicketPriceSplitTests : IAsyncLifetime
         var save = await service.SaveAsync(draft);
 
         Assert.False(save.Success);
-        Assert.Contains("phải nhỏ hơn KL tính tiền", save.ErrorMessage);
+        Assert.Contains("phải nhỏ hơn khối lượng hàng", save.ErrorMessage);
     }
 
     [Fact]
@@ -134,7 +135,7 @@ public sealed class TicketPriceSplitTests : IAsyncLifetime
         var added = await updates.UpdateAsync(edit, "admin");
         Assert.True(added.Success, added.ErrorMessage);
         Assert.True(added.UpdatedTicket!.HasPriceSplit);
-        Assert.Equal(15000m * 19800m + 1022m * 19600m, added.UpdatedTicket.TotalAmountVnd);
+        Assert.Equal(14955m * 19800m + 1067m * 19600m, added.UpdatedTicket.TotalAmountVnd);
 
         var again = await updates.LoadForEditAsync(id);
         Assert.Equal(15000m, again.DraftSplitFirstWeightKg);

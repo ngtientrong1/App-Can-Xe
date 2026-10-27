@@ -2033,7 +2033,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         var unitPrice = _draft.DraftUnitPrice;
         var calc = WeightCalculator.Calculate(_draft.DraftWeight1, _draft.DraftWeight2, unitPrice, _draft.DraftPriceSplit);
-        SplitSummaryText = BuildSplitSummary(calc.BillableWeightKg, unitPrice);
+        SplitSummaryText = BuildSplitSummary(calc.NetWeightKg, unitPrice);
         GrossDisplay = FormatKg(calc.GrossWeightKg);
         TareDisplay = FormatKg(calc.TareWeightKg);
         NetDisplay = FormatKg(calc.NetWeightKg);
@@ -2043,24 +2043,25 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         IsServiceWeighVisible = calc.NetWeightKg.HasValue && !WeightCalculator.HasBillableUnitPrice(unitPrice);
     }
 
-    private string BuildSplitSummary(decimal? billableKg, decimal? unitPrice)
+    private string BuildSplitSummary(decimal? netKg, decimal? unitPrice)
     {
         if (!IsPriceSplitEnabled)
             return string.Empty;
 
         var split = _draft.DraftPriceSplit;
         if (split is null)
-            return "Nhập khối lượng phần đầu và giá phần còn lại.";
+            return "Nhập khối lượng hàng phần đầu và giá phần còn lại.";
 
-        if (billableKg is not { } billable || unitPrice is not > 0)
-            return "Phần còn lại = KL tính tiền − phần đầu (có sau khi cân lần 2 và nhập đơn giá).";
+        if (netKg is not { } net || unitPrice is not > 0)
+            return "Phần còn lại = khối lượng hàng − phần đầu (có sau khi cân lần 2 và nhập đơn giá).";
 
-        if (split.FirstWeightKg >= billable)
-            return $"Phần đầu phải nhỏ hơn KL tính tiền ({billable:N0} kg).";
+        if (split.FirstWeightKg >= net)
+            return $"Phần đầu phải nhỏ hơn khối lượng hàng ({net:N0} kg).";
 
-        var lines = PriceBreakdown.Compute(billable, unitPrice.Value, split);
-        return $"Phần đầu {lines[0].WeightKg:N0} kg × {lines[0].UnitPriceVndPerKg:N0}   |   " +
-               $"Còn lại {lines[1].WeightKg:N0} kg × {lines[1].UnitPriceVndPerKg:N0}";
+        // Each part is deducted on its own, so show the goods weight of the part and what it is billed at.
+        var lines = PriceBreakdown.Compute(net, unitPrice.Value, split);
+        return $"Phần đầu {split.FirstWeightKg:N0} kg (tính {lines[0].WeightKg:N0}) × {lines[0].UnitPriceVndPerKg:N0}   |   " +
+               $"Còn lại {net - split.FirstWeightKg:N0} kg (tính {lines[1].WeightKg:N0}) × {lines[1].UnitPriceVndPerKg:N0}";
     }
 
     private void UpdateButtonStates()

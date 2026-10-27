@@ -69,7 +69,7 @@ public static class TicketPriceSplitPrintTestRunner
         var price2 = 19600m;
         var billable = 16022m;
         var total = split
-            ? PriceBreakdown.TotalAmount(PriceBreakdown.Compute(billable, price1, new PriceSplit(first, price2)))
+            ? PriceBreakdown.TotalAmount(PriceBreakdown.Compute(16070m, price1, new PriceSplit(first, price2)))
             : billable * price1;
 
         return WeighTicketPrintModelMapper.FromDetail(

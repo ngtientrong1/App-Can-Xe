@@ -44,10 +44,11 @@ public static class WeightCalculator
         if (unitPriceVndPerKg is not > 0)
             return new(gross, tare, net, null, null, null);
 
-        var deduction = net / 1000m * 3m;
-        var rawBillable = net - deduction;
-        var billable = Math.Round(rawBillable, 0, MidpointRounding.AwayFromZero);
-        var total = PriceBreakdown.TotalAmount(PriceBreakdown.Compute(billable, unitPriceVndPerKg.Value, split));
+        // Each priced part carries its own deduction, so the billable weight is the sum of the parts.
+        var deduction = net / 1000m * PriceBreakdown.DeductionPerMille;
+        var lines = PriceBreakdown.Compute(net, unitPriceVndPerKg.Value, split);
+        var billable = lines.Sum(l => l.WeightKg);
+        var total = PriceBreakdown.TotalAmount(lines);
 
         return new(gross, tare, net, deduction, billable, total);
     }

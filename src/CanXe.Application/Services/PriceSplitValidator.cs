@@ -20,11 +20,11 @@ public static class PriceSplitValidator
         if (draft.DraftUnitPrice is not > 0)
             return "Tách giá: cần nhập đơn giá cho phần đầu.";
 
-        var billable = WeightCalculator.Calculate(draft.DraftWeight1, draft.DraftWeight2, draft.DraftUnitPrice).BillableWeightKg;
-        if (billable is { } kg && first.Value >= kg)
+        var net = WeightCalculator.Calculate(draft.DraftWeight1, draft.DraftWeight2, draft.DraftUnitPrice).NetWeightKg;
+        if (net is { } kg && first.Value >= kg)
         {
             return string.Create(CultureInfo.CurrentCulture,
-                $"Tách giá: khối lượng phần đầu ({first.Value:N0} kg) phải nhỏ hơn KL tính tiền ({kg:N0} kg).");
+                $"Tách giá: khối lượng phần đầu ({first.Value:N0} kg) phải nhỏ hơn khối lượng hàng ({kg:N0} kg).");
         }
 
         return null;
