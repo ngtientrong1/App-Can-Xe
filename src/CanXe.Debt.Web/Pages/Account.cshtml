@@ -1,0 +1,47 @@
+@page
+@using System.Security.Claims
+@inject UserService Users
+@functions {
+    [BindProperty] public string CurrentPassword { get; set; } = "";
+    [BindProperty] public string NewPassword { get; set; } = "";
+    [BindProperty] public string ConfirmPassword { get; set; } = "";
+    public string? Error { get; set; }
+    public bool Done { get; set; }
+
+    public async Task<IActionResult> OnPostAsync()
+    {
+        if (NewPassword != ConfirmPassword)
+        {
+            Error = "Hai ô mật khẩu mới không giống nhau.";
+            return Page();
+        }
+
+        var id = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var result = await Users.ChangeOwnPasswordAsync(id, CurrentPassword ?? "", NewPassword ?? "");
+        Error = result.Error;
+        Done = result.Ok;
+        return Page();
+    }
+}
+@{
+    ViewData["Title"] = "Tài khoản của tôi";
+}
+<div class="page-head"><h1>Đổi mật khẩu</h1></div>
+<div class="card">
+    @if (Done)
+    {
+        <div class="alert ok" role="status">Đã đổi mật khẩu.</div>
+    }
+    @if (Error is not null)
+    {
+        <div class="alert error" role="alert">@Error</div>
+    }
+    <form method="post">
+        <div class="form-grid">
+            <div class="field"><label for="CurrentPassword">Mật khẩu hiện tại</label><input id="CurrentPassword" name="CurrentPassword" type="password" autocomplete="current-password" required /></div>
+            <div class="field"><label for="NewPassword">Mật khẩu mới</label><input id="NewPassword" name="NewPassword" type="password" autocomplete="new-password" required /></div>
+            <div class="field"><label for="ConfirmPassword">Nhập lại mật khẩu mới</label><input id="ConfirmPassword" name="ConfirmPassword" type="password" autocomplete="new-password" required /></div>
+            <div><button type="submit">Đổi mật khẩu</button></div>
+        </div>
+    </form>
+</div>

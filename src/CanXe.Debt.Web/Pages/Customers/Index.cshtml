@@ -1,0 +1,78 @@
+@page
+@inject CustomerService Customers
+@functions {
+    [BindProperty(SupportsGet = true)] public string? Q { get; set; }
+    [BindProperty] public string NewName { get; set; } = "";
+    [BindProperty] public string? NewPhone { get; set; }
+    public List<Customer> Rows { get; set; } = [];
+    public string? Error { get; set; }
+    public string? Message { get; set; }
+
+    public async Task OnGetAsync() => await LoadAsync();
+
+    public async Task<IActionResult> OnPostAddAsync()
+    {
+        var result = await Customers.CreateAsync(NewName ?? "", NewPhone);
+        if (!result.Ok)
+        {
+            Error = result.Error;
+            await LoadAsync();
+            return Page();
+        }
+
+        TempData["Message"] = $"Đã thêm chủ hàng “{result.Value!.Name}”.";
+        return RedirectToPage();
+    }
+
+    private async Task LoadAsync()
+    {
+        Message = TempData["Message"] as string;
+        var needle = NameNormalizer.Normalize(Q);
+        Rows = (await Customers.GetAllAsync())
+            .Where(c => needle.Length == 0 || c.NormalizedName.Contains(needle))
+            .ToList();
+    }
+}
+@{
+    ViewData["Title"] = "Chủ hàng";
+}
+<div class="page-head">
+    <h1>Chủ hàng</h1>
+    <form method="get" class="toolbar">
+        <div class="field"><label for="Q">Tìm chủ hàng</label><input id="Q" name="Q" type="search" value="@Q" /></div>
+        <button type="submit">Tìm</button>
+    </form>
+</div>
+@if (Message is not null) { <div class="alert ok" role="status">@Message</div> }
+@if (Error is not null) { <div class="alert error" role="alert">@Error</div> }
+
+<div class="card">
+    <h2>Thêm chủ hàng</h2>
+    <form method="post" asp-page-handler="Add">
+        <div class="form-grid">
+            <div class="field"><label for="NewName">Tên chủ hàng</label><input id="NewName" name="NewName" type="text" required /></div>
+            <div class="field"><label for="NewPhone">Số điện thoại (không bắt buộc)</label><input id="NewPhone" name="NewPhone" type="text" /></div>
+            <div><button type="submit">Thêm chủ hàng</button></div>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Danh sách (@Rows.Count)</h2>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Tên chủ hàng</th><th>Điện thoại</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var c in Rows)
+            {
+                <tr>
+                    <td>@c.Name</td>
+                    <td>@(c.Phone ?? "—")</td>
+                    <td>@(c.IsActive ? "Đang giao dịch" : "Ngừng")</td>
+                    <td class="right"><a class="btn secondary" asp-page="/Customers/Edit" asp-route-id="@c.Id">Sửa</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

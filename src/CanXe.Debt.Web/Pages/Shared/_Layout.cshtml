@@ -1,0 +1,51 @@
+@{
+    var title = ViewData["Title"] as string;
+    var current = (ViewContext.RouteData.Values["page"] as string) ?? "";
+    var signedIn = User.Identity?.IsAuthenticated == true;
+    var isAdmin = User.IsInRole("Admin");
+
+    string Active(string prefix) => current.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>@(string.IsNullOrEmpty(title) ? "Công nợ cà" : title + " · Công nợ cà")</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="icon" href="data:," />
+</head>
+<body>
+@if (signedIn)
+{
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="brand" asp-page="/Index">Công nợ cà</a>
+            <nav class="nav" aria-label="Chức năng">
+                <a asp-page="/Index" class="@(current == "/Index" ? "active" : "")">Tổng quan</a>
+                <a asp-page="/Customers/Index" class="@Active("/Customers")">Chủ hàng</a>
+                <a asp-page="/Tickets" class="@Active("/Tickets")">Phiếu cân</a>
+                <a asp-page="/Payments" class="@Active("/Payments")">Sổ trả tiền</a>
+                <a asp-page="/Import" class="@Active("/Import")">Nhập file</a>
+                <a asp-page="/Names" class="@Active("/Names")">Ghép tên</a>
+                @if (isAdmin)
+                {
+                    <a asp-page="/Admin/Seasons" class="@Active("/Admin/Seasons")">Mùa cà</a>
+                    <a asp-page="/Admin/Settings" class="@Active("/Admin/Settings")">Cài đặt</a>
+                    <a asp-page="/Admin/Users" class="@Active("/Admin/Users")">Tài khoản</a>
+                }
+            </nav>
+            <div class="userbox">
+                <a asp-page="/Account">@User.FindFirst("display")?.Value</a>
+                <form method="post" asp-page="/Logout"><button class="secondary" type="submit">Đăng xuất</button></form>
+            </div>
+        </div>
+    </header>
+}
+<main>
+    @RenderBody()
+</main>
+<script src="~/js/site.js"></script>
+</body>
+</html>

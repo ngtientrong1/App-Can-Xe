@@ -1,0 +1,79 @@
+@page
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@attribute [AllowAnonymous]
+@inject UserService Users
+@inject LoginThrottle Throttle
+@inject SetupCodeStore SetupCodes
+@functions {
+    [BindProperty] public string Username { get; set; } = "";
+    [BindProperty] public string Password { get; set; } = "";
+    [BindProperty(SupportsGet = true)] public string? ReturnUrl { get; set; }
+    public string? Error { get; set; }
+
+    public async Task<IActionResult> OnGetAsync()
+    {
+        if (!await Users.AnyUserAsync())
+            return RedirectToPage("/Setup");
+        if (User.Identity?.IsAuthenticated == true)
+            return RedirectToPage("/Index");
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostAsync()
+    {
+        var name = (Username ?? "").Trim();
+        if (Throttle.IsLocked(name))
+        {
+            Error = "Nhập sai nhiều lần. Vui lòng thử lại sau 10 phút.";
+            return Page();
+        }
+
+        var user = await Users.AuthenticateAsync(name, Password ?? "");
+        if (user is null)
+        {
+            Throttle.RegisterFailure(name);
+            Error = "Tên đăng nhập hoặc mật khẩu không đúng.";
+            return Page();
+        }
+
+        Throttle.Reset(name);
+        var identity = new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim("display", user.DisplayName),
+                new Claim(ClaimTypes.Role, user.Role.ToString())
+            ],
+            CookieAuthenticationDefaults.AuthenticationScheme);
+        await HttpContext.SignInAsync(new ClaimsPrincipal(identity));
+
+        return Url.IsLocalUrl(ReturnUrl) ? LocalRedirect(ReturnUrl!) : RedirectToPage("/Index");
+    }
+}
+@{
+    ViewData["Title"] = "Đăng nhập";
+}
+<div class="login-wrap">
+    <div class="card">
+        <h1>Công nợ cà</h1>
+        <p class="muted">Đăng nhập để xem và ghi nhận công nợ chủ hàng.</p>
+        @if (Error is not null)
+        {
+            <div class="alert error" role="alert">@Error</div>
+        }
+        <form method="post">
+            <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+            <div class="field">
+                <label for="Username">Tên đăng nhập</label>
+                <input id="Username" name="Username" type="text" value="@Username" autocomplete="username" autofocus required />
+            </div>
+            <div class="field">
+                <label for="Password">Mật khẩu</label>
+                <input id="Password" name="Password" type="password" autocomplete="current-password" required />
+            </div>
+            <p><button type="submit">Đăng nhập</button></p>
+        </form>
+    </div>
+</div>

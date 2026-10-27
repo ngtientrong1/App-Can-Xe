@@ -1,0 +1,129 @@
+@page
+@using Microsoft.EntityFrameworkCore
+@inject DebtDbContext Db
+@inject SeasonService Seasons
+@inject LedgerService Ledger
+@inject SettingsService Settings
+@functions {
+    private const int PageSize = 200;
+
+    [BindProperty(SupportsGet = true)] public int? SeasonId { get; set; }
+    [BindProperty(SupportsGet = true)] public string? Filter { get; set; }
+    [BindProperty(SupportsGet = true)] public string? Station { get; set; }
+    [BindProperty(SupportsGet = true)] public string? Q { get; set; }
+
+    public List<TicketRecord> Rows { get; set; } = [];
+    public List<Season> AllSeasons { get; set; } = [];
+    public Dictionary<string, string> Stations { get; set; } = [];
+    public BilledCargoPolicy Policy { get; set; } = new([]);
+    public int Total { get; set; }
+
+    public async Task OnGetAsync()
+    {
+        AllSeasons = await Seasons.GetAllAsync();
+        var season = SeasonId is { } sid ? AllSeasons.FirstOrDefault(s => s.Id == sid) : await Seasons.GetCurrentAsync();
+        if (season is null)
+            return;
+        SeasonId = season.Id;
+        Stations = await Ledger.GetStationNamesAsync();
+        Policy = await Settings.GetBilledCargoPolicyAsync();
+
+        var start = season.StartDate;
+        var end = season.EndDate;
+        var query = Db.Tickets.AsNoTracking()
+            .Where(t => !t.IsDeleted && t.TicketDate >= start && (end == null || t.TicketDate <= end));
+        if (!string.IsNullOrEmpty(Station))
+            query = query.Where(t => t.StationCode == Station);
+        if (Filter == "unmapped")
+            query = query.Where(t => t.CustomerId == null);
+
+        var list = await query.Include(t => t.Customer).ToListAsync();
+        if (Filter == "pending")
+            list = list.Where(t => t.AmountVnd is null && Policy.IsBilled(t.Cargo)).ToList();
+
+        var needle = NameNormalizer.Normalize(Q);
+        if (needle.Length > 0)
+            list = list.Where(t =>
+                NameNormalizer.Normalize(t.CustomerNameRaw).Contains(needle)
+                || NameNormalizer.Normalize(t.Customer?.Name).Contains(needle)
+                || NameNormalizer.Normalize(t.LicensePlate).Contains(needle)
+                || NameNormalizer.Normalize(t.DisplayNumber).Contains(needle)).ToList();
+
+        Total = list.Count;
+        Rows = list.OrderByDescending(t => t.TicketDateTime).Take(PageSize).ToList();
+    }
+}
+@{
+    ViewData["Title"] = "Phiếu cân";
+}
+<div class="page-head">
+    <h1>Phiếu cân đã nhập</h1>
+    <form method="get" class="toolbar">
+        <div class="field">
+            <label for="SeasonId">Mùa</label>
+            <select id="SeasonId" name="SeasonId" data-autosubmit>
+                @foreach (var s in AllSeasons) { <option value="@s.Id" selected="@(s.Id == SeasonId)">@s.Name</option> }
+            </select>
+        </div>
+        <div class="field">
+            <label for="Station">Điểm cân</label>
+            <select id="Station" name="Station" data-autosubmit>
+                <option value="">Tất cả</option>
+                @foreach (var s in Stations) { <option value="@s.Key" selected="@(s.Key == Station)">@s.Value</option> }
+            </select>
+        </div>
+        <div class="field">
+            <label for="Filter">Hiện</label>
+            <select id="Filter" name="Filter" data-autosubmit>
+                <option value="" selected="@string.IsNullOrEmpty(Filter)">Tất cả phiếu</option>
+                <option value="pending" selected="@(Filter == "pending")">Chưa có đơn giá</option>
+                <option value="unmapped" selected="@(Filter == "unmapped")">Chưa ghép chủ hàng</option>
+            </select>
+        </div>
+        <div class="field"><label for="Q">Tìm (chủ hàng, biển số, số phiếu)</label><input id="Q" name="Q" type="search" value="@Q" /></div>
+        <button type="submit">Tìm</button>
+    </form>
+</div>
+
+<div class="card">
+    <p class="muted">@Total phiếu@(Total > Rows.Count ? $" (hiện @Rows.Count phiếu mới nhất, hãy lọc để thu hẹp)" : "")</p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>Ngày giờ</th><th>Số phiếu</th><th>Điểm cân</th><th>Chủ hàng (theo phiếu)</th><th>Biển số</th><th>Loại hàng</th>
+                <th class="num">Tổng</th><th class="num">Bì</th><th class="num">Hàng</th><th class="num">KL tính tiền</th>
+                <th class="num">Đơn giá</th><th class="num">Thành tiền</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var t in Rows)
+            {
+                <tr>
+                    <td class="nowrap">@Fmt.DateTime(t.TicketDateTime)</td>
+                    <td>@t.DisplayNumber</td>
+                    <td>@Stations.GetValueOrDefault(t.StationCode, t.StationCode)</td>
+                    <td>
+                        @if (t.Customer is not null)
+                        {
+                            <a asp-page="/Customers/Detail" asp-route-id="@t.CustomerId">@t.Customer.Name</a>
+                        }
+                        else
+                        {
+                            <span class="badge unpaid">Chưa ghép</span> @t.CustomerNameRaw
+                        }
+                    </td>
+                    <td class="nowrap">@t.LicensePlate</td>
+                    <td>@t.Cargo@(Policy.IsBilled(t.Cargo) ? "" : " (không tính nợ)")</td>
+                    <td class="num">@Fmt.Kg(t.GrossWeightKg)</td>
+                    <td class="num">@Fmt.Kg(t.TareWeightKg)</td>
+                    <td class="num">@Fmt.Kg(t.NetWeightKg)</td>
+                    <td class="num">@Fmt.Kg(t.BillableWeightKg)</td>
+                    <td class="num">@Fmt.UnitPrice(t)</td>
+                    <td class="num">@(t.AmountVnd is null ? "Chưa có giá" : Fmt.Vnd(t.AmountVnd))</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,111 @@
+@page
+@inject SeasonService Seasons
+@functions {
+    [BindProperty] public string Name { get; set; } = "";
+    [BindProperty] public DateOnly Start { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    [BindProperty] public int SeasonId { get; set; }
+    [BindProperty] public DateOnly End { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+
+    public List<Season> Rows { get; set; } = [];
+    public string? Error { get; set; }
+    public string? Message { get; set; }
+
+    public async Task OnGetAsync()
+    {
+        Message = TempData["Message"] as string;
+        Rows = await Seasons.GetAllAsync();
+    }
+
+    public async Task<IActionResult> OnPostCreateAsync()
+    {
+        var result = await Seasons.CreateAsync(Name ?? "", Start);
+        return await Finish(result.Ok, result.Error, $"Đã mở “{Name}”.");
+    }
+
+    public async Task<IActionResult> OnPostCloseAsync()
+    {
+        var result = await Seasons.CloseAsync(SeasonId, End);
+        return await Finish(result.Ok, result.Error, "Đã chốt mùa. Phiếu và khoản trả của mùa này không sửa được nữa.");
+    }
+
+    public async Task<IActionResult> OnPostReopenAsync()
+    {
+        var result = await Seasons.ReopenAsync(SeasonId);
+        return await Finish(result.Ok, result.Error, "Đã mở lại mùa.");
+    }
+
+    private async Task<IActionResult> Finish(bool ok, string? error, string success)
+    {
+        if (ok)
+        {
+            TempData["Message"] = success;
+            return RedirectToPage();
+        }
+
+        Error = error;
+        Rows = await Seasons.GetAllAsync();
+        return Page();
+    }
+}
+@{
+    ViewData["Title"] = "Mùa cà";
+    var hasOpen = Rows.Any(s => !s.IsClosed);
+    var latestId = Rows.OrderByDescending(s => s.StartDate).FirstOrDefault()?.Id;
+}
+<div class="page-head"><h1>Mùa cà</h1></div>
+@if (Message is not null) { <div class="alert ok" role="status">@Message</div> }
+@if (Error is not null) { <div class="alert error" role="alert">@Error</div> }
+
+<div class="card">
+    <p>Công nợ được tính riêng cho từng mùa. Khi hết mùa, hãy chốt mùa: sau đó không nhập thêm phiếu hay khoản trả vào mùa đó, và số liệu cuối mùa được giữ nguyên để tra cứu.</p>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Mùa</th><th>Bắt đầu</th><th>Kết thúc</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var s in Rows)
+            {
+                <tr>
+                    <td>@s.Name</td>
+                    <td>@Fmt.Date(s.StartDate)</td>
+                    <td>@Fmt.Date(s.EndDate)</td>
+                    <td>@(s.IsClosed ? "Đã chốt" : "Đang mở")</td>
+                    <td>
+                        @if (!s.IsClosed)
+                        {
+                            <details>
+                                <summary>Chốt mùa</summary>
+                                <form method="post" asp-page-handler="Close" class="inline-form" data-confirm="Chốt mùa này? Sau khi chốt không nhập thêm phiếu hay khoản trả vào mùa.">
+                                    <input type="hidden" name="SeasonId" value="@s.Id" />
+                                    <div class="field"><label for="End-@s.Id">Ngày kết thúc</label><input id="End-@s.Id" name="End" type="date" value="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")" required /></div>
+                                    <button type="submit" class="danger">Chốt mùa</button>
+                                </form>
+                            </details>
+                        }
+                        else if (s.Id == latestId && !hasOpen)
+                        {
+                            <form method="post" asp-page-handler="Reopen" data-confirm="Mở lại mùa này?">
+                                <input type="hidden" name="SeasonId" value="@s.Id" />
+                                <button type="submit" class="secondary">Mở lại</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (!hasOpen)
+{
+    <div class="card">
+        <h2>Mở mùa mới</h2>
+        <form method="post" asp-page-handler="Create">
+            <div class="form-grid">
+                <div class="field"><label for="Name">Tên mùa</label><input id="Name" name="Name" type="text" placeholder="Mùa cà 2027" required /></div>
+                <div class="field"><label for="Start">Bắt đầu từ ngày</label><input id="Start" name="Start" type="date" value="@Start.ToString("yyyy-MM-dd")" required /></div>
+                <div><button type="submit">Mở mùa</button></div>
+            </div>
+        </form>
+    </div>
+}

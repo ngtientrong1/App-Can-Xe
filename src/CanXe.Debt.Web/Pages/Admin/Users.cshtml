@@ -1,0 +1,110 @@
+@page
+@inject UserService Users
+@functions {
+    [BindProperty] public string Username { get; set; } = "";
+    [BindProperty] public string DisplayName { get; set; } = "";
+    [BindProperty] public string Password { get; set; } = "";
+    [BindProperty] public UserRole Role { get; set; } = UserRole.Accountant;
+    [BindProperty] public int UserId { get; set; }
+    [BindProperty] public bool Active { get; set; }
+
+    public List<AppUser> Rows { get; set; } = [];
+    public string? Error { get; set; }
+    public string? Message { get; set; }
+
+    public async Task OnGetAsync()
+    {
+        Message = TempData["Message"] as string;
+        Rows = await Users.GetAllAsync();
+    }
+
+    public async Task<IActionResult> OnPostCreateAsync()
+    {
+        var result = await Users.CreateAsync(Username ?? "", DisplayName ?? "", Password ?? "", Role);
+        return await Finish(result.Ok, result.Error, "Đã tạo tài khoản.");
+    }
+
+    public async Task<IActionResult> OnPostPasswordAsync()
+    {
+        var result = await Users.SetPasswordAsync(UserId, Password ?? "");
+        return await Finish(result.Ok, result.Error, "Đã đặt lại mật khẩu.");
+    }
+
+    public async Task<IActionResult> OnPostActiveAsync()
+    {
+        var result = await Users.SetActiveAsync(UserId, Active);
+        return await Finish(result.Ok, result.Error, Active ? "Đã bật tài khoản." : "Đã khóa tài khoản.");
+    }
+
+    private async Task<IActionResult> Finish(bool ok, string? error, string success)
+    {
+        if (ok)
+        {
+            TempData["Message"] = success;
+            return RedirectToPage();
+        }
+
+        Error = error;
+        Rows = await Users.GetAllAsync();
+        return Page();
+    }
+}
+@{
+    ViewData["Title"] = "Tài khoản";
+}
+<div class="page-head"><h1>Tài khoản</h1></div>
+@if (Message is not null) { <div class="alert ok" role="status">@Message</div> }
+@if (Error is not null) { <div class="alert error" role="alert">@Error</div> }
+
+<div class="card">
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Tên đăng nhập</th><th>Tên hiển thị</th><th>Vai trò</th><th>Trạng thái</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var u in Rows)
+            {
+                <tr>
+                    <td>@u.Username</td>
+                    <td>@u.DisplayName</td>
+                    <td>@(u.Role == UserRole.Admin ? "Quản trị" : "Kế toán")</td>
+                    <td>@(u.IsActive ? "Đang dùng" : "Đã khóa")</td>
+                    <td>
+                        <details>
+                            <summary>Thao tác</summary>
+                            <form method="post" asp-page-handler="Password" class="inline-form">
+                                <input type="hidden" name="UserId" value="@u.Id" />
+                                <input type="password" name="Password" placeholder="Mật khẩu mới" autocomplete="new-password" required />
+                                <button type="submit" class="secondary">Đặt lại mật khẩu</button>
+                            </form>
+                            <form method="post" asp-page-handler="Active" class="inline-form">
+                                <input type="hidden" name="UserId" value="@u.Id" />
+                                <input type="hidden" name="Active" value="@((!u.IsActive).ToString().ToLowerInvariant())" />
+                                <button type="submit" class="@(u.IsActive ? "danger" : "secondary")">@(u.IsActive ? "Khóa tài khoản" : "Bật lại")</button>
+                            </form>
+                        </details>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Tạo tài khoản</h2>
+    <form method="post" asp-page-handler="Create">
+        <div class="form-grid">
+            <div class="field"><label for="Username">Tên đăng nhập</label><input id="Username" name="Username" type="text" autocomplete="off" required /></div>
+            <div class="field"><label for="DisplayName">Tên hiển thị</label><input id="DisplayName" name="DisplayName" type="text" /></div>
+            <div class="field"><label for="Password">Mật khẩu (từ @PasswordHasher.MinimumLength ký tự)</label><input id="Password" name="Password" type="password" autocomplete="new-password" required /></div>
+            <div class="field">
+                <label for="Role">Vai trò</label>
+                <select id="Role" name="Role">
+                    <option value="Accountant">Kế toán (nhập file, trả tiền, xem công nợ)</option>
+                    <option value="Admin">Quản trị (thêm: mùa cà, cài đặt, tài khoản)</option>
+                </select>
+            </div>
+            <div><button type="submit">Tạo tài khoản</button></div>
+        </div>
+    </form>
+</div>

@@ -1,0 +1,133 @@
+@page
+@using System.Text
+@using System.Text.Json
+@using CanXe.Debt.Contract
+@using Microsoft.EntityFrameworkCore
+@attribute [RequestSizeLimit(40_000_000)]
+@inject ImportService Importer
+@inject DebtDbContext Db
+@functions {
+    public sealed record FileOutcome(string FileName, ImportResult? Result, string? Error);
+
+    public List<FileOutcome> Outcomes { get; set; } = [];
+    public List<ImportBatch> History { get; set; } = [];
+
+    public async Task OnGetAsync() => await LoadHistoryAsync();
+
+    public async Task<IActionResult> OnPostAsync(List<IFormFile> files)
+    {
+        foreach (var file in files.Where(f => f.Length > 0))
+        {
+            if (file.Length > 30_000_000)
+            {
+                Outcomes.Add(new FileOutcome(file.FileName, null, "File quá lớn."));
+                continue;
+            }
+
+            DebtExportFile? parsed;
+            try
+            {
+                using var reader = new StreamReader(file.OpenReadStream(), Encoding.UTF8);
+                parsed = DebtExportSerializer.Deserialize(await reader.ReadToEndAsync());
+            }
+            catch (JsonException)
+            {
+                Outcomes.Add(new FileOutcome(file.FileName, null, "Không đọc được file này. Hãy dùng file xuất từ app cân."));
+                continue;
+            }
+
+            var result = await Importer.ImportAsync(parsed!, System.IO.Path.GetFileName(file.FileName), User.Identity!.Name!);
+            Outcomes.Add(new FileOutcome(file.FileName, result.Value, result.Error));
+        }
+
+        if (Outcomes.Count == 0)
+            Outcomes.Add(new FileOutcome("", null, "Chưa chọn file nào."));
+
+        await LoadHistoryAsync();
+        return Page();
+    }
+
+    private async Task LoadHistoryAsync() =>
+        History = (await Db.ImportBatches.AsNoTracking().ToListAsync()).OrderByDescending(b => b.Id).Take(30).ToList();
+}
+@{
+    ViewData["Title"] = "Nhập file từ app cân";
+}
+<div class="page-head"><h1>Nhập file từ app cân</h1></div>
+
+<div class="card">
+    <p>Chọn file công nợ do app cân xuất ra (có thể chọn cùng lúc file của cả hai điểm cân). Nhập lại file cũ hoặc file trùng ngày đều an toàn: phiếu nào đã có sẽ không bị nhân đôi, phiếu nào đổi giá sẽ được cập nhật.</p>
+    <form method="post" enctype="multipart/form-data">
+        <div class="toolbar">
+            <div class="field">
+                <label for="files">File công nợ (.json)</label>
+                <input id="files" name="files" type="file" accept=".json,application/json" multiple required />
+            </div>
+            <button type="submit">Nhập vào sổ</button>
+        </div>
+    </form>
+</div>
+
+@foreach (var outcome in Outcomes)
+{
+    if (outcome.Result is null)
+    {
+        <div class="alert error" role="alert"><strong>@outcome.FileName</strong> — @outcome.Error</div>
+        continue;
+    }
+
+    var r = outcome.Result;
+    <div class="card">
+        <h2>@outcome.FileName · @r.StationName</h2>
+        <p>Các phiếu từ @Fmt.Date(r.From) đến @Fmt.Date(r.To) (@r.Total phiếu trong file).</p>
+        <ul>
+            <li><strong>@r.Added</strong> phiếu mới</li>
+            <li><strong>@r.Updated</strong> phiếu được cập nhật (đổi giá, đổi chủ hàng hoặc bị xóa ở app cân)</li>
+            <li><strong>@r.Unchanged</strong> phiếu đã có, không đổi</li>
+            @if (r.SkippedClosedSeason > 0) { <li><strong>@r.SkippedClosedSeason</strong> phiếu thuộc mùa đã chốt nên được bỏ qua</li> }
+            @if (r.OutsideSeason > 0) { <li><strong>@r.OutsideSeason</strong> phiếu nằm ngoài mọi mùa cà (đã lưu nhưng chưa tính nợ)</li> }
+        </ul>
+        @foreach (var warning in r.Warnings) { <div class="alert warn">@warning</div> }
+        @if (r.UnmappedTickets > 0)
+        {
+            <div class="alert warn"><strong>@r.UnmappedTickets phiếu</strong> có tên chủ hàng chưa khớp. <a asp-page="/Names">Ghép tên chủ hàng</a></div>
+        }
+        @if (r.PendingPrice > 0)
+        {
+            <div class="alert warn"><strong>@r.PendingPrice phiếu</strong> chưa có đơn giá nên chưa tính tiền.</div>
+        }
+        @if (r.UnmappedTickets == 0 && r.PendingPrice == 0 && r.Warnings.Count == 0)
+        {
+            <div class="alert ok">Nhập xong, không có gì cần xử lý thêm.</div>
+        }
+    </div>
+}
+
+<div class="card">
+    <h2>Lịch sử nhập file</h2>
+    @if (History.Count == 0)
+    {
+        <p class="muted">Chưa nhập file nào.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Nhập lúc</th><th>Điểm cân</th><th>File</th><th>Phiếu từ – đến</th><th class="num">Mới</th><th class="num">Cập nhật</th><th class="num">Không đổi</th><th>Người nhập</th></tr></thead>
+                <tbody>
+                @foreach (var b in History)
+                {
+                    <tr>
+                        <td class="nowrap">@Fmt.DateTime(b.ImportedAt)</td>
+                        <td>@b.StationName</td>
+                        <td>@b.FileName</td>
+                        <td class="nowrap">@Fmt.Date(b.FromDate) – @Fmt.Date(b.ToDate)</td>
+                        <td class="num">@b.Added</td><td class="num">@b.Updated</td><td class="num">@b.Unchanged</td>
+                        <td>@b.ImportedBy</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

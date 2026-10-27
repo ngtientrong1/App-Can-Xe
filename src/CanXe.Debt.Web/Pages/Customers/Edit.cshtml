@@ -1,0 +1,52 @@
+@page "{id:int}"
+@inject CustomerService Customers
+@functions {
+    [BindProperty(SupportsGet = true)] public int Id { get; set; }
+    [BindProperty] public string Name { get; set; } = "";
+    [BindProperty] public string? Phone { get; set; }
+    [BindProperty] public string? Note { get; set; }
+    [BindProperty] public bool IsActive { get; set; } = true;
+    public string? Error { get; set; }
+
+    public async Task<IActionResult> OnGetAsync()
+    {
+        var customer = await Customers.GetAsync(Id);
+        if (customer is null)
+            return NotFound();
+        Name = customer.Name;
+        Phone = customer.Phone;
+        Note = customer.Note;
+        IsActive = customer.IsActive;
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostAsync()
+    {
+        var result = await Customers.UpdateAsync(Id, Name ?? "", Phone, Note, IsActive);
+        if (!result.Ok)
+        {
+            Error = result.Error;
+            return Page();
+        }
+
+        TempData["Message"] = "Đã lưu thông tin chủ hàng.";
+        return RedirectToPage("/Customers/Index");
+    }
+}
+@{
+    ViewData["Title"] = "Sửa chủ hàng";
+}
+<div class="page-head"><h1>Sửa chủ hàng</h1></div>
+<div class="card">
+    @if (Error is not null) { <div class="alert error" role="alert">@Error</div> }
+    <p class="muted">Đổi tên ở đây không làm mất công nợ. Tên cũ vẫn được nhận khi nhập file từ app cân.</p>
+    <form method="post">
+        <div class="form-grid">
+            <div class="field"><label for="Name">Tên chủ hàng</label><input id="Name" name="Name" type="text" value="@Name" required /></div>
+            <div class="field"><label for="Phone">Số điện thoại</label><input id="Phone" name="Phone" type="text" value="@Phone" /></div>
+            <div class="field"><label for="Note">Ghi chú</label><input id="Note" name="Note" type="text" value="@Note" /></div>
+            <div class="field"><label>&nbsp;</label><label class="radio-row"><input type="checkbox" name="IsActive" value="true" checked="@IsActive" /> Đang giao dịch</label><input type="hidden" name="IsActive" value="false" /></div>
+        </div>
+        <p><button type="submit">Lưu</button> <a class="btn secondary" asp-page="/Customers/Index">Hủy</a></p>
+    </form>
+</div>

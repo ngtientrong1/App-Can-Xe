@@ -1,0 +1,138 @@
+namespace CanXe.Debt.Data;
+
+public enum PaymentMethod
+{
+    Cash = 0,
+    Transfer = 1
+}
+
+public enum UserRole
+{
+    Admin = 0,
+    Accountant = 1
+}
+
+public sealed class Season
+{
+    public int Id { get; set; }
+    public required string Name { get; set; }
+    public DateOnly StartDate { get; set; }
+    public DateOnly? EndDate { get; set; }
+    public bool IsClosed { get; set; }
+
+    public bool Contains(DateOnly date) => date >= StartDate && (EndDate is null || date <= EndDate);
+}
+
+public sealed class Customer
+{
+    public int Id { get; set; }
+    public required string Name { get; set; }
+    public required string NormalizedName { get; set; }
+    public string? Phone { get; set; }
+    public string? Note { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
+/// <summary>An alternative spelling of a customer name that resolves to the same customer.</summary>
+public sealed class CustomerAlias
+{
+    public int Id { get; set; }
+    public int CustomerId { get; set; }
+    public Customer? Customer { get; set; }
+    public required string RawName { get; set; }
+    public required string NormalizedName { get; set; }
+}
+
+public sealed class TicketRecord
+{
+    public int Id { get; set; }
+    public required string StationCode { get; set; }
+    public required string Code { get; set; }
+    public required string DisplayNumber { get; set; }
+    public DateOnly TicketDate { get; set; }
+    public DateTimeOffset TicketDateTime { get; set; }
+
+    public int? CustomerId { get; set; }
+    public Customer? Customer { get; set; }
+    public string? CustomerNameRaw { get; set; }
+    public string? CustomerNameNormalized { get; set; }
+
+    public string? LicensePlate { get; set; }
+    public string? Cargo { get; set; }
+    public decimal? GrossWeightKg { get; set; }
+    public decimal? TareWeightKg { get; set; }
+    public decimal? NetWeightKg { get; set; }
+    public decimal? BillableWeightKg { get; set; }
+    public decimal? UnitPrice { get; set; }
+    public decimal? SplitFirstWeightKg { get; set; }
+    public decimal? SecondUnitPrice { get; set; }
+    public long? AmountVnd { get; set; }
+
+    public bool IsDeleted { get; set; }
+    public required string ContentHash { get; set; }
+    public int ImportBatchId { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+
+    public bool HasPriceSplit => SplitFirstWeightKg is > 0 && SecondUnitPrice is not null;
+}
+
+public sealed class Payment
+{
+    public int Id { get; set; }
+    public int CustomerId { get; set; }
+    public Customer? Customer { get; set; }
+    public int SeasonId { get; set; }
+    public DateOnly PaidOn { get; set; }
+    public long AmountVnd { get; set; }
+    public PaymentMethod Method { get; set; }
+
+    /// <summary>Bank the money went to, for transfers.</summary>
+    public string? BankName { get; set; }
+
+    /// <summary>Who collected the money ("A Thắng nhận giùm").</summary>
+    public string? ReceivedBy { get; set; }
+    public string? Note { get; set; }
+    public required string CreatedBy { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset? VoidedAt { get; set; }
+    public string? VoidedBy { get; set; }
+    public string? VoidReason { get; set; }
+
+    public bool IsVoided => VoidedAt is not null;
+}
+
+public sealed class ImportBatch
+{
+    public int Id { get; set; }
+    public required string StationCode { get; set; }
+    public required string StationName { get; set; }
+    public required string FileName { get; set; }
+    public DateTimeOffset ExportedAt { get; set; }
+    public DateTimeOffset ImportedAt { get; set; }
+    public required string ImportedBy { get; set; }
+    public DateOnly? FromDate { get; set; }
+    public DateOnly? ToDate { get; set; }
+    public int TicketCount { get; set; }
+    public int Added { get; set; }
+    public int Updated { get; set; }
+    public int Unchanged { get; set; }
+    public int Skipped { get; set; }
+}
+
+public sealed class AppUser
+{
+    public int Id { get; set; }
+    public required string Username { get; set; }
+    public required string DisplayName { get; set; }
+    public required string PasswordHash { get; set; }
+    public UserRole Role { get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed class AppSetting
+{
+    public required string Key { get; set; }
+    public required string Value { get; set; }
+}

@@ -1,0 +1,62 @@
+@page
+@inject SeasonService Seasons
+@inject PaymentService Payments
+@functions {
+    [BindProperty(SupportsGet = true)] public int? SeasonId { get; set; }
+    public List<Season> AllSeasons { get; set; } = [];
+    public Season? Season { get; set; }
+    public List<Payment> Rows { get; set; } = [];
+
+    public async Task OnGetAsync()
+    {
+        AllSeasons = await Seasons.GetAllAsync();
+        Season = SeasonId is { } sid ? AllSeasons.FirstOrDefault(s => s.Id == sid) : await Seasons.GetCurrentAsync();
+        if (Season is null)
+            return;
+        SeasonId = Season.Id;
+        Rows = await Payments.GetRecentAsync(Season.Id, 300);
+    }
+}
+@{
+    ViewData["Title"] = "Sổ trả tiền";
+    var live = Rows.Where(p => !p.IsVoided).ToList();
+}
+<div class="page-head">
+    <h1>Sổ trả tiền</h1>
+    <form method="get" class="toolbar">
+        <div class="field">
+            <label for="SeasonId">Mùa</label>
+            <select id="SeasonId" name="SeasonId" data-autosubmit>
+                @foreach (var s in AllSeasons) { <option value="@s.Id" selected="@(s.Id == SeasonId)">@s.Name</option> }
+            </select>
+        </div>
+    </form>
+</div>
+
+<section class="stats">
+    <div class="stat good"><div class="label">Tổng đã trả</div><div class="value">@Fmt.Vnd(live.Sum(p => p.AmountVnd))</div></div>
+    <div class="stat"><div class="label">Tiền mặt</div><div class="value">@Fmt.Vnd(live.Where(p => p.Method == PaymentMethod.Cash).Sum(p => p.AmountVnd))</div></div>
+    <div class="stat"><div class="label">Chuyển khoản</div><div class="value">@Fmt.Vnd(live.Where(p => p.Method == PaymentMethod.Transfer).Sum(p => p.AmountVnd))</div></div>
+</section>
+
+<div class="card">
+    <p class="muted">Các khoản trả mới nhất. Để ghi nhận trả tiền, mở chủ hàng ở mục “Tổng quan” hoặc “Chủ hàng”.</p>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Ngày trả</th><th>Chủ hàng</th><th class="num">Số tiền</th><th>Hình thức</th><th>Ghi chú</th><th>Người nhập</th></tr></thead>
+            <tbody>
+            @foreach (var p in Rows)
+            {
+                <tr class="@(p.IsVoided ? "voided" : "")">
+                    <td>@Fmt.Date(p.PaidOn)</td>
+                    <td class="keep"><a asp-page="/Customers/Detail" asp-route-id="@p.CustomerId" asp-route-SeasonId="@p.SeasonId">@p.Customer?.Name</a></td>
+                    <td class="num">@Fmt.Vnd(p.AmountVnd)</td>
+                    <td>@Fmt.Method(p.Method)</td>
+                    <td>@p.Note @(p.IsVoided ? $"[Đã hủy: {p.VoidReason}]" : "")</td>
+                    <td>@p.CreatedBy · @Fmt.DateTime(p.CreatedAt)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

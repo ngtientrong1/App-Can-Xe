@@ -1,0 +1,56 @@
+@page
+@inject SettingsService Settings
+@functions {
+    [BindProperty] public List<string> Selected { get; set; } = [];
+    [BindProperty] public string? Extra { get; set; }
+
+    public List<string> Known { get; set; } = [];
+    public string? Message { get; set; }
+
+    public async Task OnGetAsync()
+    {
+        Message = TempData["Message"] as string;
+        await LoadAsync();
+    }
+
+    public async Task<IActionResult> OnPostAsync()
+    {
+        var names = (Selected ?? []).ToList();
+        if (!string.IsNullOrWhiteSpace(Extra))
+            names.AddRange(Extra.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+        await Settings.SaveBilledCargoAsync(names);
+        TempData["Message"] = "Đã lưu. Công nợ được tính lại theo các loại hàng đã chọn.";
+        return RedirectToPage();
+    }
+
+    private async Task LoadAsync()
+    {
+        var policy = await Settings.GetBilledCargoPolicyAsync();
+        Selected = policy.Names.ToList();
+        Known = (await Settings.GetKnownCargoNamesAsync())
+            .Union(Selected, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(n => n)
+            .ToList();
+    }
+}
+@{
+    ViewData["Title"] = "Cài đặt";
+}
+<div class="page-head"><h1>Cài đặt công nợ</h1></div>
+@if (Message is not null) { <div class="alert ok" role="status">@Message</div> }
+<div class="card">
+    <h2>Loại hàng tính vào công nợ</h2>
+    <p>Chỉ những loại hàng được chọn mới được cộng vào nợ của chủ hàng. Hiện tại là cà rô tươi; khi bắt đầu bán cà nhân, hãy tick thêm loại hàng đó. Phiếu của loại hàng không chọn vẫn được lưu, chỉ chưa tính nợ.</p>
+    <form method="post">
+        @foreach (var name in Known)
+        {
+            <div><label class="radio-row"><input type="checkbox" name="Selected" value="@name" checked="@Selected.Contains(name, StringComparer.OrdinalIgnoreCase)" /> @name</label></div>
+        }
+        <div class="field">
+            <label for="Extra">Thêm loại hàng khác (nhập đúng tên như trên phiếu cân, ngăn cách bằng dấu phẩy)</label>
+            <input id="Extra" name="Extra" type="text" />
+        </div>
+        <p><button type="submit">Lưu</button></p>
+    </form>
+</div>

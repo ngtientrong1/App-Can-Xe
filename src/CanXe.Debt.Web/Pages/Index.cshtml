@@ -1,0 +1,128 @@
+@page
+@inject SeasonService Seasons
+@inject LedgerService Ledger
+@functions {
+    [BindProperty(SupportsGet = true)] public int? SeasonId { get; set; }
+    [BindProperty(SupportsGet = true)] public string? Q { get; set; }
+    public SeasonOverview? Overview { get; set; }
+    public List<Season> AllSeasons { get; set; } = [];
+    public List<CustomerBalance> Rows { get; set; } = [];
+
+    public async Task OnGetAsync()
+    {
+        AllSeasons = await Seasons.GetAllAsync();
+        var season = SeasonId is { } id ? AllSeasons.FirstOrDefault(s => s.Id == id) : await Seasons.GetCurrentAsync();
+        if (season is null)
+            return;
+
+        SeasonId = season.Id;
+        Overview = await Ledger.GetOverviewAsync(season);
+        var needle = NameNormalizer.Normalize(Q);
+        Rows = Overview.Customers
+            .Where(c => needle.Length == 0 || NameNormalizer.Normalize(c.Name).Contains(needle))
+            .ToList();
+    }
+}
+@{
+    ViewData["Title"] = "Tổng quan";
+}
+@if (Overview is null)
+{
+    <div class="alert warn">Chưa có mùa cà nào. Quản trị viên hãy tạo mùa ở mục “Mùa cà”.</div>
+    return;
+}
+@{
+    var season = Overview.Season;
+}
+<div class="page-head">
+    <div>
+        <h1>@season.Name</h1>
+        <div class="muted">
+            Từ @Fmt.Date(season.StartDate)@(season.EndDate is { } end ? $" đến {Fmt.Date(end)}" : " đến nay")
+            · @(season.IsClosed ? "Đã chốt mùa" : "Đang mở")
+        </div>
+    </div>
+    <form method="get" class="toolbar">
+        <div class="field">
+            <label for="SeasonId">Mùa</label>
+            <select id="SeasonId" name="SeasonId" data-autosubmit>
+                @foreach (var s in AllSeasons)
+                {
+                    <option value="@s.Id" selected="@(s.Id == season.Id)">@s.Name</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label for="Q">Tìm chủ hàng</label>
+            <input id="Q" name="Q" type="search" value="@Q" placeholder="Tên chủ hàng…" />
+        </div>
+        <button type="submit">Tìm</button>
+    </form>
+</div>
+
+@if (Overview.UnmappedTickets > 0)
+{
+    <div class="alert warn" role="status">
+        <strong>@Overview.UnmappedTickets phiếu</strong> có tên chủ hàng chưa khớp, nên chưa tính vào công nợ.
+        <a asp-page="/Names">Ghép tên chủ hàng</a>
+    </div>
+}
+@if (Overview.PendingTickets > 0)
+{
+    <div class="alert warn" role="status">
+        <strong>@Overview.PendingTickets phiếu</strong> chưa có đơn giá, nên chưa tính tiền.
+        <a asp-page="/Tickets" asp-route-Filter="pending" asp-route-SeasonId="@season.Id">Xem các phiếu này</a>
+    </div>
+}
+
+<section class="stats" aria-label="Tổng hợp mùa">
+    <div class="stat"><div class="label">Tổng phải trả</div><div class="value">@Fmt.Vnd(Overview.TotalBilled)</div></div>
+    <div class="stat good"><div class="label">Đã trả</div><div class="value">@Fmt.Vnd(Overview.TotalPaid)</div></div>
+    <div class="stat debt"><div class="label">Còn nợ</div><div class="value">@Fmt.Vnd(Overview.TotalBalance)</div></div>
+    <div class="stat"><div class="label">Số chủ hàng có giao dịch</div><div class="value">@Overview.Customers.Count</div></div>
+</section>
+
+<div class="card">
+    <h2>Công nợ từng chủ hàng</h2>
+    @if (Rows.Count == 0)
+    {
+        <p class="muted">Chưa có chủ hàng nào có phiếu hoặc khoản trả trong mùa này. Hãy vào “Nhập file” để nhập phiếu từ các điểm cân.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Chủ hàng</th>
+                        <th class="num">Số phiếu</th>
+                        <th class="num">Phải trả</th>
+                        <th class="num">Đã trả</th>
+                        <th class="num">Còn nợ</th>
+                        <th class="no-print"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Rows)
+                    {
+                        <tr>
+                            <td><a asp-page="/Customers/Detail" asp-route-id="@row.CustomerId" asp-route-SeasonId="@season.Id">@row.Name</a>
+                                @if (row.PendingCount > 0)
+                                {
+                                    <span class="badge pending">@row.PendingCount phiếu chưa có giá</span>
+                                }
+                            </td>
+                            <td class="num">@row.TicketCount</td>
+                            <td class="num">@Fmt.Vnd(row.Billed)</td>
+                            <td class="num">@Fmt.Vnd(row.Paid)</td>
+                            <td class="num @(row.Balance > 0 ? "debt-pos" : row.Balance < 0 ? "debt-neg" : "debt-zero")">
+                                @(row.Balance < 0 ? $"{Fmt.Vnd(-row.Balance)} (ứng trước)" : Fmt.Vnd(row.Balance))
+                            </td>
+                            <td class="no-print"><a class="btn secondary" asp-page="/Customers/Detail" asp-route-id="@row.CustomerId" asp-route-SeasonId="@season.Id" asp-fragment="thu">Trả tiền</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

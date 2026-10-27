@@ -1,0 +1,106 @@
+@page
+@inject CustomerService Customers
+@functions {
+    [BindProperty] public string Normalized { get; set; } = "";
+    [BindProperty] public string RawName { get; set; } = "";
+    [BindProperty] public int CustomerId { get; set; }
+
+    public List<UnmappedName> Names { get; set; } = [];
+    public List<Customer> AllCustomers { get; set; } = [];
+    public string? Error { get; set; }
+    public string? Message { get; set; }
+
+    public async Task OnGetAsync()
+    {
+        Message = TempData["Message"] as string;
+        await LoadAsync();
+    }
+
+    public async Task<IActionResult> OnPostMapAsync()
+    {
+        var result = await Customers.MapNameToCustomerAsync(Normalized ?? "", RawName ?? "", CustomerId);
+        if (!result.Ok)
+        {
+            Error = result.Error;
+            await LoadAsync();
+            return Page();
+        }
+
+        TempData["Message"] = $"Đã ghép “{RawName}” vào chủ hàng. Các phiếu cũ và file sau này đều tự khớp.";
+        return RedirectToPage();
+    }
+
+    public async Task<IActionResult> OnPostCreateAsync()
+    {
+        var result = await Customers.CreateFromNameAsync(RawName ?? "");
+        if (!result.Ok)
+        {
+            Error = result.Error;
+            await LoadAsync();
+            return Page();
+        }
+
+        TempData["Message"] = $"Đã tạo chủ hàng mới “{result.Value!.Name}” và gắn các phiếu vào chủ hàng này.";
+        return RedirectToPage();
+    }
+
+    private async Task LoadAsync()
+    {
+        Names = await Customers.GetUnmappedNamesAsync();
+        AllCustomers = await Customers.GetAllAsync();
+    }
+}
+@{
+    ViewData["Title"] = "Ghép tên chủ hàng";
+}
+<div class="page-head"><h1>Ghép tên chủ hàng</h1></div>
+@if (Message is not null) { <div class="alert ok" role="status">@Message</div> }
+@if (Error is not null) { <div class="alert error" role="alert">@Error</div> }
+
+<div class="card">
+    <p>Những tên chủ hàng dưới đây xuất hiện trên phiếu cân nhưng chưa trùng với chủ hàng nào trong sổ nên chưa được tính vào công nợ. Nếu là cùng một chủ hàng (viết khác hoặc viết tắt) thì ghép vào chủ hàng đó; nếu là chủ hàng mới thì tạo mới. Chỉ cần làm một lần cho mỗi tên.</p>
+    @if (Names.Count == 0)
+    {
+        <div class="alert ok">Mọi phiếu đều đã khớp chủ hàng.</div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Tên trên phiếu</th><th class="num">Số phiếu</th><th class="num">Thành tiền</th><th>Xử lý</th></tr></thead>
+                <tbody>
+                @foreach (var n in Names)
+                {
+                    <tr>
+                        <td><strong>@n.DisplayName</strong></td>
+                        <td class="num">@n.TicketCount</td>
+                        <td class="num">@Fmt.Vnd(n.TotalAmountVnd)</td>
+                        <td>
+                            @if (n.Normalized.Length == 0)
+                            {
+                                <span class="muted">Phiếu không có tên chủ hàng. Hãy nhập tên chủ hàng ở app cân rồi xuất lại file.</span>
+                            }
+                            else
+                            {
+                                <form method="post" asp-page-handler="Map" class="inline-form">
+                                    <input type="hidden" name="Normalized" value="@n.Normalized" />
+                                    <input type="hidden" name="RawName" value="@n.DisplayName" />
+                                    <select name="CustomerId" aria-label="Chọn chủ hàng đã có" required>
+                                        <option value="">— Ghép vào chủ hàng đã có —</option>
+                                        @foreach (var c in AllCustomers) { <option value="@c.Id">@c.Name</option> }
+                                    </select>
+                                    <button type="submit">Ghép</button>
+                                </form>
+                                <form method="post" asp-page-handler="Create" class="inline-form">
+                                    <input type="hidden" name="RawName" value="@n.DisplayName" />
+                                    <button type="submit" class="secondary">Tạo chủ hàng mới “@n.DisplayName”</button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

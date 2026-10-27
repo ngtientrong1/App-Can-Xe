@@ -1,0 +1,87 @@
+@page
+@attribute [AllowAnonymous]
+@inject UserService Users
+@inject SeasonService Seasons
+@inject SettingsService Settings
+@inject SetupCodeStore SetupCodes
+@functions {
+    [BindProperty] public string SetupCode { get; set; } = "";
+    [BindProperty] public string Username { get; set; } = "admin";
+    [BindProperty] public string DisplayName { get; set; } = "Quản trị viên";
+    [BindProperty] public string Password { get; set; } = "";
+    [BindProperty] public string SeasonName { get; set; } = "Mùa cà 2026";
+    [BindProperty] public DateOnly SeasonStart { get; set; } = new(2026, 10, 1);
+    public string? Error { get; set; }
+
+    public async Task<IActionResult> OnGetAsync() =>
+        await Users.AnyUserAsync() ? RedirectToPage("/Login") : Page();
+
+    public async Task<IActionResult> OnPostAsync()
+    {
+        if (await Users.AnyUserAsync())
+            return RedirectToPage("/Login");
+        if (!SetupCodes.Matches(SetupCode))
+        {
+            Error = "Mã cài đặt không đúng. Mã nằm trong file setup-code.txt cạnh cơ sở dữ liệu trên máy chủ.";
+            return Page();
+        }
+
+        var created = await Users.CreateAsync(Username ?? "", DisplayName ?? "", Password ?? "", UserRole.Admin);
+        if (!created.Ok)
+        {
+            Error = created.Error;
+            return Page();
+        }
+
+        var season = await Seasons.CreateAsync(SeasonName ?? "", SeasonStart);
+        if (!season.Ok)
+        {
+            Error = season.Error;
+            return Page();
+        }
+
+        await Settings.SaveBilledCargoAsync(SettingsService.DefaultBilledCargo);
+        SetupCodes.Clear();
+        return RedirectToPage("/Login");
+    }
+}
+@{
+    ViewData["Title"] = "Cài đặt lần đầu";
+}
+<div class="login-wrap">
+    <div class="card">
+        <h1>Cài đặt lần đầu</h1>
+        <p class="muted">Tạo tài khoản quản trị và mùa cà đầu tiên. Làm một lần duy nhất.</p>
+        @if (Error is not null)
+        {
+            <div class="alert error" role="alert">@Error</div>
+        }
+        <form method="post">
+            <div class="field">
+                <label for="SetupCode">Mã cài đặt (xem file setup-code.txt trên máy chủ)</label>
+                <input id="SetupCode" name="SetupCode" type="text" value="@SetupCode" autocomplete="off" required />
+            </div>
+            <div class="field">
+                <label for="Username">Tên đăng nhập quản trị</label>
+                <input id="Username" name="Username" type="text" value="@Username" autocomplete="username" required />
+            </div>
+            <div class="field">
+                <label for="DisplayName">Tên hiển thị</label>
+                <input id="DisplayName" name="DisplayName" type="text" value="@DisplayName" />
+            </div>
+            <div class="field">
+                <label for="Password">Mật khẩu (từ @PasswordHasher.MinimumLength ký tự)</label>
+                <input id="Password" name="Password" type="password" autocomplete="new-password" required />
+            </div>
+            <div class="field">
+                <label for="SeasonName">Mùa cà đầu tiên</label>
+                <input id="SeasonName" name="SeasonName" type="text" value="@SeasonName" required />
+            </div>
+            <div class="field">
+                <label for="SeasonStart">Bắt đầu từ ngày</label>
+                <input id="SeasonStart" name="SeasonStart" type="date" value="@SeasonStart.ToString("yyyy-MM-dd")" required />
+            </div>
+            <p><button type="submit">Hoàn tất</button></p>
+        </form>
+    </div>
+</div>
