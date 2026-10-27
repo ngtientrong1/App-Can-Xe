@@ -180,6 +180,16 @@ public sealed class AppUser
     public UserRole Role { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>Secret of the authenticator app (base32). Set while setting up, in use once <see cref="TotpEnabled"/>.</summary>
+    public string? TotpSecret { get; set; }
+    public bool TotpEnabled { get; set; }
+
+    /// <summary>The last 30-second step a code was accepted for, so the same code cannot be used twice.</summary>
+    public long TotpLastStep { get; set; }
+
+    /// <summary>One-time recovery codes for a lost phone, stored only as SHA-256 hashes, separated by commas.</summary>
+    public string? RecoveryCodeHashes { get; set; }
 }
 
 public sealed class AppSetting

@@ -5,6 +5,7 @@ using CanXe.Debt.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,13 @@ builder.Host.UseWindowsService();
 var dataDir = DebtPaths.ResolveDataDirectory(builder.Configuration);
 Directory.CreateDirectory(dataDir);
 var dbPath = Path.Combine(dataDir, "debt.db");
+
+// Keep the sign-in keys on disk so people stay signed in across restarts; on Windows they are sealed to this machine.
+var keys = builder.Services.AddDataProtection()
+    .SetApplicationName("CanXeDebt")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(dataDir, "keys")));
+if (OperatingSystem.IsWindows())
+    keys.ProtectKeysWithDpapi(protectToLocalMachine: true);
 
 builder.Services.AddDbContext<DebtDbContext>(o => o.UseSqlite($"Data Source={dbPath}"));
 builder.Services.AddScoped<SeasonService>();
@@ -118,6 +126,20 @@ catch (Exception ex)
     throw;
 }
 app.UseForwardedHeaders();
+
+// The app is reached over plain http only on this machine. Any other host name comes through the https proxy
+// (Tailscale), so treat it as https: cookies get the Secure flag and browsers are told to stay on https.
+app.Use(async (context, next) =>
+{
+    if (!Security.IsLocalHost(context.Request.Host.Host))
+    {
+        context.Request.Scheme = "https";
+        context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000";
+    }
+
+    context.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+    await next();
+});
 if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
 
@@ -149,6 +171,21 @@ app.Use(async (context, next) =>
 
 app.UseStaticFiles();
 app.UseAuthentication();
+
+// An account that must set up two-step sign-in can only reach the page for that until it has.
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    if (context.User.HasClaim(Security.NeedsTwoStepClaim, "1")
+        && !path.StartsWithSegments("/Account") && !path.StartsWithSegments("/Logout")
+        && !path.StartsWithSegments("/css") && !path.StartsWithSegments("/js") && !path.StartsWithSegments("/Error"))
+    {
+        context.Response.Redirect("/Account?setup=1");
+        return;
+    }
+
+    await next();
+});
 app.UseAuthorization();
 app.MapRazorPages();
 

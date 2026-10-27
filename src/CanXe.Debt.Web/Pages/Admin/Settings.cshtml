@@ -1,6 +1,17 @@
 @page
 @inject SettingsService Settings
 @functions {
+    [BindProperty] public bool Require2fa { get; set; }
+
+    public async Task<IActionResult> OnPostSecurityAsync()
+    {
+        await Settings.SaveRequire2faAsync(Require2fa);
+        TempData["Message"] = Require2fa
+            ? "Đã bắt buộc xác thực 2 lớp. Mỗi tài khoản sẽ phải cài đặt ở lần đăng nhập kế tiếp."
+            : "Đã bỏ yêu cầu bắt buộc xác thực 2 lớp.";
+        return RedirectToPage();
+    }
+
     [BindProperty] public List<string> Selected { get; set; } = [];
     [BindProperty] public string? Extra { get; set; }
 
@@ -10,6 +21,7 @@
     public async Task OnGetAsync()
     {
         Message = TempData["Message"] as string;
+        Require2fa = await Settings.GetRequire2faAsync();
         await LoadAsync();
     }
 
@@ -38,6 +50,15 @@
     ViewData["Title"] = "Cài đặt";
 }
 <div class="page-head"><h1>Cài đặt công nợ</h1></div>
+<div class="card">
+    <h2>Bảo mật khi mở link công khai</h2>
+    <p>Bật mục này để <strong>mọi tài khoản</strong> phải dùng mã 6 số từ điện thoại (xác thực 2 lớp). Nên bật khi app mở ra internet.</p>
+    <form method="post" asp-page-handler="Security">
+        <input type="hidden" name="Require2fa" value="false" />
+        <label class="radio-row"><input type="checkbox" name="Require2fa" value="true" checked="@Require2fa" /> Bắt buộc xác thực 2 lớp cho mọi tài khoản</label>
+        <p><button type="submit">Lưu</button></p>
+    </form>
+</div>
 @if (Message is not null) { <div class="alert ok" role="status">@Message</div> }
 <div class="card">
     <h2>Loại hàng tính vào công nợ</h2>

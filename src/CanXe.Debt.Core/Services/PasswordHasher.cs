@@ -7,7 +7,7 @@ public static class PasswordHasher
     private const int Iterations = 210_000;
     private const int SaltSize = 16;
     private const int HashSize = 32;
-    public const int MinimumLength = 8;
+    public const int MinimumLength = 10;
 
     public static string Hash(string password)
     {

@@ -39,6 +39,22 @@ public sealed class SettingsService(DebtDbContext db)
         await db.SaveChangesAsync(ct);
     }
 
+    public const string Require2faKey = "require2fa";
+
+    /// <summary>When on, every account must set up the authenticator app before it can use the app.</summary>
+    public async Task<bool> GetRequire2faAsync(CancellationToken ct = default) =>
+        await db.Settings.AsNoTracking().AnyAsync(s => s.Key == Require2faKey && s.Value == "1", ct);
+
+    public async Task SaveRequire2faAsync(bool required, CancellationToken ct = default)
+    {
+        var setting = await db.Settings.FirstOrDefaultAsync(s => s.Key == Require2faKey, ct);
+        if (setting is null)
+            db.Settings.Add(new AppSetting { Key = Require2faKey, Value = required ? "1" : "0" });
+        else
+            setting.Value = required ? "1" : "0";
+        await db.SaveChangesAsync(ct);
+    }
+
     public const string BackupCopyDirectoryKey = "backupCopyDirectory";
 
     /// <summary>Second folder (USB drive, synced cloud folder…) that every backup is also copied to; null when unset.</summary>

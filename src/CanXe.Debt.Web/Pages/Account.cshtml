@@ -1,47 +1,181 @@
 @page
 @using System.Security.Claims
 @inject UserService Users
+@inject SettingsService Settings
 @functions {
     [BindProperty] public string CurrentPassword { get; set; } = "";
     [BindProperty] public string NewPassword { get; set; } = "";
     [BindProperty] public string ConfirmPassword { get; set; } = "";
-    public string? Error { get; set; }
-    public bool Done { get; set; }
+    [BindProperty] public string Code { get; set; } = "";
+    [BindProperty(SupportsGet = true)] public bool Setup { get; set; }
 
-    public async Task<IActionResult> OnPostAsync()
+    public AppUser? Me { get; set; }
+    public bool Required { get; set; }
+    public string? Error { get; set; }
+    public string? Message { get; set; }
+    public string? QrSvg { get; set; }
+    public string? ManualKey { get; set; }
+    public IReadOnlyList<string>? RecoveryCodes { get; set; }
+
+    private int UserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    public async Task OnGetAsync()
     {
+        Message = TempData["Message"] as string;
+        await LoadAsync();
+    }
+
+    public async Task<IActionResult> OnPostPasswordAsync()
+    {
+        await LoadAsync();
         if (NewPassword != ConfirmPassword)
         {
             Error = "Hai ô mật khẩu mới không giống nhau.";
             return Page();
         }
 
-        var id = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await Users.ChangeOwnPasswordAsync(id, CurrentPassword ?? "", NewPassword ?? "");
+        var result = await Users.ChangeOwnPasswordAsync(UserId, CurrentPassword ?? "", NewPassword ?? "");
         Error = result.Error;
-        Done = result.Ok;
+        Message = result.Ok ? "Đã đổi mật khẩu." : null;
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostBeginAsync()
+    {
+        var result = await Users.BeginTotpSetupAsync(UserId);
+        if (!result.Ok)
+            TempData["Message"] = result.Error;
+        return RedirectToPage(new { setup = true });
+    }
+
+    public async Task<IActionResult> OnPostConfirmAsync()
+    {
+        var result = await Users.ConfirmTotpAsync(UserId, Code ?? "");
+        await LoadAsync();
+        if (!result.Ok)
+        {
+            Error = result.Error;
+            return Page();
+        }
+
+        // The "must set up two-step" restriction is lifted, so sign in again without it.
+        await Security.SignInAsync(HttpContext, (await Users.GetAsync(UserId))!, needsTwoStepSetup: false);
+        Me = await Users.GetAsync(UserId);
+        RecoveryCodes = result.Value;
+        Message = "Đã bật xác thực 2 lớp.";
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostDisableAsync()
+    {
+        await LoadAsync();
+        if (Required)
+        {
+            Error = "Quản trị viên đang bắt buộc xác thực 2 lớp nên không tắt được.";
+            return Page();
+        }
+
+        if (!await Users.CheckPasswordAsync(UserId, CurrentPassword ?? ""))
+        {
+            Error = "Mật khẩu hiện tại không đúng.";
+            return Page();
+        }
+
+        if (!await Users.VerifySecondFactorAsync(UserId, Code ?? ""))
+        {
+            Error = "Mã xác thực chưa đúng.";
+            return Page();
+        }
+
+        await Users.ResetTotpAsync(UserId);
+        TempData["Message"] = "Đã tắt xác thực 2 lớp.";
+        return RedirectToPage();
+    }
+
+    private async Task LoadAsync()
+    {
+        Me = await Users.GetAsync(UserId);
+        Required = await Settings.GetRequire2faAsync();
+        if (Me is { TotpEnabled: false, TotpSecret: not null } && Me.TotpSecret is { } secret)
+        {
+            ManualKey = Totp.FormatSecret(secret);
+            QrSvg = Security.QrSvg(Totp.BuildUri("Công nợ cà", Me.Username, secret));
+        }
     }
 }
 @{
     ViewData["Title"] = "Tài khoản của tôi";
+    var mustSetUp = User.HasClaim(Security.NeedsTwoStepClaim, "1");
 }
-<div class="page-head"><h1>Đổi mật khẩu</h1></div>
-<div class="card">
-    @if (Done)
-    {
-        <div class="alert ok" role="status">Đã đổi mật khẩu.</div>
-    }
-    @if (Error is not null)
-    {
-        <div class="alert error" role="alert">@Error</div>
-    }
-    <form method="post">
-        <div class="form-grid">
-            <div class="field"><label for="CurrentPassword">Mật khẩu hiện tại</label><input id="CurrentPassword" name="CurrentPassword" type="password" autocomplete="current-password" required /></div>
-            <div class="field"><label for="NewPassword">Mật khẩu mới</label><input id="NewPassword" name="NewPassword" type="password" autocomplete="new-password" required /></div>
-            <div class="field"><label for="ConfirmPassword">Nhập lại mật khẩu mới</label><input id="ConfirmPassword" name="ConfirmPassword" type="password" autocomplete="new-password" required /></div>
-            <div><button type="submit">Đổi mật khẩu</button></div>
+<div class="page-head"><h1>Tài khoản của tôi</h1></div>
+@if (Message is not null) { <div class="alert ok" role="status">@Message</div> }
+@if (Error is not null) { <div class="alert error" role="alert">@Error</div> }
+@if (mustSetUp)
+{
+    <div class="alert warn" role="alert"><strong>Cần bật xác thực 2 lớp.</strong> Quản trị viên yêu cầu mọi tài khoản dùng mã từ điện thoại. Hãy làm xong bước dưới đây rồi mới dùng tiếp các chức năng khác.</div>
+}
+
+@if (RecoveryCodes is not null)
+{
+    <div class="card">
+        <h2>Mã khôi phục — lưu lại ngay</h2>
+        <p>Nếu mất điện thoại, mỗi mã dưới đây dùng được <strong>một lần</strong> thay cho mã 6 số. Chép ra giấy hoặc nơi an toàn. Mã chỉ hiện <strong>lần này</strong>.</p>
+        <div class="recovery">
+            @foreach (var code in RecoveryCodes) { <code>@code</code> }
         </div>
-    </form>
+    </div>
+}
+
+<div class="card">
+    <h2>Xác thực 2 lớp (mã từ điện thoại)</h2>
+    @if (Me?.TotpEnabled == true)
+    {
+        <p><span class="badge paid">Đang bật</span> Mỗi lần đăng nhập, ngoài mật khẩu còn cần mã 6 số từ ứng dụng trên điện thoại.</p>
+        @if (!Required)
+        {
+            <details class="more">
+                <summary>Tắt xác thực 2 lớp</summary>
+                <form method="post" asp-page-handler="Disable">
+                    <div class="form-grid">
+                        <div class="field"><label for="d-pw">Mật khẩu hiện tại</label><input id="d-pw" name="CurrentPassword" type="password" autocomplete="current-password" required /></div>
+                        <div class="field"><label for="d-code">Mã 6 số (hoặc mã khôi phục)</label><input id="d-code" name="Code" type="text" autocomplete="one-time-code" required /></div>
+                        <div><button type="submit" class="danger">Tắt</button></div>
+                    </div>
+                </form>
+            </details>
+        }
+    }
+    else if (QrSvg is not null)
+    {
+        <p>Bước 1: cài ứng dụng <strong>Google Authenticator</strong> hoặc <strong>Microsoft Authenticator</strong> trên điện thoại. Bước 2: mở ứng dụng, chọn thêm tài khoản và quét mã QR này.</p>
+        <div class="qr">@Html.Raw(QrSvg)</div>
+        <p class="muted small">Không quét được? Nhập tay khóa này: <code>@ManualKey</code></p>
+        <p>Bước 3: nhập mã 6 số ứng dụng đang hiện để hoàn tất.</p>
+        <form method="post" asp-page-handler="Confirm">
+            <div class="form-grid">
+                <div class="field"><label for="c-code">Mã 6 số</label><input id="c-code" name="Code" class="big-input" type="text" inputmode="numeric" autocomplete="one-time-code" required /></div>
+                <div><button type="submit" class="big-btn">Xác nhận và bật</button></div>
+            </div>
+        </form>
+    }
+    else
+    {
+        <p><span class="badge pending">Chưa bật</span> Nên bật, nhất là khi app mở qua link công khai: kẻ đoán được mật khẩu vẫn không vào được nếu không có điện thoại của bạn.</p>
+        <form method="post" asp-page-handler="Begin"><button type="submit" class="big-btn">Bật xác thực 2 lớp</button></form>
+    }
 </div>
+
+@if (!mustSetUp)
+{
+    <div class="card">
+        <h2>Đổi mật khẩu</h2>
+        <form method="post" asp-page-handler="Password">
+            <div class="form-grid">
+                <div class="field"><label for="CurrentPassword">Mật khẩu hiện tại</label><input id="CurrentPassword" name="CurrentPassword" type="password" autocomplete="current-password" required /></div>
+                <div class="field"><label for="NewPassword">Mật khẩu mới (từ @PasswordHasher.MinimumLength ký tự)</label><input id="NewPassword" name="NewPassword" type="password" autocomplete="new-password" required /></div>
+                <div class="field"><label for="ConfirmPassword">Nhập lại mật khẩu mới</label><input id="ConfirmPassword" name="ConfirmPassword" type="password" autocomplete="new-password" required /></div>
+                <div><button type="submit">Đổi mật khẩu</button></div>
+            </div>
+        </form>
+    </div>
+}

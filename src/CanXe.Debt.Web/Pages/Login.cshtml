@@ -1,11 +1,8 @@
 @page
-@using System.Security.Claims
-@using Microsoft.AspNetCore.Authentication
-@using Microsoft.AspNetCore.Authentication.Cookies
 @attribute [AllowAnonymous]
 @inject UserService Users
+@inject SettingsService Settings
 @inject LoginThrottle Throttle
-@inject SetupCodeStore SetupCodes
 @functions {
     [BindProperty] public string Username { get; set; } = "";
     [BindProperty] public string Password { get; set; } = "";
@@ -24,31 +21,30 @@
     public async Task<IActionResult> OnPostAsync()
     {
         var name = (Username ?? "").Trim();
-        if (Throttle.IsLocked(name))
+        var address = Security.ClientAddress(HttpContext);
+        if (Throttle.IsLocked(name, address))
         {
-            Error = "Nhập sai nhiều lần. Vui lòng thử lại sau 10 phút.";
+            Error = "Nhập sai nhiều lần. Vui lòng thử lại sau 10–15 phút.";
             return Page();
         }
 
         var user = await Users.AuthenticateAsync(name, Password ?? "");
         if (user is null)
         {
-            Throttle.RegisterFailure(name);
+            Throttle.RegisterFailure(name, address);
             Error = "Tên đăng nhập hoặc mật khẩu không đúng.";
             return Page();
         }
 
-        Throttle.Reset(name);
-        var identity = new ClaimsIdentity(
-            [
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Username),
-                new Claim("display", user.DisplayName),
-                new Claim(ClaimTypes.Role, user.Role.ToString())
-            ],
-            CookieAuthenticationDefaults.AuthenticationScheme);
-        await HttpContext.SignInAsync(new ClaimsPrincipal(identity));
+        // Password right but a code from the phone is still needed: the counter is only cleared once that passes too.
+        if (user.TotpEnabled)
+        {
+            Security.SetPending(HttpContext, user.Id);
+            return RedirectToPage("/Login2fa", new { ReturnUrl });
+        }
 
+        Throttle.Reset(name, address);
+        await Security.SignInAsync(HttpContext, user, needsTwoStepSetup: await Settings.GetRequire2faAsync());
         return Url.IsLocalUrl(ReturnUrl) ? LocalRedirect(ReturnUrl!) : RedirectToPage("/Index");
     }
 }
@@ -73,7 +69,7 @@
                 <label for="Password">Mật khẩu</label>
                 <input id="Password" name="Password" type="password" autocomplete="current-password" required />
             </div>
-            <p><button type="submit">Đăng nhập</button></p>
+            <p><button type="submit" class="big-btn">Đăng nhập</button></p>
         </form>
     </div>
 </div>

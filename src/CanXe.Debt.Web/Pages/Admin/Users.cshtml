@@ -30,6 +30,12 @@
         return await Finish(result.Ok, result.Error, "Đã đặt lại mật khẩu.");
     }
 
+    public async Task<IActionResult> OnPostResetTwoStepAsync()
+    {
+        var result = await Users.ResetTotpAsync(UserId);
+        return await Finish(result.Ok, result.Error, "Đã đặt lại xác thực 2 lớp. Người đó sẽ cài lại ở lần đăng nhập sau.");
+    }
+
     public async Task<IActionResult> OnPostActiveAsync()
     {
         var result = await Users.SetActiveAsync(UserId, Active);
@@ -59,7 +65,7 @@
 <div class="card">
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Tên đăng nhập</th><th>Tên hiển thị</th><th>Vai trò</th><th>Trạng thái</th><th></th></tr></thead>
+            <thead><tr><th>Tên đăng nhập</th><th>Tên hiển thị</th><th>Vai trò</th><th>Trạng thái</th><th>Xác thực 2 lớp</th><th></th></tr></thead>
             <tbody>
             @foreach (var u in Rows)
             {
@@ -68,6 +74,7 @@
                     <td>@u.DisplayName</td>
                     <td>@(u.Role == UserRole.Admin ? "Quản trị" : "Kế toán")</td>
                     <td>@(u.IsActive ? "Đang dùng" : "Đã khóa")</td>
+                    <td>@(u.TotpEnabled ? "Đang bật" : "Chưa bật")</td>
                     <td>
                         <details>
                             <summary>Thao tác</summary>
@@ -76,6 +83,13 @@
                                 <input type="password" name="Password" placeholder="Mật khẩu mới" autocomplete="new-password" required />
                                 <button type="submit" class="secondary">Đặt lại mật khẩu</button>
                             </form>
+                            @if (u.TotpEnabled)
+                            {
+                                <form method="post" asp-page-handler="ResetTwoStep" class="inline-form" data-confirm="Đặt lại xác thực 2 lớp cho tài khoản này? Họ sẽ phải cài lại ứng dụng.">
+                                    <input type="hidden" name="UserId" value="@u.Id" />
+                                    <button type="submit" class="secondary">Đặt lại xác thực 2 lớp (mất điện thoại)</button>
+                                </form>
+                            }
                             <form method="post" asp-page-handler="Active" class="inline-form">
                                 <input type="hidden" name="UserId" value="@u.Id" />
                                 <input type="hidden" name="Active" value="@((!u.IsActive).ToString().ToLowerInvariant())" />

@@ -1,0 +1,62 @@
+@page
+@attribute [AllowAnonymous]
+@inject UserService Users
+@inject SettingsService Settings
+@inject LoginThrottle Throttle
+@functions {
+    [BindProperty] public string Code { get; set; } = "";
+    [BindProperty(SupportsGet = true)] public string? ReturnUrl { get; set; }
+    public string? Error { get; set; }
+
+    public IActionResult OnGet() => Security.ReadPending(HttpContext) is null ? RedirectToPage("/Login") : Page();
+
+    public async Task<IActionResult> OnPostAsync()
+    {
+        if (Security.ReadPending(HttpContext) is not { } userId)
+            return RedirectToPage("/Login");
+
+        var user = await Users.GetAsync(userId);
+        if (user is null || !user.IsActive)
+            return RedirectToPage("/Login");
+
+        var address = Security.ClientAddress(HttpContext);
+        if (Throttle.IsLocked(user.Username, address))
+        {
+            Error = "Nhập sai nhiều lần. Vui lòng thử lại sau 10–15 phút.";
+            return Page();
+        }
+
+        if (!await Users.VerifySecondFactorAsync(userId, Code))
+        {
+            Throttle.RegisterFailure(user.Username, address);
+            Error = "Mã chưa đúng. Nhập mã 6 số đang hiện trong ứng dụng, hoặc một mã khôi phục.";
+            return Page();
+        }
+
+        Throttle.Reset(user.Username, address);
+        Security.ClearPending(HttpContext);
+        await Security.SignInAsync(HttpContext, user, needsTwoStepSetup: false);
+        return Url.IsLocalUrl(ReturnUrl) ? LocalRedirect(ReturnUrl!) : RedirectToPage("/Index");
+    }
+}
+@{
+    ViewData["Title"] = "Xác thực 2 lớp";
+}
+<div class="login-wrap">
+    <div class="card">
+        <h1>Nhập mã xác thực</h1>
+        <p class="muted">Mở ứng dụng xác thực trên điện thoại (Google Authenticator, Microsoft Authenticator…) và nhập mã 6 số của “Công nợ cà”. Mất điện thoại thì nhập một mã khôi phục.</p>
+        @if (Error is not null)
+        {
+            <div class="alert error" role="alert">@Error</div>
+        }
+        <form method="post">
+            <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+            <div class="field">
+                <label for="Code">Mã xác thực</label>
+                <input id="Code" name="Code" class="big-input" type="text" inputmode="numeric" autocomplete="one-time-code" autofocus required />
+            </div>
+            <p><button type="submit" class="big-btn">Xác nhận</button> <a class="btn secondary" asp-page="/Login">Quay lại</a></p>
+        </form>
+    </div>
+</div>

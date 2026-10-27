@@ -15,31 +15,26 @@ Lần đầu sử dụng
 1. Mở http://127.0.0.1:5200 trên máy này (có biểu tượng trong Start Menu).
 2. Trang "Cài đặt lần đầu" hỏi MÃ CÀI ĐẶT. Mã nằm trong file:
        C:\ProgramData\CanXeDebt\setup-code.txt
-   Mở file đó, chép mã vào ô, tạo tài khoản quản trị (mật khẩu từ 8 ký tự) và đặt tên/ngày bắt đầu mùa cà.
+   Mở file đó, chép mã vào ô, tạo tài khoản quản trị (mật khẩu từ 10 ký tự) và đặt tên/ngày bắt đầu mùa cà.
 3. Đăng nhập, vào mục "Tài khoản" tạo tài khoản cho kế toán (vai trò "Kế toán").
    Kế toán nhập file, ghi nhận trả tiền, xem công nợ. Quản trị thêm được: mùa cà, cài đặt, tài khoản.
 
 
-Cho kế toán truy cập qua Tailscale (chỉ vào app công nợ, không vào app cân)
----------------------------------------------------------------------------
-Máy này cũng là máy cân, nên KHÔNG chia sẻ cả máy cho kế toán. Chỉ cho phép đúng một cổng:
+Gửi link cho kế toán (giống app quản lý công nhân)
+--------------------------------------------------
+Chỉ cần làm một lần trên máy này, mở PowerShell (Administrator):
+    tailscale funnel --bg 5200
+Tailscale cho một địa chỉ dạng https://ten-may.ten-mang.ts.net — gửi địa chỉ này cho kế toán.
+Kế toán mở link ở bất kỳ đâu, không cần cài Tailscale, đăng nhập bằng tên đăng nhập và mật khẩu như bình thường.
+(Nếu Tailscale hiện thông báo yêu cầu bật Funnel, làm theo đường dẫn nó đưa ra trong trang quản trị Tailscale.)
+Tắt link: tailscale funnel --https=443 off
 
-1. Trên máy này, mở PowerShell (Administrator) và chạy:
-       tailscale serve --bg --https=443 http://127.0.0.1:5200
-   Tailscale sẽ cho một địa chỉ dạng https://ten-may.ten-mang.ts.net — gửi địa chỉ này cho kế toán.
-2. Vào trang quản trị Tailscale (login.tailscale.com) > Access controls. Chỉ cho tài khoản/máy
-   của kế toán được vào cổng 443 của máy này. Ví dụ (thay email và tên máy cho đúng):
-
-       "acls": [
-         { "action": "accept",
-           "src": ["ketoan@example.com"],
-           "dst": ["ten-may-can:443"] }
-       ]
-
-   Không cho kế toán các cổng khác của máy cân.
-3. Không bao giờ mở app ra internet công cộng (không dùng "tailscale funnel").
-4. Nên đặt mật khẩu mạnh cho cả hai tài khoản. Nhập sai 5 lần, tài khoản bị khóa 10 phút.
-
+Vì link mở ra internet nên app có sẵn các lớp bảo vệ:
+- Mật khẩu từ 10 ký tự. Nhập sai 5 lần, tài khoản bị khóa 10 phút; một địa chỉ nhập sai nhiều lần cũng bị chặn.
+- Nên đặt mật khẩu dài, khác với nơi khác.
+- Tùy chọn, nên bật: mục "Tài khoản của tôi" > "Bật xác thực 2 lớp" (mã 6 số từ điện thoại). Mặc định TẮT,
+  không bật thì vẫn đăng nhập bằng mật khẩu như thường. Quản trị có thể bắt buộc cho mọi người ở Cài đặt.
+  Mất điện thoại: dùng mã khôi phục, hoặc quản trị bấm "Đặt lại xác thực 2 lớp" ở mục Tài khoản.
 
 Hằng ngày
 ---------
