@@ -52,13 +52,21 @@ public static class WeightStorageMapper
         return vnd.Value;
     }
 
+    public static PriceSplit? ToPriceSplit(Domain.Entities.WeighTicket ticket) =>
+        PriceSplit.TryCreate(FromGrams(ticket.SplitFirstWeightGrams), FromVndPerKg(ticket.SecondUnitPriceVndPerKg));
+
     public static void ApplyCalculationToTicket(
         Domain.Entities.WeighTicket ticket,
         decimal? weight1Kg,
         decimal? weight2Kg,
-        decimal? unitPriceVndPerKg)
+        decimal? unitPriceVndPerKg,
+        PriceSplit? split)
     {
-        var result = WeightCalculator.Calculate(weight1Kg, weight2Kg, unitPriceVndPerKg);
+        var result = WeightCalculator.Calculate(weight1Kg, weight2Kg, unitPriceVndPerKg, split);
+
+        // Stored only when a split is actually set; clearing the split on a draft clears it on the ticket.
+        ticket.SplitFirstWeightGrams = split is { IsValid: true } ? ToGrams(split.FirstWeightKg) : null;
+        ticket.SecondUnitPriceVndPerKg = split is { IsValid: true } ? ToVndPerKg(split.SecondUnitPriceVndPerKg) : null;
 
         ticket.GrossWeightGrams = ToGrams(result.GrossWeightKg);
         ticket.TareWeightGrams = ToGrams(result.TareWeightKg);

@@ -1,4 +1,5 @@
 using CanXe.Domain.Models;
+using CanXe.Domain.Services;
 
 namespace CanXe.Application.Models;
 
@@ -17,6 +18,14 @@ public sealed class WeighTicketDraft
     public string? DraftVehicle { get; set; }
     public string? DraftCargoType { get; set; }
     public decimal? DraftUnitPrice { get; set; }
+
+    /// <summary>First part of the billable weight (kg) charged at <see cref="DraftUnitPrice"/>; with
+    /// <see cref="DraftSecondUnitPrice"/> it turns on two-level pricing.</summary>
+    public decimal? DraftSplitFirstWeightKg { get; set; }
+    public decimal? DraftSecondUnitPrice { get; set; }
+
+    public CanXe.Domain.Services.PriceSplit? DraftPriceSplit =>
+        CanXe.Domain.Services.PriceSplit.TryCreate(DraftSplitFirstWeightKg, DraftSecondUnitPrice);
     public string? DraftNotes { get; set; }
     public bool DeveloperWeight1OverrideEnabled { get; set; }
     public bool IsEditMode { get; set; }
@@ -134,9 +143,15 @@ public sealed class WeighTicketListItem
     public decimal? NetWeightKg { get; init; }
     public decimal? BillableWeightKg { get; init; }
     public decimal? UnitPriceVndPerKg { get; init; }
+    public decimal? SplitFirstWeightKg { get; init; }
+    public decimal? SecondUnitPriceVndPerKg { get; init; }
     public decimal? TotalAmountVnd { get; init; }
     public string? Notes { get; init; }
     public int EventCount { get; init; }
+    public bool HasPriceSplit => SplitFirstWeightKg is > 0 && SecondUnitPriceVndPerKg is > 0;
+
+    /// <summary>One price, or "19.800 / 19.600" when the ticket is priced in two parts.</summary>
+    public string UnitPriceDisplay => PriceTextFormatter.UnitPrice(UnitPriceVndPerKg, SecondUnitPriceVndPerKg, HasPriceSplit);
     public WeighTicketWorkflowState WorkflowState => WeighTicketWorkflow.FromEventCount(EventCount);
     public string WorkflowStatusText => WeighTicketWorkflow.ListColumnText(WorkflowState);
 }
@@ -151,6 +166,9 @@ public sealed class WeighTicketDetailDto
     public string? CargoTypeName { get; init; }
     public string? Notes { get; init; }
     public decimal? UnitPriceVndPerKg { get; init; }
+    public decimal? SplitFirstWeightKg { get; init; }
+    public decimal? SecondUnitPriceVndPerKg { get; init; }
+    public bool HasPriceSplit => SplitFirstWeightKg is > 0 && SecondUnitPriceVndPerKg is > 0;
     public bool IsServiceWeigh { get; init; }
 
     public decimal? Weight1Kg { get; init; }

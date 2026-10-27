@@ -77,6 +77,8 @@ public sealed class WeighTicketService
             DraftVehicle = ticket.LicensePlateSnapshot,
             DraftCargoType = ticket.CargoTypeNameSnapshot,
             DraftUnitPrice = WeightStorageMapper.FromVndPerKg(ticket.UnitPriceVndPerKg),
+            DraftSplitFirstWeightKg = WeightStorageMapper.FromGrams(ticket.SplitFirstWeightGrams),
+            DraftSecondUnitPrice = WeightStorageMapper.FromVndPerKg(ticket.SecondUnitPriceVndPerKg),
             DraftNotes = ticket.Notes
         };
 
@@ -290,6 +292,9 @@ public sealed class WeighTicketService
         if (!draft.HasAnyWeight)
             return new SaveTicketResult { Success = false, ErrorMessage = "Cần ít nhất một trọng lượng để lưu." };
 
+        if (PriceSplitValidator.Validate(draft) is { } priceSplitError)
+            return new SaveTicketResult { Success = false, ErrorMessage = priceSplitError };
+
         var similarWarnings = await GetSimilarCustomerWarningsAsync(draft, cancellationToken);
 
         try
@@ -391,6 +396,8 @@ public sealed class WeighTicketService
             CargoTypeName = ticket.CargoTypeNameSnapshot,
             Notes = ticket.Notes,
             UnitPriceVndPerKg = unitPrice,
+            SplitFirstWeightKg = WeightStorageMapper.FromGrams(ticket.SplitFirstWeightGrams),
+            SecondUnitPriceVndPerKg = WeightStorageMapper.FromVndPerKg(ticket.SecondUnitPriceVndPerKg),
             IsServiceWeigh = !WeightCalculator.HasBillableUnitPrice(unitPrice),
             Weight1Kg = weight1,
             Weight1RecordedAt = w1?.RecordedAt,
@@ -641,7 +648,8 @@ public sealed class WeighTicketService
             ticket,
             draft.DraftWeight1,
             draft.DraftWeight2,
-            draft.DraftUnitPrice);
+            draft.DraftUnitPrice,
+            draft.DraftPriceSplit);
     }
 
     private async Task<IReadOnlyList<string>> GetSimilarCustomerWarningsAsync(
@@ -688,6 +696,8 @@ public sealed class WeighTicketService
             NetWeightKg = WeightStorageMapper.FromGrams(ticket.NetWeightGrams),
             BillableWeightKg = WeightStorageMapper.FromGrams(ticket.BillableWeightGrams),
             UnitPriceVndPerKg = WeightStorageMapper.FromVndPerKg(ticket.UnitPriceVndPerKg),
+            SplitFirstWeightKg = WeightStorageMapper.FromGrams(ticket.SplitFirstWeightGrams),
+            SecondUnitPriceVndPerKg = WeightStorageMapper.FromVndPerKg(ticket.SecondUnitPriceVndPerKg),
             TotalAmountVnd = WeightStorageMapper.FromVnd(ticket.TotalAmountVnd),
             Notes = ticket.Notes,
             EventCount = ticket.Events.Count

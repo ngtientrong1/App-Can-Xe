@@ -54,6 +54,8 @@ public sealed class TicketUpdateService
             DraftCargoType = ticket.CargoTypeNameSnapshot,
             DraftCargoTypeId = ticket.CargoTypeId,
             DraftUnitPrice = WeightStorageMapper.FromVndPerKg(ticket.UnitPriceVndPerKg),
+            DraftSplitFirstWeightKg = WeightStorageMapper.FromGrams(ticket.SplitFirstWeightGrams),
+            DraftSecondUnitPrice = WeightStorageMapper.FromVndPerKg(ticket.SecondUnitPriceVndPerKg),
             DraftNotes = ticket.Notes,
             DraftWeight1 = effective1,
             DraftWeight2 = effective2,
@@ -93,6 +95,9 @@ public sealed class TicketUpdateService
         if (ticket is null)
             return Fail($"Không tìm thấy phiếu #{ticketId}.");
 
+        if (PriceSplitValidator.Validate(draft) is { } priceSplitError)
+            return Fail(priceSplitError);
+
         var originalTicketDateTime = ticket.TicketDateTime;
         var originalDisplayNumber = ticket.DisplayNumber;
         var originalCreatedAt = ticket.CreatedAt;
@@ -130,6 +135,18 @@ public sealed class TicketUpdateService
             draft.DraftUnitPrice?.ToString("0", System.Globalization.CultureInfo.InvariantCulture),
             reasonText, editedBy, false));
         auditLogs.AddIfNotNull(TicketEditAuditBuilder.BuildChange(
+            ticketId, "SplitFirstWeightKg",
+            ticket.SplitFirstWeightGrams is { } oldSplitGrams
+                ? WeightStorageMapper.FromGrams(oldSplitGrams)?.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)
+                : null,
+            draft.DraftPriceSplit?.FirstWeightKg.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture),
+            reasonText, editedBy, false));
+        auditLogs.AddIfNotNull(TicketEditAuditBuilder.BuildChange(
+            ticketId, "SecondUnitPrice",
+            ticket.SecondUnitPriceVndPerKg?.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            draft.DraftPriceSplit?.SecondUnitPriceVndPerKg.ToString("0", System.Globalization.CultureInfo.InvariantCulture),
+            reasonText, editedBy, false));
+        auditLogs.AddIfNotNull(TicketEditAuditBuilder.BuildChange(
             ticketId, "Notes", ticket.Notes, draft.DraftNotes, reasonText, editedBy, false));
 
         await ApplyDraftMetadataAsync(ticket, draft, cancellationToken);
@@ -137,7 +154,7 @@ public sealed class TicketUpdateService
         var events = ticket.Events.ToList();
         ApplyWeightChanges(draft, events, w1, w2, ticketId, reasonText, editedBy, auditLogs);
 
-        WeightStorageMapper.ApplyCalculationToTicket(ticket, draft.DraftWeight1, draft.DraftWeight2, draft.DraftUnitPrice);
+        WeightStorageMapper.ApplyCalculationToTicket(ticket, draft.DraftWeight1, draft.DraftWeight2, draft.DraftUnitPrice, draft.DraftPriceSplit);
         ticket.UpdatedAt = DateTimeOffset.Now;
         ticket.TicketDateTime = originalTicketDateTime;
         ticket.DisplayNumber = originalDisplayNumber;
@@ -368,6 +385,8 @@ public sealed class TicketUpdateService
             NetWeightKg = WeightStorageMapper.FromGrams(ticket.NetWeightGrams),
             BillableWeightKg = WeightStorageMapper.FromGrams(ticket.BillableWeightGrams),
             UnitPriceVndPerKg = WeightStorageMapper.FromVndPerKg(ticket.UnitPriceVndPerKg),
+            SplitFirstWeightKg = WeightStorageMapper.FromGrams(ticket.SplitFirstWeightGrams),
+            SecondUnitPriceVndPerKg = WeightStorageMapper.FromVndPerKg(ticket.SecondUnitPriceVndPerKg),
             TotalAmountVnd = WeightStorageMapper.FromVnd(ticket.TotalAmountVnd),
             Notes = ticket.Notes,
             EventCount = ticket.Events.Count

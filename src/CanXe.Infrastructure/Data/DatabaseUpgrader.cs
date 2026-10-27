@@ -16,6 +16,7 @@ public static class DatabaseUpgrader
     public const string Phase4Rc23MigrationId = "202606300003_Phase4_Rc23_A4TwoUpAndSoftDelete";
     public const string Phase5Rc6MigrationId = "202607040006_Phase5_Rc6_CatalogFields";
     public const string Phase6Rc1MigrationId = "202607140001_Phase6_Rc1_WeighInputSource";
+    public const string Phase7PriceSplitMigrationId = "202610270001_Phase7_TicketPriceSplit";
 
     public static async Task UpgradeAsync(CanXeDbContext db, string databasePath, CancellationToken cancellationToken = default)
     {
@@ -43,6 +44,8 @@ public static class DatabaseUpgrader
             await RecordMigrationAsync(db, Phase5Rc6MigrationId, cancellationToken);
             await ApplyPhase6Rc1WeighInputSourceAsync(db, cancellationToken);
             await RecordMigrationAsync(db, Phase6Rc1MigrationId, cancellationToken);
+            await ApplyPhase7TicketPriceSplitAsync(db, cancellationToken);
+            await RecordMigrationAsync(db, Phase7PriceSplitMigrationId, cancellationToken);
             return;
         }
 
@@ -74,6 +77,8 @@ public static class DatabaseUpgrader
         await RecordMigrationAsync(db, Phase5Rc6MigrationId, cancellationToken);
         await ApplyPhase6Rc1WeighInputSourceAsync(db, cancellationToken);
         await RecordMigrationAsync(db, Phase6Rc1MigrationId, cancellationToken);
+        await ApplyPhase7TicketPriceSplitAsync(db, cancellationToken);
+        await RecordMigrationAsync(db, Phase7PriceSplitMigrationId, cancellationToken);
     }
 
     public static void BackupDatabase(string databasePath)
@@ -461,6 +466,17 @@ public static class DatabaseUpgrader
                 """,
                 cancellationToken);
         }
+    }
+
+    private static async Task ApplyPhase7TicketPriceSplitAsync(
+        CanXeDbContext db,
+        CancellationToken cancellationToken)
+    {
+        if (!await TableExistsAsync(db, "WeighTickets", cancellationToken))
+            return;
+
+        await AddColumnIfMissingAsync(db, "WeighTickets", "SplitFirstWeightGrams", "INTEGER NULL", cancellationToken);
+        await AddColumnIfMissingAsync(db, "WeighTickets", "SecondUnitPriceVndPerKg", "INTEGER NULL", cancellationToken);
     }
 
     private static async Task ApplyPhase6Rc1WeighInputSourceAsync(

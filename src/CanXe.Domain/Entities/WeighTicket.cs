@@ -23,6 +23,14 @@ public class WeighTicket
     public string? CargoTypeNameSnapshot { get; set; }
 
     public int? UnitPriceVndPerKg { get; set; }
+
+    /// <summary>
+    /// Two-level pricing: the first part of the billable weight (grams) is charged at
+    /// <see cref="UnitPriceVndPerKg"/>, the rest at <see cref="SecondUnitPriceVndPerKg"/>. Both null = single price.
+    /// </summary>
+    public int? SplitFirstWeightGrams { get; set; }
+    public int? SecondUnitPriceVndPerKg { get; set; }
+
     public string? Notes { get; set; }
 
     public int? GrossWeightGrams { get; set; }

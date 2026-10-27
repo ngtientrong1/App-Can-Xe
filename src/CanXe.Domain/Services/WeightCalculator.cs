@@ -10,7 +10,15 @@ public sealed record WeightCalculationResult(
 
 public static class WeightCalculator
 {
-    public static WeightCalculationResult Calculate(decimal? weight1Kg, decimal? weight2Kg, decimal? unitPriceVndPerKg)
+    public static WeightCalculationResult Calculate(decimal? weight1Kg, decimal? weight2Kg, decimal? unitPriceVndPerKg) =>
+        Calculate(weight1Kg, weight2Kg, unitPriceVndPerKg, split: null);
+
+    /// <summary>
+    /// Same as the single-price calculation, but when <paramref name="split"/> is valid the billable
+    /// weight is priced in two parts (first part at the unit price, the rest at the second price).
+    /// </summary>
+    public static WeightCalculationResult Calculate(
+        decimal? weight1Kg, decimal? weight2Kg, decimal? unitPriceVndPerKg, PriceSplit? split)
     {
         if (weight1Kg is null && weight2Kg is null)
             return new(null, null, null, null, null, null);
@@ -39,7 +47,7 @@ public static class WeightCalculator
         var deduction = net / 1000m * 3m;
         var rawBillable = net - deduction;
         var billable = Math.Round(rawBillable, 0, MidpointRounding.AwayFromZero);
-        var total = Math.Round(billable * unitPriceVndPerKg.Value, 0, MidpointRounding.AwayFromZero);
+        var total = PriceBreakdown.TotalAmount(PriceBreakdown.Compute(billable, unitPriceVndPerKg.Value, split));
 
         return new(gross, tare, net, deduction, billable, total);
     }
