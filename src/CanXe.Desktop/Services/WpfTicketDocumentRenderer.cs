@@ -107,6 +107,14 @@ public sealed class WpfTicketDocumentRenderer : ITicketDocumentRenderer
             y = DrawLine(dc, title, "Trừ bì", detail.DeductionWeightKg?.ToString("N3", CultureInfo.CurrentCulture) ?? "—", y);
             y = DrawLine(dc, title, "KL tính tiền", FormatKg(detail.BillableWeightKg), y);
             y = DrawLine(dc, title, "Đơn giá", detail.UnitPriceVndPerKg?.ToString("N0", CultureInfo.CurrentCulture) + " VNĐ/kg", y);
+            if (detail is { HasPriceSplit: true, BillableWeightKg: > 0, UnitPriceVndPerKg: > 0 })
+            {
+                var lines = PriceBreakdown.Compute(
+                    detail.BillableWeightKg.Value,
+                    detail.UnitPriceVndPerKg.Value,
+                    PriceSplit.TryCreate(detail.SplitFirstWeightKg, detail.SecondUnitPriceVndPerKg));
+                y = DrawLine(dc, title, "Chi tiết giá", PriceTextFormatter.Breakdown(lines), y);
+            }
             y = DrawLine(dc, title, "Thành tiền", detail.TotalAmountVnd?.ToString("N0", CultureInfo.CurrentCulture) + " VNĐ", y);
         }
         else

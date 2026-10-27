@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -70,6 +70,12 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainViewModel vm)
             vm.CommitUnitPriceEdit();
+    }
+
+    private void SplitField_OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+            vm.CommitSplitFieldsEdit();
     }
 
     private void VehicleField_OnLostFocus(object sender, RoutedEventArgs e)

@@ -77,6 +77,32 @@ public static class WeighTicketPrintFormatter
         return $"{vndPerKg.Value.ToString("N0", System.Globalization.CultureInfo.CurrentCulture)} VNĐ/kg";
     }
 
+    /// <summary>"19.800 / 19.600 VNĐ/kg" for a two-level ticket, otherwise the single price.</summary>
+    public static string? FormatUnitPrice(WeighTicketPrintModel model)
+    {
+        if (!model.ShowPrice || !(model.UnitPriceVndPerKg > 0))
+            return null;
+
+        // The printed cell is one line wide: the ĐƠN GIÁ label already says per kg, so the unit is dropped.
+        return model.HasPriceSplit
+            ? PriceTextFormatter.UnitPrice(model.UnitPriceVndPerKg, model.SecondUnitPriceVndPerKg, true)
+            : FormatUnitPricePerKg(model.UnitPriceVndPerKg, model.ShowPrice);
+    }
+
+    /// <summary>"15.000 kg × 19.800 + 1.022 kg × 19.600" when the ticket is priced in two parts, else null.</summary>
+    public static string? FormatPriceBreakdown(WeighTicketPrintModel model)
+    {
+        if (!model.ShowPrice || !model.HasPriceSplit || model.BillableWeightKg is not > 0 || model.UnitPriceVndPerKg is not > 0)
+            return null;
+
+        var lines = PriceBreakdown.Compute(
+            model.BillableWeightKg.Value,
+            model.UnitPriceVndPerKg.Value,
+            PriceSplit.TryCreate(model.SplitFirstWeightKg, model.SecondUnitPriceVndPerKg));
+
+        return lines.Count > 1 ? PriceTextFormatter.Breakdown(lines) : null;
+    }
+
     public static string? FormatTotalAmount(decimal? amountVnd, bool showPrice)
     {
         if (!showPrice || !amountVnd.HasValue || amountVnd.Value <= 0)
@@ -112,6 +138,9 @@ public static class WeighTicketPrintModelMapper
             NetWeightKg = detail.NetWeightKg,
             DeductionWeightKg = detail.DeductionWeightKg,
             UnitPriceVndPerKg = detail.UnitPriceVndPerKg,
+            BillableWeightKg = detail.BillableWeightKg,
+            SplitFirstWeightKg = detail.SplitFirstWeightKg,
+            SecondUnitPriceVndPerKg = detail.SecondUnitPriceVndPerKg,
             TotalAmountVnd = detail.TotalAmountVnd,
             ShowPrice = printSettings.ShowPrice && !detail.IsServiceWeigh,
             Weight1Kg = detail.Weight1Kg,

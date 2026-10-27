@@ -48,6 +48,10 @@ public sealed class WeighTicketPrintModel
     public decimal? Weight1Kg { get; init; }
     public decimal? Weight2Kg { get; init; }
     public decimal? UnitPriceVndPerKg { get; init; }
+    public decimal? BillableWeightKg { get; init; }
+    public decimal? SplitFirstWeightKg { get; init; }
+    public decimal? SecondUnitPriceVndPerKg { get; init; }
+    public bool HasPriceSplit => SplitFirstWeightKg is > 0 && SecondUnitPriceVndPerKg is > 0;
     public decimal? TotalAmountVnd { get; init; }
     public bool ShowPrice { get; init; } = true;
     public DateTimeOffset? Weight1RecordedAt { get; init; }

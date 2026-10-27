@@ -248,6 +248,12 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private string? _filterCargoTypeName;
     [ObservableProperty] private string? _filterLicensePlate;
     [ObservableProperty] private string? _filterDisplayNumber;
+    // Two-level pricing: the first part (kg) uses the Đơn giá above, the rest uses the second price.
+    [ObservableProperty] private bool _isPriceSplitEnabled;
+    [ObservableProperty] private string? _splitFirstWeightText;
+    [ObservableProperty] private string? _secondUnitPriceText;
+    [ObservableProperty] private string _splitSummaryText = string.Empty;
+
     [ObservableProperty] private string? _filterUnitPriceText;
     [ObservableProperty] private string? _filterUnitPriceToText;
     [ObservableProperty] private string _filterResultSummary = string.Empty;
@@ -1416,6 +1422,36 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         UpdateDisplaysFromDraft();
     }
 
+    partial void OnIsPriceSplitEnabledChanged(bool value)
+    {
+        SyncSplitToDraft();
+        UpdateDisplaysFromDraft();
+    }
+
+    partial void OnSplitFirstWeightTextChanged(string? value)
+    {
+        SyncSplitToDraft();
+        UpdateDisplaysFromDraft();
+    }
+
+    partial void OnSecondUnitPriceTextChanged(string? value)
+    {
+        SyncSplitToDraft();
+        UpdateDisplaysFromDraft();
+    }
+
+    private void SyncSplitToDraft()
+    {
+        _draft.DraftSplitFirstWeightKg = IsPriceSplitEnabled ? UnitPriceInputHelper.Parse(SplitFirstWeightText) : null;
+        _draft.DraftSecondUnitPrice = IsPriceSplitEnabled ? UnitPriceInputHelper.Parse(SecondUnitPriceText) : null;
+    }
+
+    public void CommitSplitFieldsEdit()
+    {
+        SplitFirstWeightText = UnitPriceInputHelper.CommitDisplay(SplitFirstWeightText);
+        SecondUnitPriceText = UnitPriceInputHelper.CommitDisplay(SecondUnitPriceText);
+    }
+
     public void CommitLicensePlateEdit()
     {
         if (string.IsNullOrWhiteSpace(LicensePlate))
@@ -1910,6 +1946,7 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         _draft.DraftCargoType = CargoTypeName;
         _draft.DraftNotes = Notes;
         _draft.DraftUnitPrice = UnitPriceInputHelper.Parse(UnitPriceText);
+        SyncSplitToDraft();
         _draft.DeveloperWeight1OverrideEnabled = DeveloperWeight1OverrideEnabled;
         _draft.DeveloperWeightUnlockEnabled = IsDevWeightEditUnlocked;
         _draft.WeightOverrideReasonCode = WeightOverrideReasonCode;
@@ -1945,6 +1982,9 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
             LicensePlate = _draft.DraftVehicle;
             CargoTypeName = _draft.DraftCargoType;
             UnitPriceText = UnitPriceInputHelper.FormatDisplay(_draft.DraftUnitPrice);
+            IsPriceSplitEnabled = _draft.DraftSplitFirstWeightKg.HasValue || _draft.DraftSecondUnitPrice.HasValue;
+            SplitFirstWeightText = UnitPriceInputHelper.FormatDisplay(_draft.DraftSplitFirstWeightKg);
+            SecondUnitPriceText = UnitPriceInputHelper.FormatDisplay(_draft.DraftSecondUnitPrice);
             Notes = _draft.DraftNotes;
             DeveloperWeight1OverrideEnabled = _draft.DeveloperWeight1OverrideEnabled;
             if (IsDevWeightEditUnlocked)
@@ -1992,7 +2032,8 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
 
         var unitPrice = _draft.DraftUnitPrice;
-        var calc = WeightCalculator.Calculate(_draft.DraftWeight1, _draft.DraftWeight2, unitPrice);
+        var calc = WeightCalculator.Calculate(_draft.DraftWeight1, _draft.DraftWeight2, unitPrice, _draft.DraftPriceSplit);
+        SplitSummaryText = BuildSplitSummary(calc.BillableWeightKg, unitPrice);
         GrossDisplay = FormatKg(calc.GrossWeightKg);
         TareDisplay = FormatKg(calc.TareWeightKg);
         NetDisplay = FormatKg(calc.NetWeightKg);
@@ -2000,6 +2041,26 @@ public sealed partial class MainViewModel : ObservableObject, IAsyncDisposable
         BillableDisplay = FormatKg(calc.BillableWeightKg);
         TotalAmountDisplay = calc.TotalAmountVnd?.ToString("N0", CultureInfo.CurrentCulture) ?? "—";
         IsServiceWeighVisible = calc.NetWeightKg.HasValue && !WeightCalculator.HasBillableUnitPrice(unitPrice);
+    }
+
+    private string BuildSplitSummary(decimal? billableKg, decimal? unitPrice)
+    {
+        if (!IsPriceSplitEnabled)
+            return string.Empty;
+
+        var split = _draft.DraftPriceSplit;
+        if (split is null)
+            return "Nhập khối lượng phần đầu và giá phần còn lại.";
+
+        if (billableKg is not { } billable || unitPrice is not > 0)
+            return "Phần còn lại = KL tính tiền − phần đầu (có sau khi cân lần 2 và nhập đơn giá).";
+
+        if (split.FirstWeightKg >= billable)
+            return $"Phần đầu phải nhỏ hơn KL tính tiền ({billable:N0} kg).";
+
+        var lines = PriceBreakdown.Compute(billable, unitPrice.Value, split);
+        return $"Phần đầu {lines[0].WeightKg:N0} kg × {lines[0].UnitPriceVndPerKg:N0}   |   " +
+               $"Còn lại {lines[1].WeightKg:N0} kg × {lines[1].UnitPriceVndPerKg:N0}";
     }
 
     private void UpdateButtonStates()

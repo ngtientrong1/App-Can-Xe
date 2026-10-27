@@ -29,6 +29,7 @@ public sealed class WeighTicketCopyViewModel
     public required string TotalAmount { get; init; }
     public required string DeductionWeightDisplay { get; init; }
     public required string Notes { get; init; }
+    public string NotesLabel { get; init; } = "GHI CHÚ";
     public required string Weigh1Time { get; init; }
     public required string Weigh1Date { get; init; }
     public required string Weigh2Time { get; init; }
@@ -40,7 +41,8 @@ public sealed class WeighTicketCopyViewModel
 
     public static WeighTicketCopyViewModel From(WeighTicketPrintModel model)
     {
-        var unitPrice = WeighTicketPrintFormatter.FormatUnitPricePerKg(model.UnitPriceVndPerKg, model.ShowPrice);
+        var unitPrice = WeighTicketPrintFormatter.FormatUnitPrice(model);
+        var priceBreakdown = WeighTicketPrintFormatter.FormatPriceBreakdown(model);
         var totalAmount = WeighTicketPrintFormatter.FormatTotalAmount(model.TotalAmountVnd, model.ShowPrice);
         var weigh1Recorded = WeighTicketPrintFormatter.HasRecordedWeighTimestamp(model.FirstWeighingAt);
         var weigh2Recorded = WeighTicketPrintFormatter.HasRecordedWeighTimestamp(model.SecondWeighingAt);
@@ -78,7 +80,14 @@ public sealed class WeighTicketCopyViewModel
             UnitPrice = unitPrice ?? "—",
             TotalAmount = totalAmount ?? "—",
             DeductionWeightDisplay = WeighTicketPrintFormatter.FormatWeightKg(model.DeductionWeightKg),
-            Notes = string.IsNullOrWhiteSpace(model.Notes) ? "—" : model.Notes,
+            // A two-level ticket states each priced part on the one value line of the notes area (the printed
+            // layout has no spare row); any notes move up to the small label line so they are still printed.
+            NotesLabel = priceBreakdown is null
+                ? "GHI CHÚ"
+                : string.IsNullOrWhiteSpace(model.Notes)
+                    ? "CHI TIẾT GIÁ"
+                    : $"CHI TIẾT GIÁ  ·  GHI CHÚ: {Shorten(model.Notes, 48)}",
+            Notes = priceBreakdown ?? (string.IsNullOrWhiteSpace(model.Notes) ? "—" : model.Notes),
             Weigh1Recorded = weigh1Recorded,
             Weigh2Recorded = weigh2Recorded,
             Weigh1Time = WeighTicketPrintFormatter.FormatTime(model.FirstWeighingAt),
@@ -89,6 +98,9 @@ public sealed class WeighTicketCopyViewModel
             ShowReprintWatermark = model.IsReprint && model.PrintSettings.ShowReprintWatermark
         };
     }
+
+    private static string Shorten(string value, int maxLength) =>
+        value.Length <= maxLength ? value : value[..(maxLength - 1)] + "…";
 
     private static string NullToDash(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "—" : value;

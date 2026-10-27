@@ -177,7 +177,7 @@ public static class ReportPrintDocumentBuilder
         if (billableDiffers)
             columns.Add(new("KL tính tiền", r => Number(r.BillableWeightKg)));
 
-        columns.Add(new("Đơn giá", r => Number(r.UnitPriceVndPerKg)));
+        columns.Add(new("Đơn giá", r => r.UnitPriceDisplay, Wrappable: true));
         columns.Add(new("Thành tiền", r => Number(r.TotalAmountVnd)));
         return columns;
     }

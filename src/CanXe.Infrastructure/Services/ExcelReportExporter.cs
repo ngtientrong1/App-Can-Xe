@@ -8,7 +8,7 @@ public sealed class ExcelReportExporter : IExcelReportExporter
 {
     private const string SheetName = "BaoCaoPhieuCan";
     private const string ThousandsFormat = "#,##0";
-    private const int ColumnCount = 13;
+    private const int ColumnCount = 15;
 
     public void Export(ReportResult report, ReportFilter filter, string filePath, string? stationName)
     {
@@ -33,7 +33,8 @@ public sealed class ExcelReportExporter : IExcelReportExporter
         var headers = new[]
         {
             "STT", "Ngày giờ", "Số phiếu", "Khách hàng", "Biển số", "Loại hàng",
-            "Tổng", "Bì", "Hàng", "KL tính tiền", "Đơn giá", "Thành tiền", "Ghi chú"
+            "Tổng", "Bì", "Hàng", "KL tính tiền", "Đơn giá", "Thành tiền", "Ghi chú",
+            "KL phần giá 1 (kg)", "Đơn giá phần còn lại"
         };
 
         for (var col = 0; col < headers.Length; col++)
@@ -80,6 +81,12 @@ public sealed class ExcelReportExporter : IExcelReportExporter
             WriteMoney(sheet.Cell(row, 11), item.UnitPriceVndPerKg);
             WriteMoney(sheet.Cell(row, 12), item.TotalAmountVnd);
             sheet.Cell(row, 13).Value = item.Notes ?? string.Empty;
+            // Two-level price: Đơn giá above is the first part; these two columns hold the rest of the split.
+            if (item.HasPriceSplit)
+            {
+                WriteKg(sheet.Cell(row, 14), item.SplitFirstWeightKg);
+                WriteMoney(sheet.Cell(row, 15), item.SecondUnitPriceVndPerKg);
+            }
             row++;
         }
 
@@ -140,6 +147,8 @@ public sealed class ExcelReportExporter : IExcelReportExporter
         sheet.Column(11).Width = 12;
         sheet.Column(12).Width = 14;
         sheet.Column(13).Width = 24;
+        sheet.Column(14).Width = 18;
+        sheet.Column(15).Width = 20;
     }
 
     private static DateTime ToExcelDateTime(DateTimeOffset value)

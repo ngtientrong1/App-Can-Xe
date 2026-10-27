@@ -22,9 +22,22 @@ public partial class TicketDetailWindow : Window
         LoadPhoto(vm.Detail.Weight1PhotoPath, vm.Detail.Weight1PhotoAvailable, Weight1Image, Weight1PhotoPlaceholder);
         LoadPhoto(vm.Detail.Weight2PhotoPath, vm.Detail.Weight2PhotoAvailable, Weight2Image, Weight2PhotoPlaceholder);
 
-        UnitPriceBlock.Text = vm.Detail.UnitPriceVndPerKg is { } p and > 0
-            ? $"{p:N0} VNĐ/kg"
-            : "Cân dịch vụ";
+        var detail = vm.Detail;
+        var price = detail.UnitPriceVndPerKg ?? 0m;
+        if (price <= 0)
+        {
+            UnitPriceBlock.Text = "Cân dịch vụ";
+        }
+        else if (detail is { HasPriceSplit: true, BillableWeightKg: > 0 })
+        {
+            var lines = Domain.Services.PriceBreakdown.Compute(
+                detail.BillableWeightKg.Value, price, Domain.Services.PriceSplit.TryCreate(detail.SplitFirstWeightKg, detail.SecondUnitPriceVndPerKg));
+            UnitPriceBlock.Text = $"{Domain.Services.PriceTextFormatter.Breakdown(lines)} (VNĐ/kg)";
+        }
+        else
+        {
+            UnitPriceBlock.Text = $"{price:N0} VNĐ/kg";
+        }
     }
 
     private static void LoadPhoto(string? path, bool available, System.Windows.Controls.Image image, System.Windows.Controls.TextBlock placeholder)

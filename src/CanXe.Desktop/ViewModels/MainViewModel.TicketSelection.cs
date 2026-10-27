@@ -15,6 +15,7 @@ public sealed partial class MainViewModel
         string? Cargo,
         string? Notes,
         string? UnitPrice,
+        string? Split,
         decimal? Weight1,
         decimal? Weight2,
         string? DevWeight1,
@@ -275,7 +276,8 @@ public sealed partial class MainViewModel
             || !string.IsNullOrWhiteSpace(_draft.DraftVehicle)
             || !string.IsNullOrWhiteSpace(_draft.DraftCargoType)
             || !string.IsNullOrWhiteSpace(_draft.DraftNotes)
-            || _draft.DraftUnitPrice.HasValue;
+            || _draft.DraftUnitPrice.HasValue
+            || _draft.DraftPriceSplit is not null;
     }
 
     private bool HasMetadataChangedFromSnapshot()
@@ -288,7 +290,8 @@ public sealed partial class MainViewModel
             || !string.Equals(_formSnapshot.Value.Plate, LicensePlate, StringComparison.Ordinal)
             || !string.Equals(_formSnapshot.Value.Cargo, CargoTypeName, StringComparison.Ordinal)
             || !string.Equals(_formSnapshot.Value.Notes, Notes, StringComparison.Ordinal)
-            || !string.Equals(_formSnapshot.Value.UnitPrice, UnitPriceText, StringComparison.Ordinal);
+            || !string.Equals(_formSnapshot.Value.UnitPrice, UnitPriceText, StringComparison.Ordinal)
+            || !string.Equals(_formSnapshot.Value.Split, SplitSnapshotText(), StringComparison.Ordinal);
     }
 
     private bool HasDraftWeightChangedFromSnapshot()
@@ -310,11 +313,15 @@ public sealed partial class MainViewModel
             CargoTypeName,
             Notes,
             UnitPriceText,
+            SplitSnapshotText(),
             _draft.DraftWeight1,
             _draft.DraftWeight2,
             DevWeight1Text,
             DevWeight2Text);
     }
+
+    private string SplitSnapshotText() =>
+        IsPriceSplitEnabled ? $"{SplitFirstWeightText}|{SecondUnitPriceText}" : string.Empty;
 
     private void ClearFormSnapshot() => _formSnapshot = null;
 

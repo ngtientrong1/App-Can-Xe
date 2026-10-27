@@ -46,6 +46,14 @@ public sealed class ReportRowDto
     public decimal? NetWeightKg { get; init; }
     public decimal? BillableWeightKg { get; init; }
     public decimal? UnitPriceVndPerKg { get; init; }
+    public decimal? SplitFirstWeightKg { get; init; }
+    public decimal? SecondUnitPriceVndPerKg { get; init; }
+    public bool HasPriceSplit => SplitFirstWeightKg is > 0 && SecondUnitPriceVndPerKg is > 0;
+
+    /// <summary>One price, or "19.800 / 19.600" when the ticket is priced in two parts.</summary>
+    public string UnitPriceDisplay =>
+        CanXe.Domain.Services.PriceTextFormatter.UnitPrice(UnitPriceVndPerKg, SecondUnitPriceVndPerKg, HasPriceSplit);
+
     public decimal? TotalAmountVnd { get; init; }
     public string? Notes { get; init; }
 }

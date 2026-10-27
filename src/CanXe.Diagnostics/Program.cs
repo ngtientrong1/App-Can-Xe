@@ -50,6 +50,9 @@ internal static class Program
                     multiCustomer: args.Contains("--multi", StringComparer.OrdinalIgnoreCase));
             }
 
+            if (args.Length >= 2 && string.Equals(args[0], "--ticket-price-split-print-test", StringComparison.OrdinalIgnoreCase))
+                return CanXe.Desktop.Services.TicketPriceSplitPrintTestRunner.Run(args[1]);
+
             var cli = DiagnosticsArgumentParser.Parse(args);
 
             if (cli.ShowHelp)

@@ -229,8 +229,19 @@
                  figure (Chờ cân 2) now lives in the footer band instead. -->
 
             <Grid Grid.Row="1" Margin="0,0,0,6"
-                  MinHeight="420"
-                  MaxHeight="510">
+                  MinHeight="420">
+            <!-- The two-level price inputs add about 100 units; give the form card that much more room so the
+                 notes field is not squeezed out (the ticket list below absorbs the difference). -->
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="MaxHeight" Value="510"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsPriceSplitEnabled}" Value="True">
+                            <Setter Property="MaxHeight" Value="640"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="44*" MinWidth="300"/>
                 <ColumnDefinition Width="56*" MinWidth="340"/>
@@ -535,6 +546,34 @@
                                      Text="{Binding UnitPriceText, UpdateSourceTrigger=PropertyChanged}"/>
                         </StackPanel>
                     </Grid>
+                    <!-- Two-level pricing: first X kg at the Đơn giá above, the rest at a second price. -->
+                    <CheckBox x:Name="PriceSplitToggle" TabIndex="-1" FontSize="15" Margin="0,0,0,4"
+                              Content="Tách 2 mức giá (phần đầu giá ở trên, phần còn lại giá khác)"
+                              IsChecked="{Binding IsPriceSplitEnabled}"
+                              Foreground="{DynamicResource SecondaryTextBrush}"/>
+                    <Grid Margin="0,0,0,2" Visibility="{Binding IsPriceSplitEnabled, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                            <TextBlock Text="Phần đầu (kg) — giá theo ô Đơn giá" Style="{StaticResource CanXeFormFieldLabelStyle}"/>
+                            <TextBox x:Name="SplitFirstWeightField" TabIndex="5" Style="{StaticResource CanXeTextBoxStyle}"
+                                     MinHeight="{Binding FormFieldHeight}" FontSize="20"
+                                     LostFocus="SplitField_OnLostFocus"
+                                     Text="{Binding SplitFirstWeightText, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                            <TextBlock Text="Giá phần còn lại (VNĐ/kg)" Style="{StaticResource CanXeFormFieldLabelStyle}"/>
+                            <TextBox x:Name="SecondUnitPriceField" TabIndex="5" Style="{StaticResource CanXeTextBoxStyle}"
+                                     MinHeight="{Binding FormFieldHeight}" FontSize="20"
+                                     LostFocus="SplitField_OnLostFocus"
+                                     Text="{Binding SecondUnitPriceText, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Text="{Binding SplitSummaryText}" FontSize="15" FontWeight="SemiBold" Margin="0,2,0,4"
+                               TextWrapping="Wrap" Foreground="{DynamicResource AccentBlueBrush}"
+                               Visibility="{Binding IsPriceSplitEnabled, Converter={StaticResource BoolToVis}}"/>
 
                     <!-- Summary band: Tổng/Bì/Hàng (moved from the weight card) alongside
                          Trừ hao/Tính tiền/Thành tiền — one horizontal strip, same tinted-band
@@ -841,7 +880,7 @@
                                     ElementStyle="{StaticResource MonoAlignedCell}"/>
                 <DataGridTextColumn Header="KL tính tiền" Binding="{Binding BillableWeightKg, StringFormat=N0, TargetNullValue=—}" Width="147" DisplayIndex="8"
                                     ElementStyle="{StaticResource MonoAlignedCell}"/>
-                <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPriceVndPerKg, StringFormat=N0, TargetNullValue=—}" Width="144" DisplayIndex="9"
+                <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPriceDisplay, Mode=OneWay}" Width="190" DisplayIndex="9"
                                     ElementStyle="{StaticResource MonoAlignedCell}"/>
                 <DataGridTextColumn Header="Thành tiền" Binding="{Binding TotalAmountVnd, StringFormat=N0, TargetNullValue=—}" Width="165" DisplayIndex="10"
                                     ElementStyle="{StaticResource MonoAlignedCell}"/>

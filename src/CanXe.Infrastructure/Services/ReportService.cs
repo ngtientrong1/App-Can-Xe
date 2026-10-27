@@ -152,6 +152,10 @@ public sealed class ReportService(
 
             UnitPriceVndPerKg = ticket.UnitPriceVndPerKg,
 
+            SplitFirstWeightKg = WeightStorageMapper.FromGrams(ticket.SplitFirstWeightGrams),
+
+            SecondUnitPriceVndPerKg = ticket.SecondUnitPriceVndPerKg,
+
             TotalAmountVnd = ticket.TotalAmountVnd,
 
             Notes = ticket.Notes

@@ -143,7 +143,7 @@
                 <DataGridTextColumn Header="Bì" Binding="{Binding TareWeightKg, Converter={StaticResource VnNumberConverter}, ConverterParameter=weight}" Width="68"/>
                 <DataGridTextColumn Header="Hàng" Binding="{Binding NetWeightKg, Converter={StaticResource VnNumberConverter}, ConverterParameter=weight}" Width="72"/>
                 <DataGridTextColumn Header="KL tính tiền" Binding="{Binding BillableWeightKg, Converter={StaticResource VnNumberConverter}, ConverterParameter=weight}" Width="95"/>
-                <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPriceVndPerKg, Converter={StaticResource VnNumberConverter}, ConverterParameter=money}" Width="85"/>
+                <DataGridTextColumn Header="Đơn giá" Binding="{Binding UnitPriceDisplay, Mode=OneWay}" Width="140"/>
                 <DataGridTextColumn Header="Thành tiền" Binding="{Binding TotalAmountVnd, Converter={StaticResource VnNumberConverter}, ConverterParameter=money}" Width="100"/>
                 <DataGridTextColumn Header="Ghi chú" Binding="{Binding Notes, TargetNullValue=—}" Width="*"/>
             </DataGrid.Columns>

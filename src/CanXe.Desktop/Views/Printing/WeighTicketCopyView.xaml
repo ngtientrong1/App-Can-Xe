@@ -711,7 +711,7 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0" VerticalAlignment="Center" MinWidth="0" Margin="0,0,10,0">
-                        <TextBlock Text="GHI CHÚ" Style="{StaticResource NotesLabelStyle}" />
+                        <TextBlock x:Name="NotesLabelText" Text="{Binding NotesLabel}" Style="{StaticResource NotesLabelStyle}" />
                         <TextBlock Style="{StaticResource NotesValueStyle}" Text="{Binding Notes}" />
                     </StackPanel>
 
