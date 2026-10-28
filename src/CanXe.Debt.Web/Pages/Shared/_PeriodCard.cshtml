@@ -110,6 +110,10 @@
     else if (v.Status == PeriodStatus.Owing)
     {
         <div class="outcome owe">Còn nợ @Fmt.Vnd(v.Remaining) (trả sau)</div>
+        @if (Model.SeasonOpen)
+        {
+            <p class="toolbar no-print"><a class="btn" asp-page="/Customers/Detail" asp-route-id="@Model.CustomerId" asp-route-SeasonId="@Model.SeasonId" asp-route-pay="@v.Id" asp-fragment="thu">@(v.TruckCount >= LotNaming.MinTrucksForLot ? "Trả tiền cho lô này" : "Trả tiền cho xe này")</a></p>
+        }
     }
     else if (v.Status == PeriodStatus.PaidAhead)
     {

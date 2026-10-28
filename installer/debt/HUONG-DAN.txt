@@ -66,6 +66,7 @@ Trả tiền theo lô (chọn phiếu, trả một cục hoặc từng xe)
   hoặc chỉ một xe. Xe chưa vào lô nào nằm ở bảng "Xe chưa gom lô".
 - Gom lô: tick các xe (hoặc "Chọn tất cả", "Chọn dải này" theo từ phiếu - đến phiếu, "đến hết ngày"), xem tổng phải trả
   ngay bên dưới bảng, rồi bấm "Gom thành lô" hoặc "Chốt rồi trả luôn".
+- Xe/lô đã gom nhưng chưa trả: ở thẻ của nó bấm "Trả tiền cho xe này" (hoặc "cho lô này"), form trả tiền mở sẵn đúng lô và số còn nợ. Gom nhầm thì bấm "Hủy chốt lô này" để xe quay về bảng chọn.
 - Trả riêng một xe: bấm "Trả riêng" ở dòng của xe đó (ví dụ 3 xe 3 phiếu cùng ngày nhưng trả trước 1 xe).
   Các xe còn lại vẫn chờ chốt.
 - Lô chốt xong có tổng phải trả = nợ lô trước + tiền hàng các xe trong lô. Ghi nhận trả cho lô đó:
