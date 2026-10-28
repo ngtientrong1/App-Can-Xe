@@ -138,7 +138,12 @@ public sealed partial class ReportViewModel : ObservableObject
             Station = station,
             Period = ReportPrintHelper.DescribePeriod(filter),
             Criteria = ReportPrintHelper.DescribeCriteria(filter),
-            Rows = result.Rows,
+            // The sheet reads oldest → newest, like the Excel file; the list on screen stays newest-first.
+            Rows = result.Rows
+                .OrderBy(r => r.TicketDateTime)
+                .ThenBy(r => r.DisplayNumber, StringComparer.Ordinal)
+                .ThenBy(r => r.TicketId)
+                .ToList(),
             Summary = result.Summary,
             DistinctVehicles = ReportPrintHelper.CountDistinctVehicles(result.Rows)
         };

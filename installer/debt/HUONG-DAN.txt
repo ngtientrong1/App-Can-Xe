@@ -108,6 +108,9 @@ In báo cáo gửi chủ hàng (2 tờ A4 ngang)
 - Tờ 2 "Bảng kê công nợ thanh toán": nợ đầu kỳ, tiền hàng trong kỳ, đã trả trong kỳ, còn nợ đến ngày cuối;
   bên dưới là bảng các lô (số phiếu, số xe, tiền hàng, đã trả) và các lần thanh toán (ngày, nội dung, hình thức/ngân hàng, số tiền).
 - Từ 3 xe trở lên gọi là lô và đặt tên theo ngày cân, ví dụ "Lô 24/11" hoặc "Lô 22–23/11", không đánh số. Một hoặc hai xe không gọi là lô, chỉ ghi ngày và số phiếu, ví dụ "ngày 27/10 phiếu 57/10".
+- Xem trước: bấm "Cả 2 tờ", "Tờ 1" hoặc "Tờ 2" để xem từng tờ trên màn hình trước khi in.
+- Gửi ảnh nhanh: ở mục "Ảnh để gửi" bấm "Lưu ảnh" (trên điện thoại là "Gửi ảnh", mở thẳng Zalo/tin nhắn) hoặc "Sao chép" (dán vào Zalo trên máy tính). Ảnh luôn đủ nét và cùng khổ dù xem trên máy nào.
+- Phiếu, lô và khoản trả luôn xếp từ ngày cũ nhất đến mới nhất.
 - Nút "In 2 tờ" in mỗi tờ trên một trang riêng; "Chỉ in tờ 1" / "Chỉ in tờ 2" in từng tờ. Chọn khổ A4 ngang nếu máy in hỏi.
 - Báo cáo không có phần ký tên, không có tên trạm và điện thoại.
 

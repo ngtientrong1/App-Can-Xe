@@ -123,6 +123,89 @@
     });
   });
 
+  // Report preview: one sheet at a time on screen (printing is not affected).
+  document.querySelectorAll("[data-view]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var which = btn.getAttribute("data-view");
+      if (which === "all") { document.body.removeAttribute("data-view"); } else { document.body.setAttribute("data-view", which); }
+      document.querySelectorAll("[data-view]").forEach(function (b) { b.classList.toggle("on", b === btn); });
+    });
+  });
+
+  // Report picture: a sheet is drawn at a fixed width so the picture looks the same on a phone and on the desktop.
+  var bar = document.querySelector(".preview-bar");
+  if (bar) {
+    var status = bar.querySelector("[data-image-status]");
+    var say = function (text) { if (status) { status.textContent = text; } };
+    var baseName = (bar.getAttribute("data-image-name") || "cong-no")
+      .normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D")
+      .replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    var canCopy = !!(navigator.clipboard && window.ClipboardItem && window.isSecureContext);
+    var touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+
+    bar.querySelectorAll('[data-mode="copy"]').forEach(function (b) { b.hidden = !canCopy; });
+    if (touch) {
+      bar.querySelectorAll('[data-mode="save"]').forEach(function (b) { b.textContent = "Gửi ảnh"; });
+    }
+
+    var render = function (which) {
+      var sheet = document.querySelector(".sheet-" + which);
+      return window.html2canvas(sheet, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        windowWidth: 1500,
+        onclone: function (doc, clone) {
+          clone.style.display = "block";
+          clone.style.width = "1400px";
+          clone.style.maxWidth = "none";
+          clone.style.margin = "0";
+          clone.style.border = "none";
+          clone.style.borderRadius = "0";
+          clone.style.fontSize = "17px";
+        }
+      }).then(function (canvas) {
+        return new Promise(function (resolve, reject) {
+          canvas.toBlob(function (blob) { blob ? resolve(blob) : reject(new Error("no blob")); }, "image/png");
+        });
+      });
+    };
+
+    bar.querySelectorAll("[data-image]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var which = btn.getAttribute("data-image");
+        var mode = btn.getAttribute("data-mode");
+        if (!window.html2canvas) { say("Chưa tải được phần tạo ảnh. Tải lại trang rồi thử lại."); return; }
+
+        var fileName = baseName + "-to" + which + ".png";
+        say("Đang tạo ảnh…");
+        btn.disabled = true;
+
+        // The clipboard wants its picture handed over as a promise so the click still counts as the user's action.
+        var work = mode === "copy" && canCopy
+          ? navigator.clipboard.write([new ClipboardItem({ "image/png": render(which) })]).then(function () { say("Đã sao chép ảnh tờ " + which + ". Dán vào Zalo hay tin nhắn."); })
+          : render(which).then(function (blob) {
+              var file = new File([blob], fileName, { type: "image/png" });
+              if (touch && navigator.canShare && navigator.canShare({ files: [file] })) {
+                return navigator.share({ files: [file], title: "Công nợ" }).then(function () { say("Đã mở chia sẻ ảnh tờ " + which + "."); });
+              }
+              var url = URL.createObjectURL(blob);
+              var a = document.createElement("a");
+              a.href = url;
+              a.download = fileName;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+              say("Đã lưu ảnh tờ " + which + " (" + fileName + ").");
+            });
+
+        work.catch(function (err) {
+          say(err && err.name === "AbortError" ? "" : "Không tạo được ảnh. Thử lại hoặc chụp màn hình.");
+        }).then(function () { btn.disabled = false; });
+      });
+    });
+  }
+
   document.querySelectorAll("form[data-confirm]").forEach(function (form) {
     form.addEventListener("submit", function (e) {
       if (!window.confirm(form.getAttribute("data-confirm"))) { e.preventDefault(); }

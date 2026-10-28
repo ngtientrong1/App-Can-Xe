@@ -66,6 +66,12 @@
     var groups = s.Periods
         .Select(p => new { Period = p, Tickets = p.Tickets.Where(t => InRange(t.TicketDate)).ToList(), Paid = p.Payments.Where(pay => InRange(pay.PaidOn)).Sum(pay => pay.AmountVnd) })
         .Where(g => g.Tickets.Count > 0 || g.Paid > 0)
+        // Oldest day first; trucks not yet gathered into a lot come last.
+        .OrderBy(g => g.Period.IsOpen ? 1 : 0)
+        .ThenBy(g => g.Tickets.Count > 0
+            ? g.Tickets.Min(t => t.TicketDateTime)
+            : new DateTimeOffset(g.Period.Payments.Where(pay => InRange(pay.PaidOn)).Min(pay => pay.PaidOn).ToDateTime(TimeOnly.MinValue)))
+        .ThenBy(g => g.Period.Id)
         .ToList();
     var sideBySide = payLines.Count <= 12 && groups.Count <= 8;
     var rangeText = $"từ {Fmt.Date(from)} đến {Fmt.Date(to)}";
@@ -81,6 +87,21 @@
         <button type="button" class="secondary" data-print="1">Chỉ in tờ 1</button>
         <button type="button" class="secondary" data-print="2">Chỉ in tờ 2</button>
         <a class="btn secondary" asp-page="/Customers/Detail" asp-route-id="@customer.Id" asp-route-SeasonId="@season.Id">← Quay lại</a>
+    </div>
+</div>
+
+<div class="card no-print preview-bar" data-image-name="@($"cong-no {customer.Name} {Fmt.Date(from)} {Fmt.Date(to)}")">
+    <div class="preview-row">
+        <span class="lbl">Xem trước</span>
+        <button type="button" class="chip on" data-view="all">Cả 2 tờ</button>
+        <button type="button" class="chip" data-view="1">Tờ 1</button>
+        <button type="button" class="chip" data-view="2">Tờ 2</button>
+    </div>
+    <div class="preview-row">
+        <span class="lbl">Ảnh để gửi</span>
+        <span class="grp">Tờ 1 <button type="button" class="secondary" data-image="1" data-mode="save">Lưu ảnh</button> <button type="button" class="secondary" data-image="1" data-mode="copy" hidden>Sao chép</button></span>
+        <span class="grp">Tờ 2 <button type="button" class="secondary" data-image="2" data-mode="save">Lưu ảnh</button> <button type="button" class="secondary" data-image="2" data-mode="copy" hidden>Sao chép</button></span>
+        <span class="muted" data-image-status role="status"></span>
     </div>
 </div>
 
@@ -252,3 +273,4 @@
     </div>
     <div class="printed">Còn nợ = nợ đầu kỳ + tiền hàng trong kỳ − đã trả trong kỳ · In ngày @Fmt.DateTime(DateTimeOffset.Now)</div>
 </section>
+<script src="~/lib/html2canvas.min.js"></script>
