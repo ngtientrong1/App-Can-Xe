@@ -308,7 +308,8 @@ else
 <div class="content">
 <h2>Các lô</h2>
 <partial name="_PeriodCard" model="new PeriodCardModel(openPeriod, customer.Id, season.Id, open, false, Stations)" />
-@foreach (var p in s.Closed.OrderByDescending(p => p.Number))
+@* Newest weighing day on top, oldest at the bottom; payment dates and the order lots were closed in do not matter here. *@
+@foreach (var p in s.Closed.OrderByDescending(p => p.From).ThenByDescending(p => p.FirstTicket?.TicketDateTime).ThenByDescending(p => p.Number))
 {
     <partial name="_PeriodCard" model="new PeriodCardModel(p, customer.Id, season.Id, open, open && lastClosed is not null && p.Id == lastClosed.Id && p.Payments.Count == 0, Stations)" />
 }

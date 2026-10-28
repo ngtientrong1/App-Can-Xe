@@ -1,10 +1,10 @@
-; Công Nợ Cà Tiến Trọng — Inno Setup installer for the debt web app (runs as a Windows service).
+﻿; CÃ´ng Ná»£ CÃ  Tiáº¿n Trá»ng â€” Inno Setup installer for the debt web app (runs as a Windows service).
 ; The service listens on 127.0.0.1:5200 only; remote access goes through "tailscale serve".
 ; Data lives in %ProgramData%\CanXeDebt and is never removed by install, upgrade or uninstall.
 
-#define MyAppName "Công Nợ Cà Tiến Trọng"
+#define MyAppName "CÃ´ng Ná»£ CÃ  Tiáº¿n Trá»ng"
 #define MyAppNameAscii "Can Xe Cong No"
-#define MyAppVersion "1.7.5"
+#define MyAppVersion "1.7.6"
 #define MyAppPublisher "Tien Trong"
 #define MyServiceName "CanXeDebt"
 #define MyAppExeName "CanXe.Debt.Web.exe"
@@ -49,15 +49,15 @@ Source: "debt\HUONG-DAN.txt"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{commonappdata}\CanXeDebt"; Permissions: users-readexec
 
 [InternetShortcuts]
-Name: "{group}\Công nợ cà (mở trong trình duyệt)"; Filename: "http://127.0.0.1:{#MyPort}/"
+Name: "{group}\CÃ´ng ná»£ cÃ  (má»Ÿ trong trÃ¬nh duyá»‡t)"; Filename: "http://127.0.0.1:{#MyPort}/"
 
 [Icons]
-Name: "{group}\Hướng dẫn cài đặt"; Filename: "{app}\HUONG-DAN.txt"
+Name: "{group}\HÆ°á»›ng dáº«n cÃ i Ä‘áº·t"; Filename: "{app}\HUONG-DAN.txt"
 Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 
 [Run]
-Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\CanXeDebt"" /grant ""*S-1-5-19:(OI)(CI)M"" /T"; Flags: runhidden; StatusMsg: "Cấp quyền ghi dữ liệu cho dịch vụ..."
-Filename: "{app}\HUONG-DAN.txt"; Description: "Xem hướng dẫn cài đặt"; Flags: postinstall shellexec skipifsilent
+Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\CanXeDebt"" /grant ""*S-1-5-19:(OI)(CI)M"" /T"; Flags: runhidden; StatusMsg: "Cáº¥p quyá»n ghi dá»¯ liá»‡u cho dá»‹ch vá»¥..."
+Filename: "{app}\HUONG-DAN.txt"; Description: "Xem hÆ°á»›ng dáº«n cÃ i Ä‘áº·t"; Flags: postinstall shellexec skipifsilent
 
 [UninstallRun]
 Filename: "{sys}\sc.exe"; Parameters: "stop {#MyServiceName}"; Flags: runhidden; RunOnceId: "StopDebtService"
@@ -114,3 +114,4 @@ begin
   RunSc('failure {#MyServiceName} reset= 86400 actions= restart/5000/restart/5000/restart/5000');
   RunSc('start {#MyServiceName}');
 end;
+
