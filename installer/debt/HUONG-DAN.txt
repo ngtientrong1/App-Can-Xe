@@ -17,7 +17,8 @@ Lần đầu sử dụng
        C:\ProgramData\CanXeDebt\setup-code.txt
    Mở file đó, chép mã vào ô, tạo tài khoản quản trị (mật khẩu từ 10 ký tự) và đặt tên/ngày bắt đầu mùa cà.
 3. Đăng nhập, vào mục "Tài khoản" tạo tài khoản cho kế toán (vai trò "Kế toán").
-   Kế toán nhập file, ghi nhận trả tiền, xem công nợ. Quản trị thêm được: mùa cà, cài đặt, tài khoản.
+   Kế toán làm được mọi thao tác công nợ: nhập file, chốt lô, trả tiền (theo số tiền, theo lô, theo xe), sửa/hủy khoản trả, chỉnh phiếu cân, xem và in báo cáo.
+   Chỉ Quản trị mới có: mùa cà, sao lưu, cài đặt, tài khoản.
 
 
 Gửi link cho kế toán (giống app quản lý công nhân)
@@ -88,8 +89,8 @@ Các trường hợp trả tiền thường gặp (theo bảng Excel cũ)
 - Ghi chú nhập ở app cân (ví dụ CÀ GỬI, Lô Ngọc Hồi) hiện cạnh từng xe.
 - Ngày luôn nhập và hiển thị dạng ngày/tháng/năm, ví dụ 27/10/2026.
 
-Chỉnh phiếu cân (chỉ tài khoản Quản trị)
-----------------------------------------
+Chỉnh phiếu cân (Quản trị và Kế toán)
+-------------------------------------
 - Dùng khi tiền trả theo số cân khác số cân nhà, ví dụ kho khách cân 12.050 kg, về cân nhà 12.000 kg (hao 50 kg) nhưng vẫn trả theo 12.050.
 - Ở bảng xe của chủ hàng (hoặc mục Phiếu cân), bấm "Sửa phiếu" cạnh xe cần chỉnh. Nhập khối lượng hàng để tính tiền (và đơn giá nếu cần)
   cùng lý do, xem ngay KL tính tiền và thành tiền mới rồi bấm "Lưu chỉnh". App tính trừ 3‰ giống app cân.

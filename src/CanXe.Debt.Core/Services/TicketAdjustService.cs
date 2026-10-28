@@ -52,7 +52,7 @@ public static class TicketPricing
 public sealed class TicketAdjustService(DebtDbContext db)
 {
     /// <summary>
-    /// Admin correction of a ticket already imported: the weight paid for (and the unit price, for a single-price ticket).
+    /// Correction of a ticket already imported: the weight paid for (and the unit price, for a single-price ticket).
     /// The weighing app's own numbers are kept, shown beside the correction and restored on request; a later re-import
     /// of the file keeps the correction. Every change is logged with who, when and why.
     /// </summary>

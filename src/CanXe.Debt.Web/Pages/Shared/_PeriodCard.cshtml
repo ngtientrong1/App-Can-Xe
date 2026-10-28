@@ -204,7 +204,7 @@
                                         break;
                                 }
                             </td>
-                            <td>@t.Notes@if (User.IsInRole("Admin") && t.Stage != TicketStage.AwaitingSecondWeigh) { <a class="no-print small edit-ticket" asp-page="/Admin/TicketEdit" asp-route-id="@t.Id">Sửa phiếu</a> }</td>
+                            <td>@t.Notes@if (t.Stage != TicketStage.AwaitingSecondWeigh) { <a class="no-print small edit-ticket" asp-page="/Tickets/Edit" asp-route-id="@t.Id">Sửa phiếu</a> }</td>
                             <td class="no-print"><button type="submit" name="PayOne" value="@t.Id" class="secondary pay-one" title="Gom riêng xe này thành một lô rồi trả">Trả riêng</button></td>
                         </tr>
                     }
@@ -290,7 +290,7 @@
                                         break;
                                 }
                             </td>
-                            <td>@t.Notes@if (User.IsInRole("Admin") && t.Stage != TicketStage.AwaitingSecondWeigh) { <a class="no-print small edit-ticket" asp-page="/Admin/TicketEdit" asp-route-id="@t.Id">Sửa phiếu</a> }</td>
+                            <td>@t.Notes@if (t.Stage != TicketStage.AwaitingSecondWeigh) { <a class="no-print small edit-ticket" asp-page="/Tickets/Edit" asp-route-id="@t.Id">Sửa phiếu</a> }</td>
                         </tr>
                     }
                     </tbody>

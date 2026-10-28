@@ -134,7 +134,7 @@
                     <td class="num">@Fmt.Kg(t.BillableWeightKg)</td>
                     <td class="num">@Fmt.UnitPrice(t)</td>
                     <td class="num">@(t.Stage == TicketStage.Priced ? Fmt.Vnd(t.AmountVnd) : Fmt.StageText(t.Stage))</td>
-                    <td>@t.Notes@if (User.IsInRole("Admin") && t.Stage != TicketStage.AwaitingSecondWeigh) { <a class="no-print small edit-ticket" asp-page="/Admin/TicketEdit" asp-route-id="@t.Id">Sửa phiếu</a> }</td>
+                    <td>@t.Notes@if (t.Stage != TicketStage.AwaitingSecondWeigh) { <a class="no-print small edit-ticket" asp-page="/Tickets/Edit" asp-route-id="@t.Id">Sửa phiếu</a> }</td>
                 </tr>
             }
             </tbody>
