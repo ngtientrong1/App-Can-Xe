@@ -231,23 +231,9 @@ public static class Fmt
             : $"{Date(first.TicketDate)} (phiếu {first.DisplayNumber}) → {Date(last.TicketDate)} (phiếu {last.DisplayNumber}) · {count} xe";
     }
 
-    /// <summary>A lot named by the days it covers ("Lô 24/11", "Lô 22–23/10", "Lô 30/10 – 02/11"): numbers mean little after many days.</summary>
-    public static string LotLabel(PeriodView period)
-    {
-        if (period.IsOpen)
-            return "Chưa gom lô";
-        if (period.Tickets.Count == 0)
-            return "Lô trống";
-
-        var first = period.Tickets.Min(t => t.TicketDate);
-        var last = period.Tickets.Max(t => t.TicketDate);
-        if (first == last)
-            return $"Lô {first:dd/MM}";
-        return first.Month == last.Month && first.Year == last.Year
-            ? $"Lô {first:dd}–{last:dd/MM}"
-            : $"Lô {first:dd/MM} – {last:dd/MM}";
-    }
-
+    /// <summary>"Lô 22–23/10" for three trucks or more; one or two trucks are shown by day and ticket ("ngày 27/10 phiếu 57/10").</summary>
+    public static string LotLabel(PeriodView period) =>
+        period.IsOpen ? "Chưa gom lô" : LotNaming.Name(period.Tickets.Select(t => (t.TicketDate, t.DisplayNumber)).ToList());
     public static string AdjustTitle(TicketRecord t) =>
         $"Phiếu cân gốc: {Kg(t.OriginalNetKg)} kg" + (string.IsNullOrWhiteSpace(t.AdjustReason) ? "" : $" · {t.AdjustReason}")
         + (t.AdjustedBy is null ? "" : $" · {t.AdjustedBy} chỉnh");

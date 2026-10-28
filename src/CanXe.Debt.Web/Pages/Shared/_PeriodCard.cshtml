@@ -5,7 +5,7 @@
 }
 <section class="period @(open ? "open" : "")" id="@(open ? "ky-mo" : "ky-" + v.Id)">
     <div class="period-head">
-        <h3>@(open ? $"Xe chưa gom lô · {v.TruckCount} xe" : $"Lô {Fmt.PeriodRange(v)}")</h3>
+        <h3>@(open ? $"Xe chưa gom lô · {v.TruckCount} xe" : (v.TruckCount >= LotNaming.MinTrucksForLot ? $"Lô {Fmt.PeriodRange(v)}" : $"Ngày {Fmt.PeriodRange(v)}"))</h3>
         @switch (v.Status)
         {
             case PeriodStatus.Open: <span class="badge pending">Chưa chốt</span> break;
