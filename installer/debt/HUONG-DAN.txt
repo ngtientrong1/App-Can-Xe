@@ -111,6 +111,12 @@ In báo cáo gửi chủ hàng (2 tờ A4 ngang)
 - Nút "In 2 tờ" in mỗi tờ trên một trang riêng; "Chỉ in tờ 1" / "Chỉ in tờ 2" in từng tờ. Chọn khổ A4 ngang nếu máy in hỏi.
 - Báo cáo không có phần ký tên, không có tên trạm và điện thoại.
 
+Phiếu "Cân Dịch Vụ"
+-------------------
+- Phiếu có tên chủ hàng "Cân Dịch Vụ" (cân giúp người ta, không mua hàng) không đưa vào công nợ và không có trong báo cáo.
+- App cân tự bỏ các phiếu này khỏi file công nợ (JSON) và khỏi báo cáo Excel/in. App công nợ cũng tự bỏ nếu lỡ nhập file cũ có phiếu này.
+- Lần đầu mở bản này, các phiếu Cân Dịch Vụ đã nhập trước đó được ẩn khỏi danh sách (vẫn nằm trong sao lưu, không mất dữ liệu).
+
 Sao lưu
 -------
 - Tự động mỗi ngày một bản vào C:\ProgramData\CanXeDebt\backup (giữ 30 bản). Quản trị xem ở mục "Sao lưu".

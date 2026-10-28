@@ -4,6 +4,8 @@ using CanXe.Application.Mapping;
 
 using CanXe.Application.Models;
 
+using CanXe.Debt.Contract;
+
 using CanXe.Domain.Entities;
 
 using CanXe.Domain.Services;
@@ -55,6 +57,8 @@ public sealed class ReportService(
 
 
         rows = rows
+
+            .Where(t => !ServiceWeigh.IsServiceCustomer(t.CustomerNameSnapshot))
 
             .Where(t => ReportDateRange.MatchesTicketDate(t.TicketDateTime, fromInclusive, toExclusive))
 

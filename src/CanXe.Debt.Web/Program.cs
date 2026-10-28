@@ -110,6 +110,10 @@ try
     }
 
     db.Database.EnsureCreated();
+
+    var purged = await ImportService.PurgeServiceWeighsAsync(db);
+    if (purged > 0)
+        app.Logger.LogWarning("Đã bỏ {Count} phiếu Cân Dịch Vụ ra khỏi công nợ.", purged);
     var codes = app.Services.GetRequiredService<SetupCodeStore>();
     if (!await db.Users.AnyAsync())
     {

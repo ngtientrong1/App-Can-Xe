@@ -29,6 +29,45 @@ public sealed record ExportedTicket(
     decimal? FirstWeightKg = null,
     string? Notes = null);
 
+/// <summary>
+/// A "Cân Dịch Vụ" ticket only weighs a truck for someone else: no purchase, so it belongs in neither the debt file
+/// nor the reports. Both apps use this one rule so they never disagree about it.
+/// </summary>
+public static class ServiceWeigh
+{
+    public const string CustomerName = "Cân Dịch Vụ";
+
+    public static bool IsServiceCustomer(string? customerName)
+    {
+        if (string.IsNullOrWhiteSpace(customerName))
+            return false;
+
+        var decomposed = customerName.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(decomposed.Length);
+        var pendingSpace = false;
+        foreach (var ch in decomposed)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) == System.Globalization.UnicodeCategory.NonSpacingMark)
+                continue;
+
+            var c = ch is 'đ' or 'Đ' ? 'd' : char.ToLowerInvariant(ch);
+            if (char.IsLetterOrDigit(c))
+            {
+                if (pendingSpace && sb.Length > 0)
+                    sb.Append(' ');
+                sb.Append(c);
+                pendingSpace = false;
+            }
+            else
+            {
+                pendingSpace = true;
+            }
+        }
+
+        return sb.ToString() == "can dich vu";
+    }
+}
+
 public sealed record DebtExportFile(
     string Format,
     int Version,

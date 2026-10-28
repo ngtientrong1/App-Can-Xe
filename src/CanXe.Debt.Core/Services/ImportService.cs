@@ -74,6 +74,20 @@ public sealed class ImportService(DebtDbContext db)
             var hash = DebtExportSerializer.ComputeTicketHash(source);
             var normalized = NameNormalizer.Normalize(source.Customer);
 
+            if (ServiceWeigh.IsServiceCustomer(source.Customer))
+            {
+                // Weighing someone else's truck is no purchase: it never enters the ledger, and one imported before is dropped.
+                if (existing.TryGetValue(source.Code, out var serviceTicket) && !serviceTicket.IsDeleted)
+                {
+                    serviceTicket.IsDeleted = true;
+                    serviceTicket.PeriodId = null;
+                    serviceTicket.UpdatedAt = DateTimeOffset.Now;
+                    updated++;
+                }
+
+                continue;
+            }
+
             if (!existing.TryGetValue(source.Code, out var ticket))
             {
                 if (source.IsDeleted)
@@ -134,6 +148,24 @@ public sealed class ImportService(DebtDbContext db)
             billable.Count(t => t.Stage == TicketStage.NoPrice),
             warnings,
             billable.Count(t => t.Stage == TicketStage.AwaitingSecondWeigh)));
+    }
+
+    /// <summary>Drops the "Cân Dịch Vụ" tickets imported before they were excluded. The rows stay in the file as deleted, so nothing is lost for good.</summary>
+    public static async Task<int> PurgeServiceWeighsAsync(DebtDbContext db, CancellationToken ct = default)
+    {
+        var service = await db.Tickets
+            .Where(t => !t.IsDeleted && t.CustomerNameNormalized == "can dich vu")
+            .ToListAsync(ct);
+        foreach (var ticket in service)
+        {
+            ticket.IsDeleted = true;
+            ticket.PeriodId = null;
+            ticket.UpdatedAt = DateTimeOffset.Now;
+        }
+
+        if (service.Count > 0)
+            await db.SaveChangesAsync(ct);
+        return service.Count;
     }
 
     public static string? Validate(DebtExportFile? file)

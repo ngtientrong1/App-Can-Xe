@@ -64,6 +64,46 @@ public sealed class ImportServiceTests
     }
 
     [Fact]
+    public async Task ServiceWeighTickets_AreNotImported()
+    {
+        using var t = new TestDb();
+        t.AddSeason();
+
+        var result = await Import(t, Make.File("DAKHA", Make.Ticket("a"), Make.Ticket("s", customer: "Cân Dịch Vụ")));
+
+        Assert.Equal(1, result.Added);
+        Assert.DoesNotContain(t.Db.Tickets, x => x.Code == "s");
+    }
+
+    [Fact]
+    public async Task ServiceWeighTicketsImportedEarlier_AreDroppedByTheNextImportAndByThePurge()
+    {
+        using var t = new TestDb();
+        t.AddSeason();
+        var old = Make.File("DAKHA", Make.Ticket("a"), Make.Ticket("s", customer: "Cân Dịch Vụ"));
+        // What an older version did: the service ticket went in like any other.
+        t.Db.Tickets.Add(new TicketRecord
+        {
+            StationCode = "DAKHA", Code = "s", DisplayNumber = "1/10", TicketDate = new DateOnly(2026, 10, 20),
+            CustomerNameRaw = "Cân Dịch Vụ", CustomerNameNormalized = "can dich vu", ContentHash = "x"
+        });
+        t.Db.Tickets.Add(new TicketRecord
+        {
+            StationCode = "DAKTO", Code = "s2", DisplayNumber = "2/10", TicketDate = new DateOnly(2026, 10, 20),
+            CustomerNameRaw = "Cân dịch vụ", CustomerNameNormalized = "can dich vu", ContentHash = "y"
+        });
+        await t.Db.SaveChangesAsync();
+
+        await Import(t, old);
+        Assert.True(t.Db.Tickets.Single(x => x.Code == "s").IsDeleted);
+
+        var purged = await ImportService.PurgeServiceWeighsAsync(t.Db);
+        Assert.Equal(1, purged);
+        Assert.True(t.Db.Tickets.Single(x => x.Code == "s2").IsDeleted);
+        Assert.False(t.Db.Tickets.Single(x => x.Code == "a").IsDeleted);
+    }
+
+    [Fact]
     public async Task ImportingTheSameFileTwice_DoesNotDuplicate()
     {
         using var t = new TestDb();

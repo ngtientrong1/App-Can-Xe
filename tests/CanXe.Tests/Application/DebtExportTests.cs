@@ -37,6 +37,20 @@ public sealed class DebtExportTests
         return ticket;
     }
 
+    [Theory]
+    [InlineData("Cân Dịch Vụ")]
+    [InlineData("CAN DICH VU")]
+    [InlineData("  cân   dịch vụ ")]
+    public void ServiceWeighTicket_IsLeftOutOfTheDebtFile(string customer)
+    {
+        var service = Ticket("svc", "63/10", price: null, total: null, billableGrams: null);
+        service.CustomerNameSnapshot = customer;
+
+        var file = DebtExportService.BuildFile(Station, [Ticket("a", "1/10"), service], DateTimeOffset.Now);
+
+        Assert.Equal("a", Assert.Single(file.Tickets).Code);
+    }
+
     [Fact]
     public void CompletedTicket_IsExportedWithWeightsPriceAndAmount()
     {

@@ -56,6 +56,7 @@ public sealed class DebtExportService(CanXeDbContext db) : IDebtExportService
     {
         var rows = tickets
             .Where(t => t.IsDeleted || t.Events.Count > 0)
+            .Where(t => !ServiceWeigh.IsServiceCustomer(t.CustomerNameSnapshot))
             .OrderBy(t => t.TicketDateTime)
             .ThenBy(t => t.InternalCode, StringComparer.Ordinal)
             .Select(Map)
