@@ -11,6 +11,7 @@ public sealed class DebtDbContext(DbContextOptions<DebtDbContext> options) : DbC
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<SettlementPeriod> Periods => Set<SettlementPeriod>();
+    public DbSet<PeriodExtra> PeriodExtras => Set<PeriodExtra>();
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<AppSetting> Settings => Set<AppSetting>();
 
@@ -37,6 +38,10 @@ public sealed class DebtDbContext(DbContextOptions<DebtDbContext> options) : DbC
         b.Entity<Payment>().HasIndex(x => new { x.CustomerId, x.SeasonId });
         b.Entity<Payment>().HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId);
         b.Entity<Payment>().Ignore(x => x.IsVoided);
+
+        b.Entity<PeriodExtra>().HasIndex(x => x.PeriodId);
+        b.Entity<PeriodExtra>().HasIndex(x => new { x.CustomerId, x.SeasonId });
+        b.Entity<PeriodExtra>().Ignore(x => x.IsVoided);
 
         b.Entity<AppUser>().Property(x => x.Username).UseCollation("NOCASE");
         b.Entity<AppUser>().HasIndex(x => x.Username).IsUnique();

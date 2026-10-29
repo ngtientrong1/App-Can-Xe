@@ -4,6 +4,7 @@
 @inject SettlementService Settlements
 @inject PaymentService Payments
 @inject CustomerService Customers
+@inject PeriodExtraService Extras
 @functions {
     private string? DateError(string field, string label) =>
         ModelState.GetFieldValidationState(field) == Microsoft.AspNetCore.Mvc.ModelBinding.ModelValidationState.Invalid
@@ -28,6 +29,15 @@
     [BindProperty] public int EditId { get; set; }
     [BindProperty] public int VoidId { get; set; }
     [BindProperty] public string? VoidReason { get; set; }
+
+    [BindProperty] public int ExtraPeriodId { get; set; }
+    [BindProperty] public DateOnly ExtraDate { get; set; } = DateOnly.FromDateTime(DateTime.Today);
+    [BindProperty] public string? ExtraLabel { get; set; }
+    [BindProperty] public string ExtraAmountText { get; set; } = "";
+    [BindProperty] public bool ExtraDeduct { get; set; }
+    [BindProperty] public string? ExtraNote { get; set; }
+    [BindProperty] public int VoidExtraId { get; set; }
+    [BindProperty] public string? VoidExtraReason { get; set; }
 
     [BindProperty] public int UndoPaymentId { get; set; }
     public int? JustPaidId { get; set; }
@@ -175,6 +185,36 @@
         return RedirectToPage(new { id = Id, seasonId = Season!.Id });
     }
 
+    public async Task<IActionResult> OnPostAddExtraAsync()
+    {
+        if (!await LoadAsync())
+            return NotFound();
+
+        string? problem = DateError(nameof(ExtraDate), "Ngày");
+        long amount = 0;
+        if (problem is null && !Fmt.TryParseVnd(ExtraAmountText, out amount))
+            problem = "Số tiền phụ phí không hợp lệ. Chỉ nhập chữ số, ví dụ 2.500.000.";
+
+        if (problem is null)
+        {
+            var result = await Extras.AddAsync(Id, Season!.Id, ExtraPeriodId, ExtraDate, ExtraLabel, ExtraDeduct ? -amount : amount, ExtraNote, User.Identity!.Name!);
+            problem = result.Ok ? null : result.Error;
+        }
+
+        TempData[problem is null ? "Message" : "Error"] = problem ?? $"Đã ghi phụ phí {ExtraLabel?.Trim()}: {(ExtraDeduct ? "trừ " : "cộng thêm ")}{Fmt.Vnd(amount)} đ vào lô.";
+        return RedirectToPage(new { id = Id, seasonId = Season!.Id });
+    }
+
+    public async Task<IActionResult> OnPostVoidExtraAsync()
+    {
+        if (!await LoadAsync())
+            return NotFound();
+
+        var result = await Extras.VoidAsync(VoidExtraId, VoidExtraReason, User.Identity!.Name!);
+        TempData[result.Ok ? "Message" : "Error"] = result.Ok ? "Đã hủy phụ phí (vẫn lưu lại trong lịch sử)." : result.Error;
+        return RedirectToPage(new { id = Id, seasonId = Season!.Id });
+    }
+
     private async Task<bool> LoadAsync()
     {
         Season = SeasonId is { } sid ? await Seasons.GetAsync(sid) : await Seasons.GetCurrentAsync();
@@ -291,6 +331,7 @@
                 <div class="field full"><label for="ReceivedBy">Người nhận tiền</label><input id="ReceivedBy" name="ReceivedBy" type="text" value="@ReceivedBy" list="receivers" placeholder="Ai nhận giùm…" /></div>
                 <div class="field full"><label for="Note">Ghi chú (không bắt buộc)</label><input id="Note" name="Note" type="text" value="@Note" placeholder="Ví dụ: ứng để nhập hàng tiếp" /></div>
             </div>
+            <datalist id="extra-labels">@foreach (var l in PeriodExtraService.CommonLabels) { <option value="@l"></option> }</datalist>
             <datalist id="banks">@foreach (var b in Suggestions.Banks) { <option value="@b"></option> }</datalist>
             <datalist id="payers">@foreach (var b in Suggestions.Payers) { <option value="@b"></option> }</datalist>
             <datalist id="receivers">@foreach (var b in Suggestions.Receivers) { <option value="@b"></option> }</datalist>
@@ -311,7 +352,7 @@ else
 @* Newest weighing day on top, oldest at the bottom; payment dates and the order lots were closed in do not matter here. *@
 @foreach (var p in s.Closed.OrderByDescending(p => p.From).ThenByDescending(p => p.FirstTicket?.TicketDateTime).ThenByDescending(p => p.Number))
 {
-    <partial name="_PeriodCard" model="new PeriodCardModel(p, customer.Id, season.Id, open, open && lastClosed is not null && p.Id == lastClosed.Id && p.Payments.Count == 0, Stations)" />
+    <partial name="_PeriodCard" model="new PeriodCardModel(p, customer.Id, season.Id, open, open && lastClosed is not null && p.Id == lastClosed.Id && p.Payments.Count == 0 && p.Extras.Count == 0, Stations)" />
 }
 </div>
 </div>

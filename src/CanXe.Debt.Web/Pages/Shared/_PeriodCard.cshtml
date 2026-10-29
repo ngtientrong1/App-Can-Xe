@@ -18,6 +18,10 @@
     <div class="mini-stats">
         <div><div class="label">Nợ từ lô trước</div><div class="value">@Fmt.Balance(v.CarryIn)</div></div>
         <div><div class="label">Tiền hàng · @v.PricedCount xe · @Fmt.Kg(v.BillableKg) kg</div><div class="value">@Fmt.Vnd(v.TicketsTotal)</div></div>
+        @if (v.Extras.Count > 0)
+        {
+            <div><div class="label">Phụ phí · @v.Extras.Count khoản</div><div class="value">@(v.ExtrasTotal < 0 ? "−" : "+")@Fmt.Vnd(Math.Abs(v.ExtrasTotal))</div></div>
+        }
         <div><div class="label">Tổng phải trả</div><div class="value">@Fmt.Balance(v.Payable)</div></div>
         <div><div class="label">Đã trả@(v.Payments.Count > 0 ? $" · {v.Payments.Count} lần" : "")</div><div class="value credit">@Fmt.Vnd(v.Paid)</div></div>
     </div>
@@ -101,6 +105,57 @@
                 </div>
             }
         </div>
+    }
+
+    @if (v.Extras.Count > 0)
+    {
+        <div>
+            @foreach (var x in v.Extras)
+            {
+                <div class="pay-line">
+                    <span>
+                        @Fmt.Date(x.Date) · <strong>@x.Label</strong>@(x.AmountVnd < 0 ? " (trừ bớt)" : " (cộng thêm)")
+                        @if (!string.IsNullOrWhiteSpace(x.Note)) { <span class="muted"> · @x.Note</span> }
+                        <span class="muted small"> · nhập bởi @x.CreatedBy lúc @Fmt.DateTime(x.CreatedAt)</span>
+                    </span>
+                    <span>
+                        <span class="amount extra @(x.AmountVnd < 0 ? "minus" : "")">@(x.AmountVnd < 0 ? "−" : "+")@Fmt.Vnd(Math.Abs(x.AmountVnd))</span>
+                        @if (Model.SeasonOpen)
+                        {
+                            <details class="no-print">
+                                <summary>Hủy</summary>
+                                <form method="post" asp-page="/Customers/Detail" asp-page-handler="VoidExtra" asp-route-id="@Model.CustomerId" asp-route-SeasonId="@Model.SeasonId" class="inline-form" data-confirm="Hủy phụ phí này?">
+                                    <input type="hidden" name="VoidExtraId" value="@x.Id" />
+                                    <input type="text" name="VoidExtraReason" placeholder="Lý do hủy" required />
+                                    <button type="submit" class="danger">Hủy</button>
+                                </form>
+                            </details>
+                        }
+                    </span>
+                </div>
+            }
+        </div>
+    }
+
+    @if (!open && Model.SeasonOpen)
+    {
+        <details class="no-print extra-add">
+            <summary>+ Thêm phụ phí (tiền xe, tiền bù hàng…)</summary>
+            <form method="post" asp-page="/Customers/Detail" asp-page-handler="AddExtra" asp-route-id="@Model.CustomerId" asp-route-SeasonId="@Model.SeasonId" class="form-grid">
+                <input type="hidden" name="ExtraPeriodId" value="@v.Id" />
+                <label>Khoản gì<input type="text" name="ExtraLabel" list="extra-labels" placeholder="Tiền xe" autocomplete="off" required /></label>
+                <label>Số tiền (đồng)<input type="text" name="ExtraAmountText" inputmode="numeric" data-money autocomplete="off" placeholder="2.500.000" required /></label>
+                <label>Ngày<input type="text" name="ExtraDate" inputmode="numeric" data-date maxlength="10" value="@Fmt.Date(DateOnly.FromDateTime(DateTime.Today))" autocomplete="off" required /></label>
+                <label>Cách tính
+                    <select name="ExtraDeduct">
+                        <option value="false" selected>Cộng thêm vào tiền phải trả</option>
+                        <option value="true">Trừ bớt khỏi tiền phải trả</option>
+                    </select>
+                </label>
+                <label class="full">Ghi chú<input type="text" name="ExtraNote" placeholder="Ví dụ: xe tải thuê chở từ kho" /></label>
+                <div><button type="submit">Ghi phụ phí</button></div>
+            </form>
+        </details>
     }
 
     @if (open)
@@ -208,7 +263,7 @@
                                         break;
                                 }
                             </td>
-                            <td>@t.Notes@if (t.Stage != TicketStage.AwaitingSecondWeigh) { <a class="no-print small edit-ticket" asp-page="/Tickets/Edit" asp-route-id="@t.Id">Sửa phiếu</a> }</td>
+                            <td>@t.Notes@if (t.Stage != TicketStage.AwaitingSecondWeigh) { <a class="no-print small edit-ticket" asp-page="/Tickets/Edit" asp-route-id="@t.Id">Sửa / tách phiếu</a> }</td>
                             <td class="no-print"><button type="submit" name="PayOne" value="@t.Id" class="secondary pay-one" title="Gom riêng xe này thành một lô rồi trả">Trả riêng</button></td>
                         </tr>
                     }
@@ -294,7 +349,7 @@
                                         break;
                                 }
                             </td>
-                            <td>@t.Notes@if (t.Stage != TicketStage.AwaitingSecondWeigh) { <a class="no-print small edit-ticket" asp-page="/Tickets/Edit" asp-route-id="@t.Id">Sửa phiếu</a> }</td>
+                            <td>@t.Notes@if (t.Stage != TicketStage.AwaitingSecondWeigh) { <a class="no-print small edit-ticket" asp-page="/Tickets/Edit" asp-route-id="@t.Id">Sửa / tách phiếu</a> }</td>
                         </tr>
                     }
                     </tbody>

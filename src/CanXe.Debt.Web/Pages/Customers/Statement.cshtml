@@ -55,13 +55,17 @@
     // Everything below is cut to the chosen days. The opening debt is what was owed the day before the first day.
     var allTickets = s.Periods.SelectMany(p => p.Tickets).ToList();
     var allPayments = s.Periods.SelectMany(p => p.Payments.Select(pay => new PayLine(pay, p.IsOpen ? "Ứng trước (chưa gom lô)" : "Trả " + Fmt.LotLabel(p).ToLowerInvariant()))).ToList();
+    var allExtras = s.Periods.SelectMany(p => p.Extras).ToList();
+    var extraLines = allExtras.Where(x => InRange(x.Date)).OrderBy(x => x.Date).ThenBy(x => x.Id).ToList();
+    var extrasInRange = extraLines.Sum(x => x.AmountVnd);
     var opening = allTickets.Where(t => t.Stage == TicketStage.Priced && t.TicketDate < from).Sum(t => t.AmountVnd ?? 0)
+        + allExtras.Where(x => x.Date < from).Sum(x => x.AmountVnd)
         - allPayments.Where(l => l.Payment.PaidOn < from).Sum(l => l.Payment.AmountVnd);
     var billedInRange = allTickets.Where(t => t.Stage == TicketStage.Priced && InRange(t.TicketDate)).Sum(t => t.AmountVnd ?? 0);
     var billedKgInRange = allTickets.Where(t => t.Stage == TicketStage.Priced && InRange(t.TicketDate)).Sum(t => t.BillableWeightKg ?? 0);
     var payLines = allPayments.Where(l => InRange(l.Payment.PaidOn)).OrderBy(l => l.Payment.PaidOn).ThenBy(l => l.Payment.CreatedAt).ToList();
     var paidInRange = payLines.Sum(l => l.Payment.AmountVnd);
-    var closing = opening + billedInRange - paidInRange;
+    var closing = opening + billedInRange + extrasInRange - paidInRange;
 
     var groups = s.Periods
         .Select(p => new { Period = p, Tickets = p.Tickets.Where(t => InRange(t.TicketDate)).ToList(), Paid = p.Payments.Where(pay => InRange(pay.PaidOn)).Sum(pay => pay.AmountVnd) })
@@ -200,9 +204,13 @@
     </header>
     <div class="who">Chủ hàng: <strong>@customer.Name</strong></div>
 
-    <div class="boxes">
+    <div class="boxes @(extraLines.Count > 0 ? "five" : "")">
         <div class="box"><div class="lbl">@(opening < 0 ? "Đã ứng trước từ trước" : "Nợ đầu kỳ")</div><div class="val">@Fmt.Vnd(Math.Abs(opening))</div></div>
         <div class="box"><div class="lbl">Tiền hàng trong kỳ (@Fmt.Kg(billedKgInRange) kg)</div><div class="val">@Fmt.Vnd(billedInRange)</div></div>
+        @if (extraLines.Count > 0)
+        {
+            <div class="box"><div class="lbl">Phụ phí trong kỳ</div><div class="val">@(extrasInRange < 0 ? "−" : "")@Fmt.Vnd(Math.Abs(extrasInRange))</div></div>
+        }
         <div class="box"><div class="lbl">Đã trả trong kỳ</div><div class="val">@Fmt.Vnd(paidInRange)</div></div>
         <div class="box total"><div class="lbl">@(closing < 0 ? "ĐÃ ỨNG TRƯỚC" : "CÒN NỢ") đến @Fmt.Date(to)</div><div class="val">@Fmt.Vnd(Math.Abs(closing))</div></div>
     </div>
@@ -236,6 +244,30 @@
                 <tr class="grand"><td colspan="2">CỘNG</td><td class="num">@groups.Sum(g => g.Tickets.Count)</td><td class="num">@Fmt.Vnd(billedInRange)</td><td class="num">@Fmt.Vnd(paidInRange)</td></tr>
                 </tfoot>
             </table>
+            @if (extraLines.Count > 0)
+            {
+                <div class="part">Phụ phí phát sinh</div>
+                <table class="sheet-table">
+                    <thead>
+                    <tr><th>Ngày</th><th>Khoản</th><th>Thuộc</th><th class="num">Số tiền</th></tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var x in extraLines)
+                    {
+                        var lot = s.Periods.First(p => p.Extras.Contains(x));
+                        <tr>
+                            <td class="nowrap">@x.Date.ToString("dd/MM", System.Globalization.CultureInfo.InvariantCulture)</td>
+                            <td>@x.Label@(string.IsNullOrWhiteSpace(x.Note) ? "" : " · " + x.Note)</td>
+                            <td class="nowrap">@Fmt.LotLabel(lot)</td>
+                            <td class="num">@(x.AmountVnd < 0 ? "−" : "")@Fmt.Vnd(Math.Abs(x.AmountVnd))</td>
+                        </tr>
+                    }
+                    </tbody>
+                    <tfoot>
+                    <tr class="grand"><td colspan="3">CỘNG PHỤ PHÍ</td><td class="num">@(extrasInRange < 0 ? "−" : "")@Fmt.Vnd(Math.Abs(extrasInRange))</td></tr>
+                    </tfoot>
+                </table>
+            }
         </div>
         <div>
             <div class="part">Các lần thanh toán</div>
@@ -271,6 +303,6 @@
             </table>
         </div>
     </div>
-    <div class="printed">Còn nợ = nợ đầu kỳ + tiền hàng trong kỳ − đã trả trong kỳ · In ngày @Fmt.DateTime(DateTimeOffset.Now)</div>
+    <div class="printed">Còn nợ = nợ đầu kỳ + tiền hàng@(extraLines.Count > 0 ? " + phụ phí" : "") trong kỳ − đã trả trong kỳ · In ngày @Fmt.DateTime(DateTimeOffset.Now)</div>
 </section>
 <script src="~/lib/html2canvas.min.js"></script>

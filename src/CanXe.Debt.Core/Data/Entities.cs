@@ -102,6 +102,12 @@ public sealed class TicketRecord
 
     public bool IsAdjusted => AdjustedNetKg is not null || AdjustedUnitPrice is not null;
 
+    /// <summary>
+    /// Set on the held-back part of a truck that was cut in two ("tách xe"): the ticket it was cut from. The part never comes
+    /// from a weighing file, so a re-import leaves it alone; it waits in the open pool with no price until it is sold.
+    /// </summary>
+    public int? SplitFromTicketId { get; set; }
+
     public bool IsDeleted { get; set; }
     public required string ContentHash { get; set; }
     public int ImportBatchId { get; set; }
@@ -170,6 +176,34 @@ public sealed class Payment
 
     /// <summary>One line per correction ("when · who: field: old → new"), oldest first, so a fixed payment still shows what it used to say.</summary>
     public string? EditLog { get; set; }
+
+    public DateTimeOffset? VoidedAt { get; set; }
+    public string? VoidedBy { get; set; }
+    public string? VoidReason { get; set; }
+
+    public bool IsVoided => VoidedAt is not null;
+}
+
+/// <summary>
+/// An extra amount owed to the seller on top of the trucks of a lot (a truck fare, a payment to make up for short goods), or a
+/// negative one to deduct. It raises or lowers what the lot has to pay; like a payment it is never deleted, only voided.
+/// </summary>
+public sealed class PeriodExtra
+{
+    public int Id { get; set; }
+    public int CustomerId { get; set; }
+    public int SeasonId { get; set; }
+    public int PeriodId { get; set; }
+    public DateOnly Date { get; set; }
+
+    /// <summary>What it is for ("Tiền xe", "Tiền bù hàng", …).</summary>
+    public required string Label { get; set; }
+
+    /// <summary>Positive adds to what is owed to the seller, negative deducts.</summary>
+    public long AmountVnd { get; set; }
+    public string? Note { get; set; }
+    public required string CreatedBy { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset? VoidedAt { get; set; }
     public string? VoidedBy { get; set; }

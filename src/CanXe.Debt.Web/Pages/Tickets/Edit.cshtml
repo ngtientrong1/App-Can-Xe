@@ -8,8 +8,13 @@
     [BindProperty] public string NetText { get; set; } = "";
     [BindProperty] public string? PriceText { get; set; }
     [BindProperty] public string? Reason { get; set; }
+    [BindProperty] public string HeldText { get; set; } = "";
+    [BindProperty] public string? HeldPriceText { get; set; }
+    [BindProperty] public string? SplitReason { get; set; }
 
     public TicketRecord? Ticket { get; set; }
+    public List<TicketRecord> HeldParts { get; set; } = [];
+    public TicketRecord? SplitSource { get; set; }
     public Dictionary<string, string> Stations { get; set; } = [];
     public string? Error { get; set; }
 
@@ -56,6 +61,57 @@
         return Back();
     }
 
+    public async Task<IActionResult> OnPostSplitAsync()
+    {
+        if (!await LoadAsync())
+            return NotFound();
+
+        if (!Fmt.TryParseVnd(HeldText, out var heldKg))
+        {
+            Error = "Khối lượng giữ lại không hợp lệ. Chỉ nhập chữ số, ví dụ 15.000.";
+            return Page();
+        }
+
+        decimal? price = null;
+        if (!string.IsNullOrWhiteSpace(HeldPriceText))
+        {
+            if (!Fmt.TryParseVnd(HeldPriceText, out var p))
+            {
+                Error = "Đơn giá không hợp lệ. Chỉ nhập chữ số, ví dụ 25.900.";
+                return Page();
+            }
+
+            price = p;
+        }
+
+        var result = await Adjuster.SplitAsync(Id, heldKg, price, SplitReason, User.Identity!.Name!);
+        if (!result.Ok)
+        {
+            Error = result.Error;
+            return Page();
+        }
+
+        var kept = (await Db.Tickets.AsNoTracking().FirstAsync(t => t.Id == Id)).NetWeightKg;
+        TempData["Message"] = $"Đã tách xe {Ticket!.DisplayNumber}: giữ lại {Fmt.Kg(heldKg)} kg (phiếu {result.Value!.DisplayNumber}, nằm ở mục “Xe chưa gom lô”), phần còn lại {Fmt.Kg(kept)} kg thanh toán bình thường.";
+        return Back();
+    }
+
+    public async Task<IActionResult> OnPostMergeBackAsync()
+    {
+        if (!await LoadAsync())
+            return NotFound();
+
+        var result = await Adjuster.MergeBackAsync(Id, User.Identity!.Name!);
+        if (!result.Ok)
+        {
+            Error = result.Error;
+            return Page();
+        }
+
+        TempData["Message"] = $"Đã ghép phần giữ lại {Ticket!.DisplayNumber} về xe gốc {result.Value!.DisplayNumber} ({Fmt.Kg(result.Value.NetWeightKg)} kg).";
+        return Back();
+    }
+
     public async Task<IActionResult> OnPostRestoreAsync()
     {
         if (!await LoadAsync())
@@ -79,6 +135,14 @@
     {
         Ticket = await Db.Tickets.AsNoTracking().Include(t => t.Customer).FirstOrDefaultAsync(t => t.Id == Id && !t.IsDeleted);
         Stations = await Ledger.GetStationNamesAsync();
+        if (Ticket is not null)
+        {
+            HeldParts = await Db.Tickets.AsNoTracking().Where(t => t.SplitFromTicketId == Id && !t.IsDeleted).OrderBy(t => t.Id).ToListAsync();
+            SplitSource = Ticket.SplitFromTicketId is { } sourceId
+                ? await Db.Tickets.AsNoTracking().FirstOrDefaultAsync(t => t.Id == sourceId && !t.IsDeleted)
+                : null;
+        }
+
         return Ticket is not null;
     }
 }
@@ -137,11 +201,52 @@ else
             <div class="outcome open" data-preview>Tính lại: KL tính tiền <strong data-out="billable">—</strong> kg · Thành tiền <strong data-out="amount">—</strong></div>
             <p class="toolbar"><button type="submit" class="big-btn">Lưu chỉnh</button></p>
         </form>
-        @if (t.IsAdjusted)
+        @if (t.IsAdjusted && HeldParts.Count == 0)
         {
             <form method="post" asp-page-handler="Restore" asp-route-id="@t.Id" data-confirm="Khôi phục phiếu này về đúng số của app cân?">
                 <button type="submit" class="secondary">Khôi phục theo số của app cân</button>
             </form>
+        }
+    </div>
+}
+
+@if (canEdit && SplitSource is { } source && t.PeriodId is null)
+{
+    <div class="card">
+        <h2>Phần giữ lại của xe @source.DisplayNumber</h2>
+        <p class="muted">Phần này tách từ xe @source.DisplayNumber (@Fmt.DateTime(source.TicketDateTime)) để bán sau. Nhập đơn giá ở mục chỉnh phía trên khi bán, rồi gom xe vào lô như xe thường. Nếu tách nhầm, ghép lại về xe gốc.</p>
+        <form method="post" asp-page-handler="MergeBack" asp-route-id="@t.Id" data-confirm="Ghép phần này trở lại xe gốc?">
+            <button type="submit" class="secondary">Ghép lại về xe @source.DisplayNumber</button>
+        </form>
+    </div>
+}
+
+@if (canEdit && !t.HasPriceSplit && t.NetWeightKg is > 0 && HeldParts.All(h => h.PeriodId is null))
+{
+    <div class="card">
+        <h2>Tách xe: giữ lại một phần để bán sau</h2>
+        <p class="muted">Ví dụ xe 18.000 kg, giữ lại 15.000 kg bán lúc khác: nhập 15.000. Xe này đang có @Fmt.Kg(t.NetWeightKg) kg hàng; phần còn lại (3.000 kg trong ví dụ) vẫn nằm trong lô hiện tại và thanh toán như bình thường. Phần giữ lại thành một phiếu riêng ở mục “Xe chưa gom lô”, chưa có giá nên chưa tính vào nợ cho đến khi bạn nhập giá lúc bán.</p>
+        <form method="post" asp-page-handler="Split" asp-route-id="@t.Id">
+            <div class="form-grid">
+                <div class="field"><label for="HeldText">Khối lượng giữ lại (kg)</label><input id="HeldText" name="HeldText" class="big-input" type="text" inputmode="numeric" data-money value="@HeldText" autocomplete="off" required /></div>
+                <div class="field"><label for="HeldPriceText">Đơn giá phần giữ lại (đồng/kg, để trống nếu chưa biết)</label><input id="HeldPriceText" name="HeldPriceText" type="text" inputmode="numeric" data-money value="@HeldPriceText" autocomplete="off" /></div>
+                <div class="field full"><label for="SplitReason">Ghi chú (không bắt buộc)</label><input id="SplitReason" name="SplitReason" type="text" value="@SplitReason" placeholder="Ví dụ: khách gửi lại kho, bán đợt sau" /></div>
+            </div>
+            <p class="toolbar"><button type="submit" class="big-btn">Tách xe</button></p>
+        </form>
+    </div>
+}
+
+@if (HeldParts.Count > 0)
+{
+    <div class="card">
+        <h2>Các phần đã tách từ xe này</h2>
+        @foreach (var h in HeldParts)
+        {
+            <div class="pay-line">
+                <span>@h.DisplayNumber · @Fmt.Kg(h.NetWeightKg) kg · @(h.PeriodId is null ? "chưa gom lô" : "đã nằm trong lô") · @(h.Stage == TicketStage.Priced ? Fmt.Vnd(h.AmountVnd) + " đ" : "chưa có giá")</span>
+                <span><a class="btn secondary" asp-page="/Tickets/Edit" asp-route-id="@h.Id">Mở phần này</a></span>
+            </div>
         }
     </div>
 }

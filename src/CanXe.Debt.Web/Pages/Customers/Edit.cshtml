@@ -7,12 +7,36 @@
     [BindProperty] public string? Note { get; set; }
     [BindProperty] public bool IsActive { get; set; } = true;
     public string? Error { get; set; }
+    public CustomerFootprint Footprint { get; set; } = new(0, 0, 0, 0);
+
+    public async Task<IActionResult> OnPostDeleteAsync()
+    {
+        if (!User.IsInRole("Admin"))
+            return Forbid();
+
+        var customer = await Customers.GetAsync(Id);
+        if (customer is null)
+            return NotFound();
+
+        var result = await Customers.DeleteAsync(Id);
+        if (!result.Ok)
+        {
+            Name = customer.Name; Phone = customer.Phone; Note = customer.Note; IsActive = customer.IsActive;
+            Footprint = await Customers.GetFootprintAsync(Id);
+            Error = result.Error;
+            return Page();
+        }
+
+        TempData["Message"] = $"Đã xóa chủ hàng “{customer.Name}” cùng {result.Value!.Tickets} phiếu và {result.Value.Payments} khoản trả. Phiếu mới cùng tên ở file sau sẽ hiện ở trang Ghép tên để bạn chọn giữ hay bỏ.";
+        return RedirectToPage("/Customers/Index");
+    }
 
     public async Task<IActionResult> OnGetAsync()
     {
         var customer = await Customers.GetAsync(Id);
         if (customer is null)
             return NotFound();
+        Footprint = await Customers.GetFootprintAsync(Id);
         Name = customer.Name;
         Phone = customer.Phone;
         Note = customer.Note;
@@ -25,6 +49,7 @@
         var result = await Customers.UpdateAsync(Id, Name ?? "", Phone, Note, IsActive);
         if (!result.Ok)
         {
+            Footprint = await Customers.GetFootprintAsync(Id);
             Error = result.Error;
             return Page();
         }
@@ -50,3 +75,13 @@
         <p><button type="submit">Lưu</button> <a class="btn secondary" asp-page="/Customers/Index">Hủy</a></p>
     </form>
 </div>
+@if (User.IsInRole("Admin"))
+{
+    <div class="card">
+        <h2>Xóa chủ hàng</h2>
+        <p class="muted">Dùng cho chủ hàng chỉ bán và thanh toán ngay, không cần theo dõi công nợ. Hiện có <strong>@Footprint.Tickets phiếu</strong>, <strong>@Footprint.Payments khoản trả</strong>, <strong>@Footprint.Lots lô</strong>@(Footprint.Extras > 0 ? $", {Footprint.Extras} phụ phí" : "") sẽ bị xóa khỏi công nợ (file sao lưu vẫn giữ). Từ nay phiếu mới cùng tên trong file nhập sẽ hiện ở trang Ghép tên để bạn chọn: tạo lại chủ hàng hoặc bỏ qua.</p>
+        <form method="post" asp-page-handler="Delete" asp-route-id="@Id" data-confirm="Xóa chủ hàng @Name cùng @Footprint.Tickets phiếu và @Footprint.Payments khoản trả khỏi công nợ?">
+            <button type="submit" class="danger">Xóa chủ hàng này</button>
+        </form>
+    </div>
+}

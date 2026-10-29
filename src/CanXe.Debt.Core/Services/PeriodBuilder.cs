@@ -41,14 +41,18 @@ public sealed record PeriodView(
     int ChangedAfterCloseCount,
     long ChangedAfterCloseAmount,
     IReadOnlyList<DayLine> Days,
-    IReadOnlyList<TicketSettlement> TruckStatuses)
+    IReadOnlyList<TicketSettlement> TruckStatuses,
+    IReadOnlyList<PeriodExtra> Extras)
 {
     public bool IsOpen => Period is null;
 
     public int Id => Period?.Id ?? 0;
 
-    /// <summary>Debt carried in from earlier periods plus this period's priced trucks.</summary>
-    public long Payable => CarryIn + TicketsTotal;
+    /// <summary>Extra fees (truck fare, goods made up for…) on top of the trucks; negative ones are deductions.</summary>
+    public long ExtrasTotal => Extras.Sum(e => e.AmountVnd);
+
+    /// <summary>Debt carried in from earlier periods plus this period's priced trucks and extra fees.</summary>
+    public long Payable => CarryIn + TicketsTotal + ExtrasTotal;
 
     /// <summary>What is still owed after this period's payments; this is what carries into the next period.</summary>
     public long Remaining => Payable - Paid;
@@ -96,13 +100,15 @@ public static class PeriodBuilder
         IEnumerable<Payment> payments,
         IReadOnlyDictionary<string, string> stationNames,
         Func<Payment, int?>? periodOf = null,
-        Func<TicketRecord, int?>? ticketPeriodOf = null)
+        Func<TicketRecord, int?>? ticketPeriodOf = null,
+        IEnumerable<PeriodExtra>? extras = null)
     {
         periodOf ??= p => p.PeriodId;
         ticketPeriodOf ??= t => t.PeriodId;
         var allTickets = tickets.Where(t => !t.IsDeleted).ToList();
         var ordered = periods.OrderBy(p => p.Id <= 0 ? int.MaxValue : p.Id).ThenBy(p => p.ClosedAt).ToList();
         var livePayments = payments.Where(p => !p.IsVoided).ToList();
+        var liveExtras = (extras ?? []).Where(e => !e.IsVoided).ToList();
 
         var views = new List<PeriodView>();
         long carry = 0;
@@ -112,7 +118,8 @@ public static class PeriodBuilder
                 period, index + 1,
                 allTickets.Where(t => ticketPeriodOf(t) == period.Id).ToList(),
                 livePayments.Where(p => periodOf(p) == period.Id).ToList(),
-                carry, stationNames, season.StartDate);
+                carry, stationNames, season.StartDate,
+                liveExtras.Where(e => e.PeriodId == period.Id).OrderBy(e => e.Date).ThenBy(e => e.Id).ToList());
             views.Add(view);
             carry = view.Remaining;
         }
@@ -121,11 +128,11 @@ public static class PeriodBuilder
             null, 0,
             allTickets.Where(t => ticketPeriodOf(t) is null).ToList(),
             livePayments.Where(p => periodOf(p) is null).ToList(),
-            carry, stationNames, season.StartDate));
+            carry, stationNames, season.StartDate, []));
 
         return new CustomerSettlement(
             views,
-            views.Sum(v => v.TicketsTotal),
+            views.Sum(v => v.TicketsTotal + v.ExtrasTotal),
             views.Sum(v => v.Paid),
             OldestUnpaid(allTickets, livePayments.Sum(p => p.AmountVnd)));
     }
@@ -165,7 +172,7 @@ public static class PeriodBuilder
     private static PeriodView BuildView(
         SettlementPeriod? period, int number,
         List<TicketRecord> tickets, List<Payment> payments, long carryIn,
-        IReadOnlyDictionary<string, string> stationNames, DateOnly seasonStart)
+        IReadOnlyDictionary<string, string> stationNames, DateOnly seasonStart, IReadOnlyList<PeriodExtra> extras)
     {
         var sorted = tickets.OrderBy(t => t.TicketDateTime).ThenBy(t => t.StationCode).ThenBy(t => t.Code).ToList();
         var from = sorted.Count > 0 ? sorted.Min(t => t.TicketDate) : period?.FromDate ?? seasonStart;
@@ -213,6 +220,7 @@ public static class PeriodBuilder
             changed.Count,
             changed.Sum(t => t.AmountVnd ?? 0),
             days,
-            TruckStatuses(sorted, payments.Sum(p => p.AmountVnd)));
+            TruckStatuses(sorted, payments.Sum(p => p.AmountVnd)),
+            extras);
     }
 }

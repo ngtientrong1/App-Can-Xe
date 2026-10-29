@@ -49,25 +49,30 @@ public sealed class LedgerService(DebtDbContext db)
         var payments = await db.Payments.AsNoTracking()
             .Where(p => p.SeasonId == season.Id && p.VoidedAt == null)
             .ToListAsync(ct);
+        var extras = (await db.PeriodExtras.AsNoTracking()
+                .Where(e => e.SeasonId == season.Id && e.VoidedAt == null)
+                .ToListAsync(ct))
+            .ToLookup(e => e.CustomerId);
         var names = await db.Customers.AsNoTracking().ToDictionaryAsync(c => c.Id, c => c.Name, ct);
 
         var billable = tickets.Where(t => policy.IsBilled(t.Cargo)).ToList();
         var mapped = billable.Where(t => t.CustomerId is not null).ToLookup(t => t.CustomerId!.Value);
         var paidBy = payments.ToLookup(p => p.CustomerId);
 
-        var customerIds = mapped.Select(g => g.Key).Union(paidBy.Select(g => g.Key)).Distinct();
+        var customerIds = mapped.Select(g => g.Key).Union(paidBy.Select(g => g.Key)).Union(extras.Select(g => g.Key)).Distinct();
         var rows = new List<CustomerBalance>();
         foreach (var id in customerIds)
         {
             var ledger = LedgerCalculator.Compute(
                 mapped[id].Select(t => new LedgerTicket(t.Id, t.TicketDateTime, t.AmountVnd)),
                 paidBy[id].Sum(p => p.AmountVnd));
+            var extra = extras[id].Sum(e => e.AmountVnd);
             rows.Add(new CustomerBalance(
                 id,
                 names.GetValueOrDefault(id, "(đã xóa)"),
                 mapped[id].Count(),
                 mapped[id].Count(t => t.AmountVnd is null),
-                ledger.Billed, ledger.Paid, ledger.Balance,
+                ledger.Billed + extra, ledger.Paid, ledger.Balance + extra,
                 PeriodBuilder.OldestUnpaid(mapped[id].ToList(), paidBy[id].Sum(p => p.AmountVnd))));
         }
 

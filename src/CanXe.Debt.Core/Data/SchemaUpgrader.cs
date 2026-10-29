@@ -42,8 +42,27 @@ public static class SchemaUpgrader
         new("Payments", "PeriodId", "INTEGER NULL"),
         new("Payments", "EditedAt", "TEXT NULL"),
         new("Payments", "EditedBy", "TEXT NULL"),
-        new("Payments", "EditLog", "TEXT NULL")
+        new("Payments", "EditLog", "TEXT NULL"),
+        new("Tickets", "SplitFromTicketId", "INTEGER NULL")
     ];
+
+    private const string CreatePeriodExtras = """
+        CREATE TABLE IF NOT EXISTS "PeriodExtras" (
+            "Id" INTEGER NOT NULL CONSTRAINT "PK_PeriodExtras" PRIMARY KEY AUTOINCREMENT,
+            "CustomerId" INTEGER NOT NULL,
+            "SeasonId" INTEGER NOT NULL,
+            "PeriodId" INTEGER NOT NULL,
+            "Date" TEXT NOT NULL,
+            "Label" TEXT NOT NULL,
+            "AmountVnd" INTEGER NOT NULL,
+            "Note" TEXT NULL,
+            "CreatedBy" TEXT NOT NULL,
+            "CreatedAt" TEXT NOT NULL,
+            "VoidedAt" TEXT NULL,
+            "VoidedBy" TEXT NULL,
+            "VoidReason" TEXT NULL
+        )
+        """;
 
     private const string CreatePeriods = """
         CREATE TABLE IF NOT EXISTS "Periods" (
@@ -64,7 +83,9 @@ public static class SchemaUpgrader
     [
         """CREATE INDEX IF NOT EXISTS "IX_Periods_CustomerId_SeasonId" ON "Periods" ("CustomerId", "SeasonId")""",
         """CREATE INDEX IF NOT EXISTS "IX_Payments_PeriodId" ON "Payments" ("PeriodId")""",
-        """CREATE INDEX IF NOT EXISTS "IX_Tickets_PeriodId" ON "Tickets" ("PeriodId")"""
+        """CREATE INDEX IF NOT EXISTS "IX_Tickets_PeriodId" ON "Tickets" ("PeriodId")""",
+        """CREATE INDEX IF NOT EXISTS "IX_PeriodExtras_PeriodId" ON "PeriodExtras" ("PeriodId")""",
+        """CREATE INDEX IF NOT EXISTS "IX_PeriodExtras_CustomerId_SeasonId" ON "PeriodExtras" ("CustomerId", "SeasonId")"""
     ];
 
     /// <summary>Descriptions of what an upgrade would change; empty when the database is current or not built yet.</summary>
@@ -94,6 +115,7 @@ public static class SchemaUpgrader
         if (await TableExistsAsync(connection, "Customers", ct))
         {
             await ExecuteAsync(connection, CreatePeriods, ct);
+            await ExecuteAsync(connection, CreatePeriodExtras, ct);
             await ExecuteAsync(connection, $"DROP INDEX IF EXISTS \"{OldUniquePeriodIndex}\"", ct);
             foreach (var index in Indexes)
                 await ExecuteAsync(connection, index, ct);
@@ -128,6 +150,8 @@ public static class SchemaUpgrader
                 pending.Add($"{column.Table}.{column.Column}");
         }
 
+        if (!await TableExistsAsync(connection, "PeriodExtras", ct))
+            pending.Add("PeriodExtras");
         if (!await TableExistsAsync(connection, "Periods", ct))
             pending.Add("Periods");
         else if (await IndexExistsAsync(connection, OldUniquePeriodIndex, ct))

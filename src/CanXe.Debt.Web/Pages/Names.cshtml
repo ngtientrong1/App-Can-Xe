@@ -30,6 +30,16 @@
         return RedirectToPage();
     }
 
+    public async Task<IActionResult> OnPostDismissAsync()
+    {
+        if (!User.IsInRole("Admin"))
+            return Forbid();
+
+        var count = await Customers.DismissNameAsync(Normalized ?? "");
+        TempData["Message"] = $"Đã bỏ {count} phiếu của “{RawName}” khỏi công nợ (không theo dõi nợ). Phiếu mới cùng tên ở file sau vẫn hiện lại ở đây để bạn chọn.";
+        return RedirectToPage();
+    }
+
     public async Task<IActionResult> OnPostCreateAsync()
     {
         var result = await Customers.CreateFromNameAsync(RawName ?? "");
@@ -58,7 +68,7 @@
 @if (Error is not null) { <div class="alert error" role="alert">@Error</div> }
 
 <div class="card">
-    <p>Những tên chủ hàng dưới đây xuất hiện trên phiếu cân nhưng chưa trùng với chủ hàng nào trong sổ nên chưa được tính vào công nợ. Nếu là cùng một chủ hàng (viết khác hoặc viết tắt) thì ghép vào chủ hàng đó; nếu là chủ hàng mới thì tạo mới. Chỉ cần làm một lần cho mỗi tên.</p>
+    <p>Những tên chủ hàng dưới đây xuất hiện trên phiếu cân nhưng chưa trùng với chủ hàng nào trong sổ nên chưa được tính vào công nợ. Nếu là cùng một chủ hàng (viết khác hoặc viết tắt) thì ghép vào chủ hàng đó; nếu là chủ hàng mới thì tạo mới. Chỉ cần làm một lần cho mỗi tên. Chủ hàng trả tiền ngay không cần theo dõi nợ thì admin bấm “Không theo dõi nợ”; nếu sau này họ có phiếu mới, tên đó sẽ hiện lại ở đây để chọn lại.</p>
     @if (Names.Count == 0)
     {
         <div class="alert ok">Mọi phiếu đều đã khớp chủ hàng.</div>
@@ -95,6 +105,14 @@
                                     <input type="hidden" name="RawName" value="@n.DisplayName" />
                                     <button type="submit" class="secondary">Tạo chủ hàng mới “@n.DisplayName”</button>
                                 </form>
+                                @if (User.IsInRole("Admin"))
+                                {
+                                    <form method="post" asp-page-handler="Dismiss" class="inline-form" data-confirm="Bỏ @n.TicketCount phiếu của “@n.DisplayName” khỏi công nợ? Dùng cho chủ hàng trả tiền ngay, không cần theo dõi nợ.">
+                                        <input type="hidden" name="Normalized" value="@n.Normalized" />
+                                        <input type="hidden" name="RawName" value="@n.DisplayName" />
+                                        <button type="submit" class="danger">Không theo dõi nợ (bỏ phiếu)</button>
+                                    </form>
+                                }
                             }
                         </td>
                     </tr>

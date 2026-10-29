@@ -37,6 +37,7 @@ builder.Services.AddScoped<LedgerService>();
 builder.Services.AddScoped<SettlementService>();
 builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<TicketAdjustService>();
+builder.Services.AddScoped<PeriodExtraService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddSingleton<LoginThrottle>();
 builder.Services.AddSingleton(new SetupCodeStore(dataDir));

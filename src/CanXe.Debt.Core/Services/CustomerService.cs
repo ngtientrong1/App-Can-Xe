@@ -6,6 +6,9 @@ namespace CanXe.Debt.Services;
 /// <summary>A customer name that came in on tickets but is not matched to a customer yet.</summary>
 public sealed record UnmappedName(string Normalized, string DisplayName, int TicketCount, long TotalAmountVnd);
 
+/// <summary>How much is recorded under a customer: live tickets, payments, lots and extra fees.</summary>
+public sealed record CustomerFootprint(int Tickets, int Payments, int Lots, int Extras);
+
 public sealed class CustomerService(DebtDbContext db)
 {
     public Task<List<Customer>> GetAllAsync(CancellationToken ct = default) =>
@@ -60,6 +63,77 @@ public sealed class CustomerService(DebtDbContext db)
         customer.IsActive = isActive;
         await db.SaveChangesAsync(ct);
         return OperationResult.Success;
+    }
+
+    /// <summary>What deleting a customer would take with it, to show before asking.</summary>
+    public async Task<CustomerFootprint> GetFootprintAsync(int id, CancellationToken ct = default) => new(
+        await db.Tickets.CountAsync(t => t.CustomerId == id && !t.IsDeleted, ct),
+        await db.Payments.CountAsync(p => p.CustomerId == id && p.VoidedAt == null, ct),
+        await db.Periods.CountAsync(p => p.CustomerId == id, ct),
+        await db.PeriodExtras.CountAsync(e => e.CustomerId == id && e.VoidedAt == null, ct));
+
+    /// <summary>
+    /// Removes a seller who is paid on the spot and needs no debt tracking: the customer, their lots, payments and extra fees,
+    /// and their tickets leave the ledger (tickets are only marked deleted, and a backup keeps everything). Tickets of the same
+    /// name that arrive in a later file show up on the name-matching page again, to keep or drop.
+    /// </summary>
+    public async Task<OperationResult<CustomerFootprint>> DeleteAsync(int id, CancellationToken ct = default)
+    {
+        var customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == id, ct);
+        if (customer is null)
+            return OperationResult<CustomerFootprint>.Fail("Không tìm thấy chủ hàng.");
+
+        var closed = await db.Seasons.AsNoTracking().Where(s => s.IsClosed).ToListAsync(ct);
+        var tickets = await db.Tickets.Where(t => t.CustomerId == id).ToListAsync(ct);
+        var payments = await db.Payments.Where(p => p.CustomerId == id).ToListAsync(ct);
+        if (closed.Count > 0
+            && (tickets.Any(t => !t.IsDeleted && closed.Any(s => s.Contains(t.TicketDate)))
+                || payments.Any(p => p.VoidedAt == null && closed.Any(s => s.Id == p.SeasonId))))
+            return OperationResult<CustomerFootprint>.Fail("Chủ hàng này có dữ liệu trong mùa đã chốt nên không xóa được.");
+
+        var footprint = await GetFootprintAsync(id, ct);
+        var now = DateTimeOffset.Now;
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        foreach (var ticket in tickets)
+        {
+            if (!ticket.IsDeleted)
+            {
+                ticket.IsDeleted = true;
+                ticket.UpdatedAt = now;
+            }
+
+            ticket.CustomerId = null;
+            ticket.PeriodId = null;
+        }
+
+        db.Payments.RemoveRange(payments);
+        db.PeriodExtras.RemoveRange(await db.PeriodExtras.Where(e => e.CustomerId == id).ToListAsync(ct));
+        db.Periods.RemoveRange(await db.Periods.Where(p => p.CustomerId == id).ToListAsync(ct));
+        db.CustomerAliases.RemoveRange(await db.CustomerAliases.Where(a => a.CustomerId == id).ToListAsync(ct));
+        db.Customers.Remove(customer);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return OperationResult<CustomerFootprint>.Success(footprint);
+    }
+
+    /// <summary>Drops the tickets of a name that is not matched to any customer ("not tracked as a debt"); returns how many.</summary>
+    public async Task<int> DismissNameAsync(string normalizedName, CancellationToken ct = default)
+    {
+        if (normalizedName.Length == 0)
+            return 0;
+
+        var tickets = await db.Tickets.Where(t => t.CustomerId == null && !t.IsDeleted && t.CustomerNameNormalized == normalizedName).ToListAsync(ct);
+        var now = DateTimeOffset.Now;
+        foreach (var ticket in tickets)
+        {
+            ticket.IsDeleted = true;
+            ticket.PeriodId = null;
+            ticket.UpdatedAt = now;
+        }
+
+        if (tickets.Count > 0)
+            await db.SaveChangesAsync(ct);
+        return tickets.Count;
     }
 
     public async Task<List<UnmappedName>> GetUnmappedNamesAsync(CancellationToken ct = default)

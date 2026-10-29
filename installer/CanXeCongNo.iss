@@ -4,7 +4,7 @@
 
 #define MyAppName "CÃ´ng Ná»£ CÃ  Tiáº¿n Trá»ng"
 #define MyAppNameAscii "Can Xe Cong No"
-#define MyAppVersion "1.7.6"
+#define MyAppVersion "1.7.7"
 #define MyAppPublisher "Tien Trong"
 #define MyServiceName "CanXeDebt"
 #define MyAppExeName "CanXe.Debt.Web.exe"
@@ -114,4 +114,5 @@ begin
   RunSc('failure {#MyServiceName} reset= 86400 actions= restart/5000/restart/5000/restart/5000');
   RunSc('start {#MyServiceName}');
 end;
+
 

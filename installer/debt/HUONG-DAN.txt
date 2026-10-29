@@ -120,6 +120,24 @@ Phiếu "Cân Dịch Vụ"
 - App cân tự bỏ các phiếu này khỏi file công nợ (JSON) và khỏi báo cáo Excel/in. App công nợ cũng tự bỏ nếu lỡ nhập file cũ có phiếu này.
 - Lần đầu mở bản này, các phiếu Cân Dịch Vụ đã nhập trước đó được ẩn khỏi danh sách (vẫn nằm trong sao lưu, không mất dữ liệu).
 
+Phụ phí của lô (tiền xe, tiền bù hàng...)
+-----------------------------------------
+- Gom xe thành lô trước, rồi ở thẻ của lô bấm "+ Thêm phụ phí". Nhập khoản gì, số tiền, ngày; chọn "Cộng thêm" (tiền xe, bù hàng) hoặc "Trừ bớt".
+- Phụ phí được cộng vào "Tổng phải trả" của lô, tính vào nợ chủ hàng, trả tiền như các khoản khác và in ở tờ 2 của báo cáo.
+- Nhập sai thì bấm "Hủy" ở dòng phụ phí và ghi lý do (khoản đó vẫn lưu trong lịch sử). Lô còn phụ phí thì chưa "Hủy chốt lô" được.
+
+Tách xe (cắt lô, giữ lại một phần hàng bán sau)
+------------------------------------------------
+- Ví dụ xe 18 tấn, chủ hàng giữ lại 15 tấn bán lúc khác: bấm "Sửa / tách phiếu" ở xe đó, nhập 15.000 ở mục "Tách xe".
+- Xe đó còn 3 tấn vẫn nằm trong lô và thanh toán bình thường. 15 tấn thành phiếu riêng (ví dụ "40/11-giữ") ở mục "Xe chưa gom lô", chưa có giá nên chưa tính vào nợ. Có thể nhập luôn đơn giá nếu đã biết.
+- Khi bán: mở phiếu phần giữ lại, chỉnh đơn giá, rồi gom vào lô mới như xe thường. Tách nhầm thì bấm "Ghép lại về xe..." (khi phần đó chưa nằm trong lô).
+- Nhập lại file từ app cân không làm mất việc tách này.
+
+Xóa chủ hàng (chỉ admin)
+------------------------
+- Dùng cho chủ hàng chỉ bán và trả tiền ngay. Mục Chủ hàng > Sửa > "Xóa chủ hàng này" xóa chủ hàng cùng phiếu, lô, khoản trả, phụ phí của họ khỏi công nợ (sao lưu vẫn giữ). Không xóa được nếu họ có dữ liệu trong mùa đã chốt.
+- Phiếu mới cùng tên trong file nhập sau sẽ hiện ở trang "Ghép tên chủ hàng": chọn tạo lại chủ hàng (nếu họ thành khách lâu dài) hoặc "Không theo dõi nợ" để bỏ phiếu đó.
+
 Sao lưu
 -------
 - Tự động mỗi ngày một bản vào C:\ProgramData\CanXeDebt\backup (giữ 30 bản). Quản trị xem ở mục "Sao lưu".

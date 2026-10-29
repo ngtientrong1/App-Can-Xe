@@ -22,7 +22,7 @@ public sealed class SettlementService(DebtDbContext db)
             return null;
 
         var data = await LoadAsync(customerId, season, ct);
-        return PeriodBuilder.Build(season, data.Tickets, data.Periods, data.Payments, data.Stations);
+        return PeriodBuilder.Build(season, data.Tickets, data.Periods, data.Payments, data.Stations, extras: data.Extras);
     }
 
     /// <summary>What closing a period out of the chosen trucks would look like, without saving it.</summary>
@@ -45,7 +45,8 @@ public sealed class SettlementService(DebtDbContext db)
         var settlement = PeriodBuilder.Build(
             season, data.Tickets, data.Periods.Append(hypothetical), data.Payments, data.Stations,
             p => p.PeriodId ?? hypotheticalId,
-            t => chosenIds.Contains(t.Id) ? hypotheticalId : t.PeriodId);
+            t => chosenIds.Contains(t.Id) ? hypotheticalId : t.PeriodId,
+            data.Extras);
         return OperationResult<PeriodView>.Success(settlement.Periods.First(p => p.Id == hypotheticalId));
     }
 
@@ -81,6 +82,10 @@ public sealed class SettlementService(DebtDbContext db)
         var attached = await db.Payments.Where(p => p.PeriodId == last.Id).ToListAsync(ct);
         if (attached.Any(p => !p.IsVoided))
             return OperationResult.Fail("Lô này đã có khoản trả. Hãy hủy các khoản trả đó trước khi hủy chốt lô.");
+
+        var extras = await db.PeriodExtras.Where(e => e.PeriodId == last.Id).ToListAsync(ct);
+        if (extras.Any(e => !e.IsVoided))
+            return OperationResult.Fail("Lô này đã có phụ phí. Hãy hủy các phụ phí đó trước khi hủy chốt lô.");
 
         foreach (var voided in attached)
             voided.PeriodId = null;
@@ -154,6 +159,8 @@ public sealed class SettlementService(DebtDbContext db)
         var periods = (await db.Periods.AsNoTracking().Where(p => p.SeasonId == season.Id).ToListAsync(ct)).ToLookup(p => p.CustomerId);
         var payments = (await db.Payments.AsNoTracking().Where(p => p.SeasonId == season.Id && p.VoidedAt == null).ToListAsync(ct))
             .ToLookup(p => p.CustomerId);
+        var extras = (await db.PeriodExtras.AsNoTracking().Where(e => e.SeasonId == season.Id && e.VoidedAt == null).ToListAsync(ct))
+            .ToLookup(e => e.CustomerId);
 
         var rows = new List<(BatchRow, List<int>)>();
         foreach (var group in all.GroupBy(t => t.CustomerId!.Value))
@@ -162,7 +169,7 @@ public sealed class SettlementService(DebtDbContext db)
             if (waiting.Count == 0)
                 continue;
 
-            var settlement = PeriodBuilder.Build(season, group, periods[group.Key], payments[group.Key], new Dictionary<string, string>());
+            var settlement = PeriodBuilder.Build(season, group, periods[group.Key], payments[group.Key], new Dictionary<string, string>(), extras: extras[group.Key]);
             var carry = settlement.Closed.LastOrDefault()?.Remaining ?? 0;
             var total = waiting.Where(t => t.Stage == TicketStage.Priced).Sum(t => t.AmountVnd ?? 0);
             rows.Add((new BatchRow(
@@ -193,7 +200,7 @@ public sealed class SettlementService(DebtDbContext db)
         return null;
     }
 
-    private async Task<(List<TicketRecord> Tickets, List<SettlementPeriod> Periods, List<Payment> Payments, Dictionary<string, string> Stations)>
+    private async Task<(List<TicketRecord> Tickets, List<SettlementPeriod> Periods, List<Payment> Payments, Dictionary<string, string> Stations, List<PeriodExtra> Extras)>
         LoadAsync(int customerId, Season season, CancellationToken ct)
     {
         var policy = await new SettingsService(db).GetBilledCargoPolicyAsync(ct);
@@ -206,7 +213,8 @@ public sealed class SettlementService(DebtDbContext db)
             .ToList();
         var periods = await db.Periods.AsNoTracking().Where(p => p.CustomerId == customerId && p.SeasonId == season.Id).ToListAsync(ct);
         var payments = await db.Payments.AsNoTracking().Where(p => p.CustomerId == customerId && p.SeasonId == season.Id).ToListAsync(ct);
+        var extras = await db.PeriodExtras.AsNoTracking().Where(e => e.CustomerId == customerId && e.SeasonId == season.Id).ToListAsync(ct);
         var stations = await new LedgerService(db).GetStationNamesAsync(ct);
-        return (tickets, periods, payments, stations);
+        return (tickets, periods, payments, stations, extras);
     }
 }
